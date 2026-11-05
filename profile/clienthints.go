@@ -43,7 +43,8 @@ type ClientHints struct {
 // opts in. Every field is required, in the form Chrome sends.
 type Machine struct {
 	// PlatformVersion is the system's version (sec-ch-ua-platform-version):
-	// "27.0.1" for macOS 27.0.1, "10.0.0" or "19.0.0" on Windows.
+	// "27.0.1" for macOS 27.0.1, "10.0.0" or "19.0.0" on Windows, and empty
+	// on Linux, where Chrome sends "".
 	PlatformVersion string `json:"platformVersion"`
 	// Arch is the CPU architecture (sec-ch-ua-arch): "arm" or "x86".
 	Arch string `json:"arch"`
@@ -320,6 +321,13 @@ func (c *checker) checkClientHints(p *Spec) {
 	}
 
 	c.checkMachine(path+".machine", &ch.Machine)
+
+	switch linux := p.Platform == "linux"; {
+	case linux && ch.Machine.PlatformVersion != "":
+		c.add(path+".machine.platformVersion", "%q must be empty: Chrome on Linux sends no version", ch.Machine.PlatformVersion)
+	case !linux && ch.Machine.PlatformVersion == "":
+		c.add(path+".machine.platformVersion", "is required off Linux")
+	}
 }
 
 // Validate checks m as Config.ClientHints takes it: every field set, in
@@ -331,8 +339,9 @@ func (m *Machine) Validate() error {
 	return c.err()
 }
 
-// platformVersion is the form of Machine.PlatformVersion.
-var platformVersion = regexp.MustCompile(`^[0-9]+(\.[0-9]+){0,3}$`)
+// platformVersion is the form of Machine.PlatformVersion: empty, as Chrome
+// on Linux sends it, or the system's version.
+var platformVersion = regexp.MustCompile(`^([0-9]+(\.[0-9]+){0,3})?$`)
 
 // formFactors are the values Chrome's sec-ch-ua-form-factors takes.
 var formFactors = []string{
@@ -355,7 +364,7 @@ var ectValues = []string{
 
 func (c *checker) checkMachine(path string, m *Machine) {
 	if !platformVersion.MatchString(m.PlatformVersion) {
-		c.add(path+".platformVersion", "%q must be dot-separated numbers", m.PlatformVersion)
+		c.add(path+".platformVersion", "%q must be empty or dot-separated numbers", m.PlatformVersion)
 	}
 
 	if m.Arch != "arm" && m.Arch != "x86" {

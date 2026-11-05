@@ -29,12 +29,17 @@ const (
 // frames the waiting requests sent alone (one per request, or one for the
 // limit), and which of them carried one when they opened their stream,
 // where (before or after its STREAM frame) and with which limit. Any
-// other STREAMS_BLOCKED, a unidirectional one, or a burst or sample that
-// says otherwise is refused.
+// other STREAMS_BLOCKED (unless sampleGaps pins "streamsBlocked.count"), a
+// unidirectional one, or a burst or sample that says otherwise is refused;
+// a sample pinned "streamsBlocked" is left out.
 func (s *edgeSet) streamsBlocked(e *collector) *profile.QUICStreamsBlocked {
 	var out *profile.QUICStreamsBlocked
 	for _, p := range s.scenario(scenarioStreamsBlocked) {
-		got, ok := pageStreamsBlocked(p, e)
+		if s.gap(p.at, "streamsBlocked") {
+			continue
+		}
+
+		got, ok := s.pageStreamsBlocked(p, e)
 		if !ok {
 			continue
 		}
@@ -126,8 +131,10 @@ func bidiStream(f quictrace.Frame) (uint64, bool) {
 	return *f.Stream / 4, true
 }
 
-// pageStreamsBlocked is the rule one sample's bursts agree on.
-func pageStreamsBlocked(p *edgePage, e *collector) (*profile.QUICStreamsBlocked, bool) {
+// pageStreamsBlocked is the rule one sample's bursts agree on; frames
+// beyond the bursts' are let through where sampleGaps pins
+// "streamsBlocked.count".
+func (s *edgeSet) pageStreamsBlocked(p *edgePage, e *collector) (*profile.QUICStreamsBlocked, bool) {
 	conns := map[int]*blockedConn{}
 	total := 0
 
@@ -167,7 +174,7 @@ func pageStreamsBlocked(p *edgePage, e *collector) (*profile.QUICStreamsBlocked,
 		counted += n
 	}
 
-	if counted != total {
+	if counted != total && !s.gap(p.at, "streamsBlocked.count") {
 		edgeErr(e, p.at, "%d STREAMS_BLOCKED, %d of them sent by the bursts' waiting requests", total, counted)
 
 		return nil, false

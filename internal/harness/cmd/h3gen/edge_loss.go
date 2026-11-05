@@ -375,7 +375,8 @@ func covered(p *quictrace.Packet) []cryptoRange {
 var elapsedRE = regexp.MustCompile(`after (\d+)us`)
 
 // giveUp derives when attempts give up and what they send then, each
-// within 20 ms after the round time it implies.
+// within 20 ms after the round time it implies. An attempt sampleGaps pins
+// under feature, silent or closed, is left out.
 func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *collector) profile.QUICGiveUp {
 	var out profile.QUICGiveUp
 
@@ -398,12 +399,12 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 	silent := 0
 
 	for _, u := range us {
+		if s.gap(u.at(), feature) {
+			continue
+		}
+
 		f := u.a.closeFlight()
 		if f == nil {
-			if s.gap(u.at(), feature) {
-				continue
-			}
-
 			silent++
 
 			if end := u.a.end() - float64(u.a.start); end >= idle {
@@ -473,7 +474,7 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 			edgeErr(e, c.u.at(), "%s: closed %+v, others %+v", feature, g, out)
 		}
 
-		if (c.at < float64(out.AfterMillis)-1 || c.at > float64(out.AfterMillis)+20+c.u.p.slack) && !s.gap(c.u.at(), feature) {
+		if c.at < float64(out.AfterMillis)-1 || c.at > float64(out.AfterMillis)+20+c.u.p.slack {
 			edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within %.0f ms of %d", feature, c.at, 20+c.u.p.slack, out.AfterMillis)
 		}
 	}

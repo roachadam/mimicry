@@ -38,6 +38,12 @@ func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spe
 		p.Platform = captured.Platform
 	}
 
+	if p.Platform == platformLinux && prev.Platform != platformLinux && p.ClientHints != nil {
+		// The machine is prev's until kindsgen derives it; Chrome on Linux
+		// sends no platform version.
+		p.ClientHints.Machine.PlatformVersion = ""
+	}
+
 	if p.Platform == platformIOS && prev.Platform != platformIOS && p.Proxy != nil {
 		// Safari on iOS answers no proxy's 407 (decision 0051): it keeps
 		// macOS Safari's placement of credentials, sent with the first

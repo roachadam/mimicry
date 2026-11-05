@@ -51,6 +51,11 @@ type refreshRun struct {
 	// safari-ios.
 	Listen    string `json:"listen,omitempty"`
 	IOSDevice string `json:"iosDevice,omitempty"`
+	// WSL is the WSL distribution on -linux's host the Linux browsers run
+	// in (-wsl, "" for a Linux machine of its own), as WSLUser (-wsl-user,
+	// "" for the distribution's default user).
+	WSL     string `json:"wsl,omitempty"`
+	WSLUser string `json:"wslUser,omitempty"`
 }
 
 // plan is what the run does for one browser.
@@ -63,7 +68,7 @@ type plan struct {
 	// Host is the ssh host the browser runs on, "" for this Mac.
 	Host string `json:"host,omitempty"`
 	// Platform is the profile's platform: platformMacOS ("" in runs saved
-	// before Windows), platformWindows or platformIOS.
+	// before Windows), platformWindows, platformLinux or platformIOS.
 	Platform string `json:"platform,omitempty"`
 	// NewPlatform is the first profile of the browser on Platform: copied
 	// from another platform's, so it captures every scenario and
@@ -145,13 +150,16 @@ type preflightReport struct {
 	Resolver    bool   `json:"resolver"`
 	Aioquic     string `json:"aioquic"`
 	SafariProxy string `json:"safariProxy"`
-	// Set on Windows only: Platform is "windows", Admin whether the ssh
-	// user is an administrator (certutil needs it), Certutil its path, and
-	// Missing everything that stops a capture there.
-	Platform string   `json:"platform,omitempty"`
-	Admin    bool     `json:"admin,omitempty"`
-	Certutil string   `json:"certutil,omitempty"`
-	Missing  []string `json:"missing,omitempty"`
+	// Set on Windows and Linux only: Platform is "windows" or "linux",
+	// Admin whether the ssh user is an administrator (Windows; certutil
+	// needs it), Certutil its path, Missing everything that stops a
+	// capture there, and UnprivilegedPortStart the lowest port a user may
+	// bind (Linux; the urls scenario forwards 443).
+	Platform              string   `json:"platform,omitempty"`
+	Admin                 bool     `json:"admin,omitempty"`
+	Certutil              string   `json:"certutil,omitempty"`
+	Missing               []string `json:"missing,omitempty"`
+	UnprivilegedPortStart int      `json:"unprivilegedPortStart,omitempty"`
 }
 
 // machine is where p's browser runs.
@@ -168,11 +176,16 @@ func (r *refreshRun) machine(p *plan) *machine {
 		return m
 	}
 
-	return &machine{
+	m := &machine{
 		host:    p.Host,
 		dir:     "mimicry-capture/refresh-" + r.Stamp,
 		windows: p.Platform == platformWindows,
 	}
+	if p.Platform == platformLinux {
+		m.linux, m.wsl, m.wslUser = true, r.WSL, r.WSLUser
+	}
+
+	return m
 }
 
 // windowsDir is m.dir as Windows names it.
@@ -181,10 +194,10 @@ func (m *machine) windowsDir() string {
 }
 
 // captureArgs are the capture tool's arguments every run of it on m
-// takes: on Windows, the capture CA in the working directory, so nothing
-// stays in the user's profile; for the iPhone, its UDID when given.
+// takes: on Windows and Linux, the capture CA in the working directory, so
+// nothing stays in the user's profile; for the iPhone, its UDID when given.
 func (m *machine) captureArgs(args ...string) []string {
-	if m.windows {
+	if m.windows || m.linux {
 		args = append(args, "-ca-dir", "ca")
 	}
 
@@ -249,7 +262,7 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 		return err
 	}
 
-	bins := map[bool]string{}
+	bins := map[string]string{}
 	reports := map[string]*preflightReport{}
 
 	for _, name := range cfg.targets {
@@ -266,6 +279,8 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 			p.Host = cfg.mini
 		case remoteWindows:
 			p.Host = cfg.windows
+		case remoteLinux:
+			p.Host = cfg.linux
 		}
 
 		r.Plans = append(r.Plans, p)
@@ -275,19 +290,15 @@ func (r *refreshRun) preflight(ctx context.Context, cfg config) error {
 
 		rep, ok := reports[m.String()]
 		if !ok {
-			bin, built := bins[m.windows]
+			bin, built := bins[m.goos()]
 			if !built {
-				if m.windows {
-					log.Printf("building the capture tool for windows/amd64")
-				} else {
-					log.Printf("building the capture tool")
-				}
+				log.Printf("building the capture tool for %s", m.goos())
 
-				if bin, err = build(ctx, r.Dir, "capture", m.windows); err != nil {
+				if bin, err = build(ctx, r.Dir, "capture", m.goos()); err != nil {
 					return err
 				}
 
-				bins[m.windows] = bin
+				bins[m.goos()] = bin
 			}
 
 			if err := m.put(ctx, bin); err != nil {
@@ -372,9 +383,12 @@ func major(version string) (int, bool) {
 // planTarget fills in p from the preflight of its machine.
 func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[string]*profile.Spec, cfg config) error {
 	m := r.machine(p)
-	if m.windows {
+	switch {
+	case m.windows:
 		// Everything the PC lacks, even with no browser to plan.
 		r.checkWindows(p, rep)
+	case m.linux:
+		r.checkLinux(p, rep)
 	}
 
 	p.Installed = rep.installedVersion(p.tool())
@@ -432,12 +446,22 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 	switch {
 	case m.iphone:
 		r.checkIPhone(p)
-	case !m.windows:
+	case !m.windows && !m.linux:
 		r.checkMac(p, rep)
 	}
 
 	if err := r.planCaptures(p, rep, cfg); err != nil {
 		return err
+	}
+
+	if m.linux && p.needsPort443() && rep.UnprivilegedPortStart > 443 {
+		if m.wsl != "" {
+			p.Manual = append(p.Manual, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443; refresh lowers net.ipv4.ip_unprivileged_port_start from %d to 443 as root in %s before each capture step (it lasts until the WSL VM stops)",
+				rep.UnprivilegedPortStart, m))
+		} else {
+			p.Problems = append(p.Problems, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443, but a user on %s may bind ports from %d only; there:\n    sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443   # and in /etc/sysctl.d/ to keep it",
+				m, rep.UnprivilegedPortStart))
+		}
 	}
 
 	// The first profile on a platform inherits nothing, unless the
@@ -531,6 +555,31 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		fmt.Sprintf("%s logged in at %s's screen and the PC left alone: capture opens a visible %s on that desktop through a one-shot scheduled task (never headless), so an ssh session's own desktop is never used", rep.User, m, p.Browser),
 		fmt.Sprintf("capture adds its CA to %s's LocalMachine Root store (certutil -addstore Root) when it starts and deletes it (certutil -delstore Root) when it stops, both in capture.log; refresh then runs capture -cleanup there (the CA, leftover mimicry-capture-* scheduled tasks), even after a failure or ctrl-C", m),
 		fmt.Sprintf("%s: no hosts file or DNS change on %s", hosts, m))
+}
+
+// checkLinux adds what a capture on a Linux machine needs and rep lacks to
+// p, and how the browsers run there: on the tool's own Xvfb display
+// unless the session has one (browser.EnsureDisplay), each trusting the
+// capture CA in its throwaway profile.
+func (r *refreshRun) checkLinux(p *plan, rep *preflightReport) {
+	m := r.machine(p)
+
+	if rep.Platform != platformLinux {
+		p.Problems = append(p.Problems, fmt.Sprintf("the capture tool's preflight on %s does not report Linux (platform %q)", m, rep.Platform))
+	}
+
+	for _, s := range rep.Missing {
+		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
+	}
+
+	trust := "Chrome trusts the capture CA in an NSS database under its throwaway profile (HOME is that profile for the run)"
+	if p.Browser == "firefox" {
+		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts"
+	}
+
+	p.Manual = append(p.Manual,
+		fmt.Sprintf("%s opens on Xvfb, a virtual display the capture tool starts for the run (unless the session has $DISPLAY): an ordinary windowed browser, never headless, on no screen", p.Browser),
+		fmt.Sprintf("%s; nothing outside the run's directory on %s is changed", trust, m))
 }
 
 // checkIPhone adds to p what a capture of a browser on the iPhone needs:
@@ -648,8 +697,11 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 
 		case sc.NeedsAioquic() && rep.Aioquic != "":
 			install := onMachine(p.Host, "python3 -m pip install --user aioquic")
-			if r.machine(p).windows {
+			switch m := r.machine(p); {
+			case m.windows:
 				install = "python -m pip install --user aioquic   # in PowerShell on " + p.Host
+			case m.linux:
+				install = "python3 -m pip install --user --break-system-packages 'aioquic>=1.0'   # as the capture user on " + m.String() + " (distributions' python3-aioquic may predate QUIC version 2)"
 			}
 
 			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, install))
@@ -909,6 +961,8 @@ func (r *refreshRun) planText() string {
 		switch m := r.machine(p); {
 		case m.windows:
 			r.windowsSteps(&w, p, m)
+		case m.linux:
+			linuxSteps(&w, p, m)
 		case m.iphone:
 			fmt.Fprintf(&w, "  on the iPhone, served from this Mac: capture -browsers %s -listen %s -ios-driver %s: the capture servers and a DNS stub (port 53, forwarding other names to this Mac's resolver) on %s for the run; devicectl opens each sample's URL in the phone's own %s, over USB; realcheck is not run (it drives browsers on this Mac)\n",
 				p.tool(), r.Listen, browser.IOSDevicectl, r.Listen, browser.IOSApp(p.tool()))
@@ -996,20 +1050,39 @@ func (r *refreshRun) windowsSteps(w *strings.Builder, p *plan, m *machine) {
 	fmt.Fprintf(w, "    4. at the end, even after a failure or ctrl-C: whatever runs from that directory stopped, capture.exe -cleanup (the capture CA out of the Root store, leftover scheduled tasks deleted), the directory %s\n", fate)
 }
 
+// linuxSteps is what the run does on p's Linux machine m, for the plan.
+func linuxSteps(w *strings.Builder, p *plan, m *machine) {
+	how := "over ssh"
+	if m.wsl != "" {
+		user := m.wslUser
+		if user == "" {
+			user = "its default user"
+		}
+
+		how = "each step wsl.exe -d " + m.wsl + " as " + user + ", over ssh to the Windows PC"
+	}
+
+	fmt.Fprintf(w, "  on %s (%s) in ~/%s:\n", m, how, m.dir)
+	fmt.Fprintf(w, "    1. built here for linux/amd64 and copied there (a tar stream): capture (realcheck after install); capture -preflight ran there\n")
+	fmt.Fprintf(w, "    2. capture -browsers %s -ca-dir ca: the unforced scenarios, then the -h3-local-roots ones; %s opens on Xvfb unless the session has a display, trusting the capture CA in its throwaway profile\n", p.Browser, p.Browser)
+	fmt.Fprintf(w, "    3. the captures copied back after each run (a tar stream) into the staging directory, checked, and once derived installed into %s\n", capturesDir)
+}
+
 // schedule groups the plans by machine (each machine's run at once), and
 // each machine's into steps run one after the other, each step's plans at
 // once: Chrome and Firefox together on a Mac in quick mode, anything else
 // alone. A Windows PC's browsers take turns: each capture run trusts the CA
 // in the Root store only while it runs, and removing it as one run ends
-// would pull it from under the other. The iPhone's browsers take turns on
-// the one phone.
+// would pull it from under the other. A Linux machine's take turns too,
+// and with the Windows PC's when it is that PC's WSL (one host). The
+// iPhone's browsers take turns on the one phone.
 func (r *refreshRun) schedule() map[string][][]*plan {
 	out := map[string][][]*plan{}
 	for _, p := range r.Plans {
 		steps := out[p.Host]
 		i := -1
 
-		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows && p.Platform != platformIOS {
+		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows && p.Platform != platformLinux && p.Platform != platformIOS {
 			i = slices.IndexFunc(steps, func(step []*plan) bool {
 				return step[0].Browser != "safari"
 			})
@@ -1036,4 +1109,14 @@ func planTargets(ps []*plan) string {
 	}
 
 	return strings.Join(names, " and ")
+}
+
+// needsPort443 reports whether a scenario p captures names https://'s
+// default port (server.Scenario.DefaultPort).
+func (p *plan) needsPort443() bool {
+	return slices.ContainsFunc(p.Captures, func(c planned) bool {
+		sc, err := server.ScenarioByName(c.Scenario)
+
+		return err == nil && sc.DefaultPort()
+	})
 }

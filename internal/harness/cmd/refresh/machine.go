@@ -21,10 +21,12 @@ import (
 const (
 	platformMacOS   = "macos"
 	platformWindows = "windows"
+	platformLinux   = "linux"
 	platformIOS     = "ios"
 
 	remoteMini    = "mini"
 	remoteWindows = "windows"
+	remoteLinux   = "linux"
 )
 
 // target is a browser the tool refreshes and where it runs.
@@ -37,8 +39,9 @@ type target struct {
 	// this Mac over the network.
 	tool string
 	// remote is where it runs over ssh: remoteMini (the second Mac, -mini),
-	// remoteWindows (a Windows PC, -windows), or "" for this Mac (and the
-	// iPhone it serves).
+	// remoteWindows (a Windows PC, -windows), remoteLinux (a Linux machine,
+	// or a WSL distribution on a Windows PC: -linux, -wsl), or "" for this
+	// Mac (and the iPhone it serves).
 	remote string
 }
 
@@ -47,6 +50,8 @@ func (t target) platform() string {
 	switch {
 	case t.remote == remoteWindows:
 		return platformWindows
+	case t.remote == remoteLinux:
+		return platformLinux
 	case slices.Contains(browser.IOSNames(), t.tool):
 		return platformIOS
 	}
@@ -70,6 +75,14 @@ var targets = map[string]target{
 	"firefox-windows": {
 		browser: "firefox",
 		remote:  remoteWindows,
+	},
+	"chrome-linux": {
+		browser: "chrome",
+		remote:  remoteLinux,
+	},
+	"firefox-linux": {
+		browser: "firefox",
+		remote:  remoteLinux,
 	},
 	"safari": {
 		browser: "safari",
@@ -104,6 +117,12 @@ type machine struct {
 	// windows is a Windows PC: its ssh shell is PowerShell, the tool's
 	// binaries are windows/amd64 .exe files.
 	windows bool
+	// linux is a Linux machine: the tool's binaries are linux/amd64. With
+	// wsl, it is that WSL distribution on host, a Windows PC, each command
+	// run in it as wslUser through wsl.exe (wslLine).
+	linux   bool
+	wsl     string
+	wslUser string
 	// iphone is the iPhone this Mac serves over the network: the capture
 	// tool runs here and opens each URL in the phone's browser through
 	// devicectl over USB. iosDevice is its UDID (-ios-device), "" for the
@@ -118,9 +137,23 @@ func (m *machine) String() string {
 		return "the iPhone"
 	case m.host == "":
 		return "this Mac"
+	case m.wsl != "":
+		return m.host + " (WSL " + m.wsl + ")"
 	}
 
 	return m.host
+}
+
+// goos is the GOOS of the tool's binaries for m.
+func (m *machine) goos() string {
+	switch {
+	case m.windows:
+		return "windows"
+	case m.linux:
+		return "linux"
+	}
+
+	return "darwin"
 }
 
 // role names m in a report, which is committed: by what it is, never by
@@ -133,6 +166,10 @@ func (m *machine) role() string {
 		return "this Mac"
 	case m.windows:
 		return "the Windows PC"
+	case m.wsl != "":
+		return "the Linux machine (WSL2 on the Windows PC)"
+	case m.linux:
+		return "the Linux machine"
 	default:
 		return "the second Mac"
 	}
@@ -147,6 +184,33 @@ var sshOptions = []string{
 // ssh runs the shell command line on host.
 func ssh(ctx context.Context, host, line string) *exec.Cmd {
 	return exec.CommandContext(ctx, "ssh", append(slices.Clone(sshOptions), host, line)...) //nolint:gosec // the host is the tool's flag
+}
+
+// sh runs the POSIX shell command line on m, a remote host that is not
+// Windows: in its WSL distribution, if it has one.
+func (m *machine) sh(ctx context.Context, line string) *exec.Cmd {
+	if m.wsl != "" {
+		line = wslLine(m.wsl, m.wslUser, line)
+	}
+
+	return ssh(ctx, m.host, line)
+}
+
+// wslLine is the command line a Windows host's ssh shell (PowerShell or
+// cmd) runs to run line in WSL distribution distro as user (the
+// distribution's default user if ""), from that user's home directory.
+// line goes base64-encoded, so neither shell between sees anything in it
+// to quote, and standard input and output stay the command's own (a tar
+// stream passes through intact). It needs bash 4 or later in the
+// distribution (3.2 cannot source a process substitution): every current
+// one has it.
+func wslLine(distro, user, line string) string {
+	as := ""
+	if user != "" {
+		as = " -u " + user
+	}
+
+	return "wsl.exe -d " + distro + as + " --cd ~ -- bash -c \"source <(echo " + base64.StdEncoding.EncodeToString([]byte(line)) + " | base64 -d)\""
 }
 
 // powershell runs the PowerShell script on a Windows host, whatever its
@@ -225,7 +289,7 @@ func (m *machine) command(ctx context.Context, name string, args ...string) *exe
 		words = append(words, shellQuote(a))
 	}
 
-	return ssh(ctx, m.host, "cd "+shellQuote(m.dir)+" && "+strings.Join(words, " "))
+	return m.sh(ctx, "cd "+shellQuote(m.dir)+" && "+strings.Join(words, " "))
 }
 
 // output runs name with args on m and returns its standard output.
@@ -334,7 +398,7 @@ func (m *machine) streamCmd(ctx context.Context, prefix, logFile, name string, c
 		if m.windows {
 			_ = powershell(context.WithoutCancel(ctx), m.host, m.psDir()+psStopUnder).Run()
 		} else {
-			_ = ssh(context.WithoutCancel(ctx), m.host, "pkill -f "+shellQuote(m.dir+"/")).Run()
+			_ = m.sh(context.WithoutCancel(ctx), "pkill -f "+shellQuote(m.dir+"/")).Run()
 		}
 	}
 
@@ -356,10 +420,15 @@ const psStopUnder = `Get-CimInstance Win32_Process | Where-Object {
 }
 `
 
-// put copies the local files into m.dir on a remote host.
+// put copies the local files into m.dir on a remote host: by scp, or, into
+// a WSL distribution, which scp cannot reach, as a tar stream.
 func (m *machine) put(ctx context.Context, files ...string) error {
 	if m.host == "" {
 		return nil
+	}
+
+	if m.wsl != "" {
+		return m.putTar(ctx, files)
 	}
 
 	mkdir := ssh(ctx, m.host, "mkdir -p "+shellQuote(m.dir))
@@ -378,6 +447,50 @@ func (m *machine) put(ctx context.Context, files ...string) error {
 
 	if out, err := exec.CommandContext(ctx, "scp", args...).CombinedOutput(); err != nil { //nolint:gosec // the tool's own files and host
 		return fmt.Errorf("copying to %s: %w: %s", m, err, out)
+	}
+
+	return nil
+}
+
+// putTar is put through tar: the files, each by its base name, unpacked
+// into m.dir.
+func (m *machine) putTar(ctx context.Context, files []string) error {
+	// No macOS metadata: Linux's tar would warn of its extended headers.
+	args := make([]string, 0, 4+3*len(files))
+
+	args = append(args, "--no-mac-metadata", "--no-xattrs", "-cf", "-")
+	for _, f := range files {
+		args = append(args, "-C", filepath.Dir(f), filepath.Base(f))
+	}
+
+	src := exec.CommandContext(ctx, "tar", args...) //nolint:gosec // the tool's own files
+
+	src.Env = append(os.Environ(), "COPYFILE_DISABLE=1")
+
+	dst := m.sh(ctx, "mkdir -p "+shellQuote(m.dir)+" && tar -C "+shellQuote(m.dir)+" -xf -")
+
+	pipe, err := src.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	dst.Stdin = pipe
+
+	var srcErr strings.Builder
+
+	src.Stderr = &srcErr
+
+	if err := src.Start(); err != nil {
+		return err
+	}
+
+	if out, err := dst.CombinedOutput(); err != nil {
+		_ = src.Wait()
+		return fmt.Errorf("copying to %s: %w: %s", m, err, out)
+	}
+
+	if err := src.Wait(); err != nil {
+		return fmt.Errorf("packing for %s: %w: %s", m, err, srcErr.String())
 	}
 
 	return nil
@@ -515,12 +628,17 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// build compiles the harness command ./cmd/<name> for where it runs into
-// dir: darwin/arm64 for the Macs, or windows/amd64 into dir/windows-amd64.
-func build(ctx context.Context, dir, name string, windows bool) (string, error) {
-	goos, goarch, out := "darwin", "arm64", filepath.Join(dir, name)
-	if windows {
-		goos, goarch, out = "windows", "amd64", filepath.Join(dir, "windows-amd64", name+".exe")
+// build compiles the harness command ./cmd/<name> for goos into dir:
+// darwin/arm64 for the Macs, windows/amd64 into dir/windows-amd64, or
+// linux/amd64 into dir/linux-amd64.
+func build(ctx context.Context, dir, name, goos string) (string, error) {
+	goarch, out := "arm64", filepath.Join(dir, name)
+
+	switch goos {
+	case "windows":
+		goarch, out = "amd64", filepath.Join(dir, "windows-amd64", name+".exe")
+	case "linux":
+		goarch, out = "amd64", filepath.Join(dir, "linux-amd64", name)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(out), 0o750); err != nil {

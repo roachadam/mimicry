@@ -37,6 +37,10 @@ type Target struct {
 	// CertSHA256 is the SHA-256 of the server certificate (DER), which Firefox
 	// is told to accept.
 	CertSHA256 [32]byte
+	// CAFile is the capture CA's PEM certificate. On Linux each run's
+	// profile trusts it (trustInProfile), as the system roots do on macOS
+	// (by hand, once) and Windows (for the run).
+	CAFile string
 	// Proxy, when set, is the proxy the browser goes through
 	// ("http://127.0.0.1:port" or "socks5://127.0.0.1:port").
 	Proxy *url.URL
@@ -252,6 +256,11 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 
 	args, err := b.prepare(dir, t, headless)
 	if err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
+
+	if err := trustInProfile(ctx, b, dir, t); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}

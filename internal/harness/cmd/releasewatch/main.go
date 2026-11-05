@@ -60,13 +60,19 @@ var feeds = []feed{
 	},
 	{
 		browser:   "chrome",
+		platforms: []string{"linux"},
+		url:       "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=Linux&num=1",
+		parse:     parseChrome,
+	},
+	{
+		browser:   "chrome",
 		platforms: []string{"ios"},
 		url:       "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=iOS&num=1",
 		parse:     parseChrome,
 	},
 	{
 		browser:   "firefox",
-		platforms: []string{"macos", "windows"},
+		platforms: []string{"macos", "windows", "linux"},
 		url:       "https://product-details.mozilla.org/1.0/firefox_versions.json",
 		parse:     parseFirefox,
 	},

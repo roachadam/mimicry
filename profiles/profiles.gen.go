@@ -18,6 +18,13 @@ func ChromeIOS() profile.Profile {
 	return load("chrome-157-ios")
 }
 
+// ChromeLinux returns the newest chrome profile on linux, now chrome-157-linux (chrome 157 on linux).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func ChromeLinux() profile.Profile {
+	return load("chrome-157-linux")
+}
+
 // ChromeWindows returns the newest chrome profile on windows, now chrome-156-windows (chrome 156 on windows).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
@@ -37,6 +44,13 @@ func FirefoxMacOS() profile.Profile {
 // versioned accessor where a version must stay fixed.
 func FirefoxIOS() profile.Profile {
 	return load("firefox-159-ios")
+}
+
+// FirefoxLinux returns the newest firefox profile on linux, now firefox-159-linux (firefox 159 on linux).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func FirefoxLinux() profile.Profile {
+	return load("firefox-159-linux")
 }
 
 // FirefoxWindows returns the newest firefox profile on windows, now firefox-159-windows (firefox 159 on windows).
@@ -80,6 +94,11 @@ func Chrome157IOS() profile.Profile {
 	return load("chrome-157-ios")
 }
 
+// Chrome157Linux returns the chrome-157-linux profile (chrome 157 on linux).
+func Chrome157Linux() profile.Profile {
+	return load("chrome-157-linux")
+}
+
 // Firefox158MacOS returns the firefox-158-macos profile (firefox 158 on macos).
 func Firefox158MacOS() profile.Profile {
 	return load("firefox-158-macos")
@@ -93,6 +112,11 @@ func Firefox158Windows() profile.Profile {
 // Firefox159IOS returns the firefox-159-ios profile (firefox 159 on ios).
 func Firefox159IOS() profile.Profile {
 	return load("firefox-159-ios")
+}
+
+// Firefox159Linux returns the firefox-159-linux profile (firefox 159 on linux).
+func Firefox159Linux() profile.Profile {
+	return load("firefox-159-linux")
 }
 
 // Firefox159MacOS returns the firefox-159-macos profile (firefox 159 on macos).
@@ -130,9 +154,11 @@ var names = []string{
 	"chrome-156-macos",
 	"chrome-156-windows",
 	"chrome-157-ios",
+	"chrome-157-linux",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"firefox-159-ios",
+	"firefox-159-linux",
 	"firefox-159-macos",
 	"firefox-159-windows",
 	"safari-26-ios",
@@ -146,9 +172,11 @@ var supported = []string{
 	"chrome-156-macos",
 	"chrome-156-windows",
 	"chrome-157-ios",
+	"chrome-157-linux",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"firefox-159-ios",
+	"firefox-159-linux",
 	"firefox-159-macos",
 	"firefox-159-windows",
 	"safari-26-ios",

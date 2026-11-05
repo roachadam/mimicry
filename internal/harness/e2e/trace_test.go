@@ -167,4 +167,5 @@ var creditGaps = map[string]string{
 	"firefox-158-windows /big": "Firefox returns /big's stream credit as the page reads it: its largest increment was 3.56 MB in 3 Windows samples (with 16–557 KB steps between), while 2 of 3 macOS samples of the same Firefox sent 4 MiB, mimicry's step; how fast the page reads is the machine's, not a rule",
 	"firefox-159-macos /big":   "as firefox-158-windows's: Firefox returns /big's stream credit as the page reads it; its largest increment was 2.36 MB in 3 macOS samples of Firefox 159 (Firefox 158 on macOS: 4 MiB in 2 of 3), mimicry's step 4 MiB; how fast the page reads is the machine's, not a rule",
 	"firefox-159-windows /big": "as firefox-158-windows's: its largest increment was 2.67 MB in 3 Windows samples of Firefox 159, mimicry's step 4 MiB",
+	"firefox-159-linux /big":   "as firefox-158-windows's: its largest increment was 3.16 MB in 3 Linux samples of Firefox 159 (2.90 and 0.80 MB in the other two, each followed by 16–492 KB steps), mimicry's step 4 MiB",
 }

@@ -30,10 +30,11 @@ func (sc *Scenario) NeedsAioquic() bool {
 }
 
 // AioquicAvailable reports why the h3-v2 scenario cannot run here, if it
-// cannot: it needs python3 with aioquic (pip install aioquic).
+// cannot: it needs python3 with an aioquic that speaks QUIC version 2
+// (1.0 or later; Ubuntu 24.04's python3-aioquic, 0.9.25, does not).
 func AioquicAvailable(ctx context.Context) error {
-	if out, err := exec.CommandContext(ctx, "python3", "-c", "import aioquic").CombinedOutput(); err != nil {
-		return fmt.Errorf("python3 with aioquic (pip install aioquic): %w: %s", err, strings.TrimSpace(string(out)))
+	if out, err := exec.CommandContext(ctx, "python3", "-c", "from aioquic.quic.packet import QuicProtocolVersion; QuicProtocolVersion.VERSION_2").CombinedOutput(); err != nil {
+		return fmt.Errorf("python3 with aioquic 1.0 or later, for QUIC version 2 (pip install 'aioquic>=1.0'): %w: %s", err, strings.TrimSpace(string(out)))
 	}
 
 	return nil

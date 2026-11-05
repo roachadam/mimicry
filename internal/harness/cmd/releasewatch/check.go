@@ -331,6 +331,7 @@ var (
 	platformNames = map[string]string{
 		"macos":   "macOS",
 		"windows": "Windows",
+		"linux":   "Linux",
 		"ios":     "iOS",
 	}
 )

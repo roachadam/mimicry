@@ -39,7 +39,7 @@ func flight(s *captureSet, e *collector) (ackInitial, ackBefore, coalesce bool) 
 		before := ackAt != -1 && ackAt < finishedAt
 
 		if c.resumed {
-			if before {
+			if before && !s.gap(c, "resumedAckBeforeFinished") {
 				e.add(c, "a resumed handshake acknowledges before its Finished")
 			}
 

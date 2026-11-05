@@ -1,0 +1,50 @@
+[
+  [
+    {
+      "kind": "socks5",
+      "conn": 15,
+      "target": "capture.mimicry.test:39781",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e746573749b65"
+    },
+    {
+      "kind": "socks5",
+      "conn": 16,
+      "target": "capture.mimicry.test:39781",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e746573749b65"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 15,
+      "target": "capture.mimicry.test:45691",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e74657374b27b"
+    },
+    {
+      "kind": "socks5",
+      "conn": 16,
+      "target": "capture.mimicry.test:45691",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e74657374b27b"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 15,
+      "target": "capture.mimicry.test:39637",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e746573749ad5"
+    },
+    {
+      "kind": "socks5",
+      "conn": 16,
+      "target": "capture.mimicry.test:39637",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e746573749ad5"
+    }
+  ]
+]

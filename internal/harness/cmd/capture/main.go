@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -327,7 +328,9 @@ func run() error {
 			continue
 		}
 
-		if b.Name == "chrome" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
+		// On Linux each run's profile trusts the CA (browser.Target.CAFile),
+		// never the system.
+		if b.Name == "chrome" && runtime.GOOS != "linux" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
 			// http_network_transaction.cc processes Alt-Svc only when the
 			// certificate verified without errors.
 			log.Printf("%s: the capture CA is not trusted, so %s will ignore every Alt-Svc and never try HTTP/3 (--ignore-certificate-errors loads the page, but its certificate status keeps the error). Trust it as for Safari:\n"+
@@ -699,6 +702,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		Addr:       opts.addr,
 		Port:       port,
 		CertSHA256: sha256.Sum256(opts.cert.Certificate[0]),
+		CAFile:     opts.ca.CertPath,
 		Proxy:      proxyURL,
 		Plain:      sc.Plain,
 		Scenario:   sc.Name,

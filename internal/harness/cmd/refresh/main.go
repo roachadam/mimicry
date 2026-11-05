@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"syscall"
@@ -50,6 +51,9 @@ type config struct {
 	mini        string
 	staging     string
 	windows     string
+	linux       string
+	wsl         string
+	wslUser     string
 	keep        bool
 	listen      string
 	iosDevice   string
@@ -67,11 +71,14 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), chrome-linux, firefox-linux (on -linux), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
 	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
 	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows; required for them)")
+	flag.StringVar(&cfg.linux, "linux", "", "your ssh alias for the Linux machine, or with -wsl for the Windows PC whose WSL distribution it is (chrome-linux, firefox-linux; required for them)")
+	flag.StringVar(&cfg.wsl, "wsl", "", "the WSL distribution on -linux's Windows PC the Linux browsers run in (wsl -l), instead of a Linux machine of its own")
+	flag.StringVar(&cfg.wslUser, "wsl-user", "", "the user in -wsl's distribution the browsers run as (default: the distribution's default user; Chrome refuses root)")
 	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios, firefox-ios; required for them)")
 	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios, chrome-ios, firefox-ios; default: the paired iPhone connected to this Mac)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
@@ -99,7 +106,7 @@ func run() error {
 	if *browsers != "" {
 		cfg.targets = strings.Split(*browsers, ",")
 
-		var mini, windows, iphone bool
+		var mini, windows, linux, iphone bool
 		for _, t := range cfg.targets {
 			tg, ok := targets[t]
 			if !ok {
@@ -108,6 +115,7 @@ func run() error {
 
 			mini = mini || tg.remote == remoteMini
 			windows = windows || tg.remote == remoteWindows
+			linux = linux || tg.remote == remoteLinux
 			iphone = iphone || tg.platform() == platformIOS
 		}
 
@@ -122,6 +130,14 @@ func run() error {
 			return errors.New("-browser chrome-windows and firefox-windows need -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
 			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the second Mac are two machines", cfg.mini)
+		case linux && cfg.linux == "":
+			return errors.New("-browser chrome-linux and firefox-linux need -linux <your ssh alias for the Linux machine, or the Windows PC with -wsl>")
+		case linux && mini && cfg.linux == cfg.mini:
+			return fmt.Errorf("-linux and -mini are both %q: the Linux machine and the second Mac are two machines", cfg.mini)
+		case linux && cfg.wsl == "" && cfg.linux == cfg.windows:
+			return fmt.Errorf("-linux and -windows are both %q: name its WSL distribution with -wsl", cfg.linux)
+		case !wslName.MatchString(cfg.wsl) || !wslName.MatchString(cfg.wslUser):
+			return fmt.Errorf("-wsl %q, -wsl-user %q: letters, digits, '.', '_' and '-' only", cfg.wsl, cfg.wslUser)
 		}
 	}
 
@@ -159,6 +175,8 @@ func run() error {
 		Keep:      cfg.keep,
 		Listen:    cfg.listen,
 		IOSDevice: cfg.iosDevice,
+		WSL:       cfg.wsl,
+		WSLUser:   cfg.wslUser,
 	}
 	// The Windows PCs' working directories go, and the capture CA with
 	// them, however the run ends.
@@ -225,6 +243,10 @@ func (r *refreshRun) cleanWindows(ctx context.Context) {
 		}
 	}
 }
+
+// wslName is what -wsl and -wsl-user may be (or empty): they go into the
+// command line of the Windows PC's ssh shell unquoted (wslLine).
+var wslName = regexp.MustCompile(`^[A-Za-z0-9._-]*$`)
 
 // confirm asks on standard output and reads the answer from in.
 func confirm(in *os.File) bool {

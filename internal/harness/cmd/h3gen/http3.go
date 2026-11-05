@@ -33,7 +33,7 @@ func deriveHTTP3(s *captureSet) (*profile.HTTP3, error) {
 
 	h.Settings, h.GreaseSetting, h.GreaseFrame = control(done, e)
 	h.UniStreams = uniStreams(done, e)
-	h.StreamsWithFinished = streamsWithFinished(done, e)
+	h.StreamsWithFinished = streamsWithFinished(s, done, e)
 	h.EarlyRequestFirst = earlyRequestFirst(done, e)
 	h.RequestsAfterConfirmed = requestsAfterConfirmed(done, e)
 	h.QPACK = qpackRules(done, e)
@@ -327,11 +327,16 @@ func announcesOnly(c *conn, id, capacity uint64) bool {
 	return false
 }
 
-// streamsWithFinished: on every completed full handshake without 0-RTT,
+// streamsWithFinished: on the completed full handshakes without 0-RTT,
 // the control stream starts in the datagram that carries the Finished, or
-// on none.
-func streamsWithFinished(done []*conn, e *collector) bool {
-	var vs []bool
+// on none; a connection that differs from most is pinned in sampleGaps
+// ("streamsWithFinished").
+func streamsWithFinished(s *captureSet, done []*conn, e *collector) bool {
+	var (
+		vs    []bool
+		conns []*conn
+	)
+
 	for _, c := range done {
 		if c.c.EarlyData {
 			continue
@@ -348,9 +353,10 @@ func streamsWithFinished(done []*conn, e *collector) bool {
 		ctl, ok := firstFrames(c)[2]
 
 		vs = append(vs, ok && ctl.datagram == finished)
+		conns = append(conns, c)
 	}
 
-	return allSame(vs, done[0], "control stream with the Finished", e)
+	return majority(s, vs, conns, "streamsWithFinished", e)
 }
 
 // earlyRequestFirst: in 0-RTT, a request stream's first frame before the
@@ -633,12 +639,25 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 
 // priorityUpdate: each request with a priority header gets a matching
 // PRIORITY_UPDATE no later than its HEADERS (unless sampleGaps pins
-// "priorityUpdate <path>"), or no connection sends any.
+// "priorityUpdate <path>"), or no connection sends any; a connection that
+// differs from most is pinned ("priorityUpdate").
 func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
-	var vs []bool
+	var (
+		vs    []bool
+		conns []*conn
+	)
+
 	for _, c := range done {
-		updates := map[uint64]quictrace.H3Frame{}
 		cs := controlStream(c)
+		if cs == nil {
+			e.add(c, "no control stream")
+
+			continue
+		}
+
+		conns = append(conns, c)
+
+		updates := map[uint64]quictrace.H3Frame{}
 
 		for _, f := range cs.Frames {
 			if f.Type == quictrace.FrameH3PriorityUpdateRequest && f.ID != nil {
@@ -681,7 +700,7 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 		}
 	}
 
-	return allSame(vs, done[0], "PRIORITY_UPDATE", e)
+	return majority(s, vs, conns, "priorityUpdate", e)
 }
 
 // dataFrames derives how request bodies are framed: one DATA frame each,

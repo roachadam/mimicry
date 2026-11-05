@@ -1,0 +1,29 @@
+[
+  [
+    {
+      "kind": "socks5",
+      "conn": 8,
+      "target": "capture.mimicry.test:42703",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e74657374a6cf"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 8,
+      "target": "capture.mimicry.test:43025",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e74657374a811"
+    }
+  ],
+  [
+    {
+      "kind": "socks5",
+      "conn": 5,
+      "target": "capture.mimicry.test:33793",
+      "greeting": "050100",
+      "request": "0501000314636170747572652e6d696d696372792e746573748401"
+    }
+  ]
+]

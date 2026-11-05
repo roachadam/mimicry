@@ -20,6 +20,14 @@ import (
 // hints' order and values from.
 const hintsNavigation = "/h3/next.nav"
 
+// downlinkGaps are, per capture source, why the downlink values sent
+// stray beyond Chrome's noise around one estimate (downlinkInBand): the
+// estimate itself moved during the run. The values must still be Chrome's
+// steps, and a pin no value needs is an error.
+var downlinkGaps = map[string]string{
+	"chrome-157-linux": "1.3 to 1.75 Mbps, and www.ch-a.test got both in sample 2: Chrome's per-host multiplier is fixed (0.9 + (hash % 21) * 0.01, content/browser/client_hints/client_hints.cc), so its network quality estimate rose by 30% or more within the sample; the centre (1.55) is still the profile's estimate",
+}
+
 // hintName reports whether a header name is a client hint: every
 // sec-ch-*, and the legacy names.
 func hintName(name string) bool {
@@ -422,7 +430,10 @@ func machineEqual(a, b profile.Machine) bool {
 func checkHints(p *profile.Spec, sent []sentRequest) error {
 	ch := p.ClientHints
 
-	var errs []error
+	var (
+		errs    []error
+		strayed bool
+	)
 
 	for _, r := range sent {
 		var run []string
@@ -435,6 +446,10 @@ func checkHints(p *profile.Spec, sent []sentRequest) error {
 
 			if err := checkHintValue(p, n, r.values[i]); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", r.at, err))
+			}
+
+			if mbps, err := strconv.ParseFloat(r.values[i], 64); err == nil && n == profile.HintDownlink && !downlinkInBand(p, mbps) {
+				strayed = true
 			}
 		}
 
@@ -463,6 +478,10 @@ func checkHints(p *profile.Spec, sent []sentRequest) error {
 				errs = append(errs, err)
 			}
 		}
+	}
+
+	if _, moved := downlinkGaps[capture.Source(p, server.ClientHints.Name)]; moved && !strayed {
+		errs = append(errs, errors.New("downlinkGaps pins this profile, but every downlink is within 10% of its estimate: remove the pin"))
 	}
 
 	return errors.Join(errs...)
@@ -548,8 +567,8 @@ func checkHintValue(p *profile.Spec, name, value string) error {
 			return fmt.Errorf("downlink %q is not a multiple of 0.05 Mbps up to 10", value)
 		}
 
-		if m := p.ClientHints.Machine.Downlink; mbps < m*0.9-0.025 || mbps > m*1.1+0.025 {
-			return fmt.Errorf("downlink %q is beyond 10%% of %v", value, m)
+		if _, moved := downlinkGaps[capture.Source(p, server.ClientHints.Name)]; !moved && !downlinkInBand(p, mbps) {
+			return fmt.Errorf("downlink %q is beyond 10%% of %v", value, p.ClientHints.Machine.Downlink)
 		}
 
 		return nil
@@ -566,4 +585,12 @@ func checkHintValue(p *profile.Spec, name, value string) error {
 	}
 
 	return nil
+}
+
+// downlinkInBand reports whether mbps is one Chrome's noise (0.90 to 1.10)
+// and rounding give from p's estimate.
+func downlinkInBand(p *profile.Spec, mbps float64) bool {
+	m := p.ClientHints.Machine.Downlink
+
+	return mbps >= m*0.9-0.025 && mbps <= m*1.1+0.025
 }
