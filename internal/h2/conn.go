@@ -29,6 +29,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/hpack"
+	"github.com/roachadam/mimicry/internal/weburl"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -627,7 +628,7 @@ func buildHead(dst []hpack.Field, headers []profile.Header, h2p *profile.HTTP2, 
 		return requestHead{}, fmt.Errorf("h2: invalid host %q", host)
 	}
 
-	path := req.URL.RequestURI()
+	path := weburl.RequestURI(req.URL)
 	if (!strings.HasPrefix(path, "/") && path != "*") || !httpguts.ValidHeaderFieldValue(path) {
 		return requestHead{}, fmt.Errorf("h2: invalid path %q", path)
 	}

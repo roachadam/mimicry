@@ -10050,6 +10050,9 @@
       "ect": "4g"
     }
   },
+  "urls": {
+    "pathEncodes": "|"
+  },
   "cookies": {
     "unsetSamesite": "lax",
     "laxAllowsUnsafeSeconds": 120,

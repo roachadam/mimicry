@@ -11728,6 +11728,7 @@
       ]
     }
   },
+  "urls": {},
   "cookies": {
     "unsetSamesite": "none",
     "thirdParty": "partitioned_only",

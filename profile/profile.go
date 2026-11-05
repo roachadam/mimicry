@@ -175,6 +175,10 @@ type Spec struct {
 	// Nil: it sends only the hints its lists hold (Firefox, Safari, or the
 	// opt-in not captured).
 	ClientHints *ClientHints `json:"clientHints,omitempty"`
+	// URLs is how the browser's URL parser differs from the others
+	// measured. Nil: not measured, so a URL where browsers differ (a '|'
+	// in its path, an "xn--" host label) is an error.
+	URLs *URLs `json:"urls,omitempty"`
 	// Cookies are the browser's cookie rules. Required.
 	Cookies *Cookies `json:"cookies,omitempty"`
 	// Proxy is how the browser talks to HTTP and SOCKS5 proxies. Nil: not

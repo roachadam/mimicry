@@ -129,6 +129,11 @@ type Connection struct {
 	// cookie (the hrr scenario), whose handshake the server then dropped:
 	// Protocol is empty.
 	Retry *Retry `json:"retry,omitempty"`
+	// Refused says why the server's TLS refused the ClientHello, ending
+	// the handshake there (Protocol is empty, Host the server_name as
+	// sent): a server name ending in a dot, which Go's crypto/tls
+	// rejects (the urls scenario).
+	Refused string `json:"refused,omitempty"`
 }
 
 // ClientHelloBytes is ClientHello decoded; nil where it was not kept.

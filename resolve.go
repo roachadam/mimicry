@@ -12,6 +12,7 @@ import (
 	"github.com/roachadam/mimicry/internal/cors"
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/site"
+	"github.com/roachadam/mimicry/internal/weburl"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -127,7 +128,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		prev.User = nil
 
 		if ref, err := url.Parse(h.Get("Referer")); err == nil {
-			if c, err := canonicalURL(ref); err == nil && c.String() == prev.String() {
+			if c, err := canonicalURL(ref, p); err == nil && weburl.String(c) == weburl.String(&prev) {
 				h.Del("Referer")
 			}
 		}
@@ -909,7 +910,7 @@ func referrer(from *url.URL, chain []*url.URL) string {
 		u.Path = "/"
 	}
 
-	return u.String()
+	return weburl.String(&u)
 }
 
 // redirectsBefore returns the URLs that redirected to req, first first:

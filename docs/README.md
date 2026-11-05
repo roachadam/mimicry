@@ -74,6 +74,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
 | [0054](decisions/0054-empty-request-bodies.md) | Requests without a body: `content-length: 0` and the stream's end from a measured `emptyBody`, as before where none is measured | Accepted |
 | [0055](decisions/0055-client-hints-opt-in.md) | Chrome's client hints opt-in: `Accept-CH` stored per origin, the `Critical-CH` restart, `Clear-Site-Data`, captured machines' values, delegation stated per request | Accepted |
+| [0057](decisions/0057-url-parsing-measured.md) | URLs take the form the `urls` capture measures (`'` in a query, paths, IPv4 forms); browser differences in the profile's `urls` | Accepted |
 
 ### Cookies
 

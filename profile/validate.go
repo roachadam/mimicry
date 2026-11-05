@@ -119,6 +119,7 @@ func (p *Spec) Validate() error {
 	}
 
 	c.checkClientHints(p)
+	c.checkURLs(p.URLs)
 
 	c.checkCookies(p.Cookies)
 

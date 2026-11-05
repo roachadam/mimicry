@@ -348,6 +348,12 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		// The ClientHello is still worth recording; browsers abort here when
 		// they reject the certificate.
+		if name := serverName(msg); strings.HasSuffix(name, ".") {
+			// Go refuses it before anything else: what the browser sent
+			// is all there is to see.
+			log.refused(name, msg, t, helloAt, "server name ending in a dot, which Go's crypto/tls refuses (RFC 6066)")
+		}
+
 		return err
 	}
 

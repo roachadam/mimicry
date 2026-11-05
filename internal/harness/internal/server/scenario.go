@@ -58,6 +58,10 @@ type Scenario struct {
 	plainPort  bool
 	startPlain bool
 	ports      portPair
+	// defaultPort has the capture tool also take the TLS port's traffic on
+	// 443, https://'s default (see DefaultPort), so a URL naming the
+	// default port reaches the page.
+	defaultPort bool
 	// respond answers the paths the scenario changes; the default page
 	// answers the rest.
 	respond func(path string, uploaded int) (response, bool)
@@ -269,6 +273,7 @@ var Scenarios = []*Scenario{
 	Bodiless,
 	HRR,
 	ClientHints,
+	URLs,
 }
 
 // ScenarioByName finds a scenario.

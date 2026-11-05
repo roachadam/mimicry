@@ -24,6 +24,13 @@ func (sc *Scenario) StartsPlain() bool {
 	return sc.plainPort && sc.startPlain
 }
 
+// DefaultPort reports a scenario whose page names https://'s default
+// port: the capture tool forwards 443 to the TLS port. Elsewhere (the e2e
+// tests, which dial the server whatever the port) nothing is needed.
+func (sc *Scenario) DefaultPort() bool {
+	return sc.defaultPort
+}
+
 // onPorts is the scenario as served on tlsAddr and plainAddr (nil for a
 // scenario without a plain port), so its answers learn both ports.
 func (sc *Scenario) onPorts(tlsAddr, plainAddr net.Addr) *Scenario {

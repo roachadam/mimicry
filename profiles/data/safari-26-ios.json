@@ -12,7 +12,8 @@
     "nav-redirect-ss": "safari-26-macos",
     "nav-redirect-ss-cookies": "safari-26-macos",
     "set-cookie": "safari-26-macos",
-    "slow-idle": "safari-26-macos"
+    "slow-idle": "safari-26-macos",
+    "urls": "safari-26-macos"
   },
   "tls": {
     "recordVersion": "0x0301",
@@ -10534,6 +10535,9 @@
         "content-length"
       ]
     }
+  },
+  "urls": {
+    "checkPunycode": true
   },
   "cookies": {
     "unsetSamesite": "none",

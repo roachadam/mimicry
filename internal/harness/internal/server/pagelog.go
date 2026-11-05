@@ -93,6 +93,21 @@ func (l *pageLog) helloRetry(host string, msg []byte, hello profile.TLS, helloAt
 	})
 }
 
+// refused records a connection to host whose ClientHello msg (parsed as
+// hello), which arrived at helloAt, the server's TLS refused, and why.
+func (l *pageLog) refused(host string, msg []byte, hello profile.TLS, helloAt time.Time, why string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.connections = append(l.connections, capture.Connection{
+		Host:        host,
+		Millis:      helloAt.Sub(l.start).Milliseconds(),
+		Hello:       &hello,
+		ClientHello: hex.EncodeToString(msg),
+		Refused:     why,
+	})
+}
+
 // newConn numbers an HTTP/1.1 connection, from 1.
 func (l *pageLog) newConn() int {
 	l.mu.Lock()

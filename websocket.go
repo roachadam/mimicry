@@ -13,6 +13,7 @@ import (
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/internal/site"
+	"github.com/roachadam/mimicry/internal/weburl"
 	"github.com/roachadam/mimicry/internal/ws"
 )
 
@@ -87,7 +88,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		return nil, nil, err
 	}
 
-	if u, err = canonicalURL(u); err != nil {
+	if u, err = canonicalURL(u, p); err != nil {
 		return nil, nil, err
 	}
 
@@ -96,7 +97,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		return nil, nil, err
 	}
 
-	from, err := canonicalURL(opts.From)
+	from, err := canonicalURL(opts.From, p)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -113,7 +114,7 @@ func (t *Transport) DialWebSocket(ctx context.Context, rawURL string, opts WebSo
 		return nil, nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, weburl.String(target), nil)
 	if err != nil {
 		return nil, nil, err
 	}

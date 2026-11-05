@@ -81,6 +81,10 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 		return nil, fmt.Errorf("clientHints: %w", err)
 	}
 
+	if err := deriveURLs(p, dir); err != nil {
+		return nil, fmt.Errorf("urls: %w", err)
+	}
+
 	if p.Context.PreflightCache, err = preflightCache(pages.cors); err != nil {
 		return nil, err
 	}

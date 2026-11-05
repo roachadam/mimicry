@@ -15,7 +15,8 @@
     "nav-redirect-ss": "safari-27-macos",
     "nav-redirect-ss-cookies": "safari-27-macos",
     "set-cookie": "safari-27-macos",
-    "slow-idle": "safari-27-macos"
+    "slow-idle": "safari-27-macos",
+    "urls": "safari-27-macos"
   },
   "tls": {
     "recordVersion": "0x0301",
@@ -10596,6 +10597,7 @@
       ]
     }
   },
+  "urls": {},
   "cookies": {
     "unsetSamesite": "none",
     "thirdParty": "partitioned_only",
