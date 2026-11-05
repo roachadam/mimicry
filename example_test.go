@@ -1316,3 +1316,46 @@ func ExampleConfig_headerPlacement() {
 	// server:   Accept-Language: en-US,en;q=0.9
 	// placement error: true
 }
+
+// Send a request target exactly as written, as a security test may: a
+// browser resolves "/../" and encodes "'", so mimicry does too, unless the
+// URL's Opaque holds the target (as with net/http). Its path and query go
+// out untouched; the host still picks the connection.
+func ExampleNewClient_rawTarget() {
+	shop := startShop(func(_ http.ResponseWriter, r *http.Request) {
+		fmt.Println("server:", r.RequestURI)
+	})
+	defer shop.Close()
+
+	client, err := mimicry.NewClient(mimicry.Config{
+		Profile: profiles.ChromeMacOS(),
+		// Only to reach the local stand-in shop; nil for real sites.
+		RootCAs:     shop.RootCAs,
+		DialContext: shop.DialContext,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	for _, raw := range []bool{false, true} {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test/static/../admin?q='x", nil)
+		if err != nil {
+			panic(err)
+		}
+
+		if raw {
+			req.URL.Opaque = "/static/../admin"
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+
+		_ = resp.Body.Close()
+	}
+
+	// Output:
+	// server: /admin?q=%27x
+	// server: /static/../admin?q='x
+}
