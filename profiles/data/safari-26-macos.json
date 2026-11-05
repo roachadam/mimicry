@@ -11565,6 +11565,9 @@
       ]
     }
   },
+  "urls": {
+    "checkPunycode": true
+  },
   "cookies": {
     "unsetSamesite": "none",
     "thirdParty": "partitioned_only",

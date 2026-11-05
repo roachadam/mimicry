@@ -9756,6 +9756,9 @@
     "stylesheetReferrer": true,
     "preflightCache": "merge"
   },
+  "urls": {
+    "checkPunycode": true
+  },
   "cookies": {
     "unsetSamesite": "none",
     "noneRequiresSecure": true,

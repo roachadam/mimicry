@@ -579,16 +579,16 @@ type out struct {
 // even with an error), its placements, and how it is resolved. It sends
 // nothing.
 func (t *Transport) outgoing(req *http.Request, r Request, exact bool, u use) (*http.Request, out, error) {
-	req, err := canonicalRequest(req)
+	req, err := canonicalRequest(req, t.profile)
 	if err != nil {
 		return req, out{}, err
 	}
 
-	if r.From, err = canonicalURL(r.From); err != nil {
+	if r.From, err = canonicalURL(r.From, t.profile); err != nil {
 		return req, out{}, err
 	}
 
-	if r.Stylesheet, err = canonicalURL(r.Stylesheet); err != nil {
+	if r.Stylesheet, err = canonicalURL(r.Stylesheet, t.profile); err != nil {
 		return req, out{}, err
 	}
 

@@ -555,6 +555,36 @@ DPRs, which kindsgen refuses. kindsgen derives `clientHints` from it
 `TestClientHintsMatchesBrowser` replays it; a quick refresh recaptures it,
 since the full version moves with every release.
 
+### URL parsing
+
+`urls` has the browser parse 43 URLs, each fetched (`no-cors`), then each
+loaded in an iframe, 5 s at most each: a query and a path with each of
+space, `"`, `'`, `<`, `>`, `` ` ``, `{`, `}`, `|`, `\`, `^`, `é`, a lone
+`%` and `%41`; dot segments, as `%2e` too; hosts uppercase,
+internationalized (`Bücher.urls.test`), ending in a dot (`dot.urls.test.`,
+named only so, and `www.urls.test.`, which a browser may pool with
+`www.urls.test`), on an explicit `:443` and on the page's port with a
+leading zero, and a malformed punycode label (`xn--a.urls.test`). Each
+request's path starts with its case, `/c/f-<case>/` or `/c/n-<case>/`,
+and the server answers any of them, so whatever the browser makes of the
+rest arrives as it was sent. The page then goes to `http://` on the plain
+port for the IPv4 forms (`127.1`, `0x7f.1`, `0177.0.0.1`, `2130706433`,
+`127.0.0.1.`): from an `https://` page Safari blocks even loopback
+`http://`. Each half reports the cases that failed at `/report` (a hint:
+the wire is the evidence) before the second asks for `/done`.
+
+The capture tool forwards port 443 to the TLS port for the scenario
+(macOS lets a user bind 443 only on every address; it then lets only
+loopback peers through). The server answers a ClientHello without SNI,
+which Safari sends for a host ending in a dot, with a certificate for
+both dotted hosts, and records one naming a host with its dot, which Go's
+TLS refuses before anything else, as a connection with `refused` set
+(`capture.Connection.Refused`). kindsgen derives `urls` from it
+([decision 0057](decisions/0057-url-parsing-measured.md)), and
+`TestURLsMatchBrowser` sends every URL through mimicry and compares.
+Inheriting works only from older versions, so a browser's newest
+profiles need their own capture.
+
 ## Deriving a profile
 
 A built-in profile is a JSON file in `profiles/data/`; its accessors are
@@ -601,8 +631,9 @@ does not describe:
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.
-3. `go run ./cmd/kindsgen`: the profile's `kinds`, `context` and navigation
-   `variants`, from the captures listed below.
+3. `go run ./cmd/kindsgen`: the profile's `kinds`, `context`, navigation
+   `variants`, `emptyBody`, `clientHints` and `urls`, from the captures
+   listed below.
 
 hellogen and h3gen read the edge captures too (`server.H3EdgeCaptures`:
 `h3-blackhole`, `h3-broken`, `h3-vn`, `h3-download`, `h3-early`,
@@ -696,6 +727,12 @@ kindsgen's captures, and what each gives the profile:
   every captured subresource's run. Every captured request's hints must be
   what the model sends. Without the capture, or where no hint beyond the
   lists was sent (Firefox, Safari), it stays unset.
+- `<name>.urls.pagetrace.json.gz`: `urls` (`deriveURLs`): the characters
+  the browser encodes in a path beyond the set every browser does
+  (`pathEncodes`), and whether it refuses the malformed punycode host
+  (`checkPunycode`). Samples, and each case's fetch and navigation, must
+  agree, and a character the shared set encodes may not go as written.
+  Without the capture it stays unset.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a

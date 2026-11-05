@@ -13,6 +13,7 @@ import (
 	"github.com/jonboulle/clockwork"
 
 	"github.com/roachadam/mimicry/internal/site"
+	"github.com/roachadam/mimicry/internal/weburl"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -332,7 +333,7 @@ func (j *Jar) set(r setRequest, line string) Event {
 	}
 
 	if c.Path == "" {
-		c.Path = defaultPath(r.URL.EscapedPath())
+		c.Path = defaultPath(weburl.Path(r.URL))
 	}
 
 	if c.Secure && !secureURL {
@@ -541,7 +542,7 @@ func (j *Jar) cookies(r Request, touch bool) []*Cookie {
 	host := strings.ToLower(r.URL.Hostname())
 	secureURL := j.secure(r.URL)
 	safe := r.Method == "" || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions || r.Method == http.MethodTrace
-	reqPath := r.URL.EscapedPath()
+	reqPath := weburl.Path(r.URL)
 	key := domainKey(host)
 
 	j.mu.Lock()

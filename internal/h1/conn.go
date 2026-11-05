@@ -29,6 +29,7 @@ import (
 	"golang.org/x/net/http/httpguts"
 
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/weburl"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -452,7 +453,7 @@ func (w Writer) build(req *http.Request, framing http.Header) (Head, error) {
 		return Head{}, fmt.Errorf("h1: invalid method %q", req.Method)
 	}
 
-	target := req.URL.RequestURI()
+	target := weburl.RequestURI(req.URL)
 	// Framing comes from the request, never the caller's map.
 	reqHeader := headerorder.WithoutFraming(req.Header)
 	auth := ""

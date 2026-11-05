@@ -2,6 +2,7 @@ package mimicry_test
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,23 +13,25 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
-// A URL goes out as a browser's URL parser (the WHATWG URL standard)
-// leaves it, whoever spelled it and wherever it came from (the request, a
-// redirect's Location, a page): the host lowercase, an internationalized
-// one in its ASCII form, the scheme's default port dropped, the query
-// percent-encoded. SNI, the connection pool, Host and :authority, cookies,
-// Origin and Referer all see that form (issues #48, #49, #50). The plan
-// shows the lines over every protocol, HTTP/3 included; the shop, which
-// speaks no HTTP/3, what reaches a server over HTTP/1.1 and HTTP/2.
+// A URL goes out as a browser's URL parser (the WHATWG URL standard, as
+// the urls capture measures it) leaves it, whoever spelled it and wherever
+// it came from (the request, a redirect's Location, a page): the host
+// lowercase, an internationalized one in its ASCII form, the scheme's
+// default port dropped, the query percent-encoded. SNI, the connection
+// pool, Host and :authority, cookies, Origin and Referer all see that form
+// (issues #48, #49, #50, #71). The plan shows the lines over every
+// protocol, HTTP/3 included; the shop, which speaks no HTTP/3, what
+// reaches a server over HTTP/1.1 and HTTP/2.
 func TestURLsGoOutCanonical(t *testing.T) {
 	const (
 		// spelled is a query a page may write; encoded is what browsers
-		// send for it ("'" as written: Not covered in EVIDENCE.md).
+		// send for it.
 		spelled = `a=b c&q="x"<y>'z&u=ü&e=%41`
-		encoded = `a=b%20c&q=%22x%22%3Cy%3E'z&u=%C3%BC&e=%41`
+		encoded = `a=b%20c&q=%22x%22%3Cy%3E%27z&u=%C3%BC&e=%41`
 		idn     = "xn--bcher-kva.shop.test"
 	)
 
@@ -249,6 +252,92 @@ func TestURLsGoOutCanonical(t *testing.T) {
 				t.Errorf("the shop saw\n%s\nwant\n%s", strings.Join(seen, "\n"), strings.Join(want, "\n"))
 			}
 		})
+	}
+}
+
+// The URL standard's path and host parsing at the edges the urls capture
+// does not reach: dot segments at the root and at the end, IPv4 forms past
+// their limits, and the two rules browsers differ on ('|' in a path, an
+// invalid "xn--" label), each as its profile has it, or ErrNotMeasured for a
+// profile without URL rules.
+func TestURLParserEdges(t *testing.T) {
+	plan := func(t *testing.T, p profile.Profile, rawURL string) (string, error) {
+		t.Helper()
+
+		tr, err := mimicry.NewTransport(mimicry.Config{
+			Profile: p,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		pl, err := tr.Plan(request(t, rawURL))
+		if err != nil {
+			return "", err
+		}
+
+		return pseudo(pl.HTTP2, ":authority") + pseudo(pl.HTTP2, ":path"), nil
+	}
+
+	for _, tc := range []struct {
+		url, want string
+	}{
+		{"https://a.test/b/..", "a.test/"},
+		{"https://a.test/b/c/%2E%2e", "a.test/b/"},
+		{"https://a.test/../../b", "a.test/b"},
+		{"https://a.test/b/./", "a.test/b/"},
+		{"https://a.test/b/.?c", "a.test/b/?c"},
+		{"https://1.256/", "1.0.1.0/"},
+		{"https://0x7f.0.0.0x1/", "127.0.0.1/"},
+		{"https://4294967295/", "255.255.255.255/"},
+		{"https://xn--bcher-kva.test/", "xn--bcher-kva.test/"},
+	} {
+		if got, err := plan(t, profiles.ChromeMacOS(), tc.url); err != nil || got != tc.want {
+			t.Errorf("%s: %q, %v; want %q", tc.url, got, err, tc.want)
+		}
+	}
+
+	for _, bad := range []string{
+		"https://4294967296/",
+		"https://1.2.3.4.5/",
+		"https://08.1/",
+		"https://a.08/",
+		"https://1.256.1/",
+	} {
+		if got, err := plan(t, profiles.ChromeMacOS(), bad); err == nil || errors.Is(err, mimicry.ErrNotMeasured) {
+			t.Errorf("%s: %q, %v; want the URL refused", bad, got, err)
+		}
+	}
+
+	for _, tc := range []struct {
+		p         profile.Profile
+		bar, puny string
+	}{
+		{profiles.ChromeMacOS(), "a.test/a%7Cb", "xn--a.test/"},
+		{profiles.FirefoxMacOS(), "a.test/a|b", "refused"},
+		{profiles.SafariMacOS(), "a.test/a|b", "xn--a.test/"},
+		{profiles.Safari26MacOS(), "a.test/a|b", "refused"},
+		{profiles.Chrome155MacOS(), "not measured", "not measured"},
+	} {
+		name := tc.p.Spec().Name
+
+		for _, c := range []struct{ url, want string }{
+			{"https://a.test/a|b", tc.bar},
+			{"https://xn--a.test/", tc.puny},
+		} {
+			got, err := plan(t, tc.p, c.url)
+
+			switch {
+			case errors.Is(err, mimicry.ErrNotMeasured):
+				got = "not measured"
+			case err != nil:
+				got = "refused"
+			}
+
+			if got != c.want {
+				t.Errorf("%s, %s: %q (%v), want %q", name, c.url, got, err, c.want)
+			}
+		}
 	}
 }
 

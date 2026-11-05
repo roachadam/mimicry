@@ -49,17 +49,28 @@ Combinations no browser makes are errors before anything is sent:
 `Transport.RoundTrip` turns the request into a plan (`resolve.go`).
 
 First the URL takes the form a browser's URL parser (the WHATWG URL
-standard) gives it, as do `Request.From`, `Request.Stylesheet`, every
-redirect's `Location` and a WebSocket's URL and page (`url.go`):
+standard, as the `urls` capture measures it) gives it, as do
+`Request.From`, `Request.Stylesheet`, every redirect's `Location` and a
+WebSocket's URL and page (`url.go`):
 
 - the host is lowercased, and a host with non-ASCII characters goes
   through UTS #46 ToASCII (`bücher.de` is `xn--bcher-kva.de`); one that
-  fails is an error before anything is sent;
+  fails is an error before anything is sent. An IPv4 address in any form
+  the standard accepts (`127.1`, `0x7f.1`, `2130706433`) becomes dotted
+  decimal;
 - a port equal to the scheme's default is dropped (`:443` on `https`);
+- the path's `\` is a separator, its `.` and `..` segments (as `%2e` too)
+  are resolved, and it is percent-encoded with the path set (the query
+  set, `?`, `^`, `` ` ``, `{` and `}`), keeping any `%XX` already there;
 - the query is percent-encoded with the query set (control characters,
-  space, `"`, `#`, `<`, `>` and every byte above `~`), keeping any `%XX`
-  already there. A `'` is sent as written: what each browser sends for
-  it is not measured.
+  space, `"`, `#`, `<`, `>` and every byte above `~`), and `'` on http(s)
+  and ws(s), keeping any `%XX` already there.
+
+Where browsers differ, the profile's `urls` says what its browser does:
+Chrome encodes `|` in a path (`pathEncodes`); Firefox and Safari 26
+refuse a host whose `xn--` label is not valid punycode (`checkPunycode`).
+A profile without `urls` returns `ErrNotMeasured` for those two inputs
+([decision 0057](../decisions/0057-url-parsing-measured.md)).
 
 Everything after this sees that form: the dial, SNI, the connection pool
 and its tickets, `Host` and `:authority`, cookies, `Origin` and
@@ -256,7 +267,13 @@ changes what goes out. See `ExampleTransport_Plan` for a full example.
   on a kind other than `Fetch` and `InjectedImage`; a priority measured
   only over HTTP/3 sent over TCP (custom profiles); an `http://` request
   or a redirect hop in a condition no capture showed; Safari's `fetch()`
-  with method OPTIONS.
+  with method OPTIONS; on a profile without `urls` (`chrome-155-macos`,
+  `firefox-158-*`), a `|` in a path or an invalid `xn--` host label.
+- **A lone `%` in a path** cannot be sent: Go's `url.Parse` refuses the
+  URL inside `http.NewRequest`, where browsers send it as written.
+- **A host ending in a dot** keeps the dot in `Host`, as browsers do, but
+  not in SNI, where Chrome and Firefox keep it and Safari sends none
+  ([#88](https://github.com/roachadam/mimicry/issues/88)).
 - **No kind** for `FontFace().load()` or `crossorigin` stylesheets.
 - **`Config.Header`'s `Authorization` and `Cookie`** stop once a redirect
   chain has left their origin, as the Fetch standard says; so does a
@@ -274,4 +291,5 @@ Background: decisions [0005](../decisions/0005-request-kinds-api.md),
 [0030](../decisions/0030-header-placement.md),
 [0032](../decisions/0032-certificate-pinning.md),
 [0034](../decisions/0034-request-plans.md),
-[0046](../decisions/0046-response-decompression.md).
+[0046](../decisions/0046-response-decompression.md),
+[0057](../decisions/0057-url-parsing-measured.md).

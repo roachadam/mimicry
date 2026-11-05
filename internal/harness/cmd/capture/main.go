@@ -15,6 +15,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/netip"
@@ -641,6 +642,33 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		log.Printf("%s: plain HTTP on port %d", b.Name, plainPort)
 	}
 
+	if sc.DefaultPort() {
+		// The page names https://'s default port, which a browser drops
+		// and dials: 443 here hands each connection to the TLS port.
+		// macOS lets a user bind a port below 1024 only on every address;
+		// with addr on loopback, forward turns away every other peer.
+		var only netip.Addr
+
+		dln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", net.JoinHostPort(opts.addr, "443"))
+		if err != nil {
+			if dln, err = (&net.ListenConfig{}).Listen(ctx, "tcp", ":443"); err == nil {
+				only, err = netip.ParseAddr(opts.addr)
+			}
+		}
+
+		if err != nil {
+			_ = ln.Close()
+
+			return nil, fmt.Errorf("scenario %s needs port 443: %w", sc.Name, err)
+		}
+
+		defer func() {
+			_ = dln.Close()
+		}()
+
+		go forward(ctx, dln, ln.Addr().String(), only)
+	}
+
 	serveCtx, stopServer := context.WithCancel(ctx)
 	served, proxied := make(chan struct{}), make(chan struct{})
 
@@ -797,6 +825,51 @@ func listen(ctx context.Context, addr string, udp bool) (net.Listener, net.Packe
 	}
 
 	return nil, nil, errors.New("no port free for both TCP and UDP")
+}
+
+// forward hands every connection ln accepts to a connection of its own to
+// addr, until ln is closed. With only a loopback address, a peer not on
+// loopback is turned away.
+func forward(ctx context.Context, ln net.Listener, addr string, only netip.Addr) {
+	for {
+		in, err := ln.Accept()
+		if err != nil {
+			return
+		}
+
+		if only.IsLoopback() {
+			if peer, err := netip.ParseAddrPort(in.RemoteAddr().String()); err != nil || !peer.Addr().Unmap().IsLoopback() {
+				_ = in.Close()
+
+				continue
+			}
+		}
+
+		go func() {
+			defer func() {
+				_ = in.Close()
+			}()
+
+			out, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+			if err != nil {
+				return
+			}
+
+			defer func() {
+				_ = out.Close()
+			}()
+
+			go func() {
+				_, _ = io.Copy(out, in)
+
+				if tc, ok := out.(*net.TCPConn); ok {
+					_ = tc.CloseWrite()
+				}
+			}()
+
+			_, _ = io.Copy(in, out)
+		}()
+	}
 }
 
 // await returns the first complete capture from browser b, skipping other

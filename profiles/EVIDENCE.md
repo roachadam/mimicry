@@ -40,9 +40,10 @@ and `safari-26-ios` with their 2026-11-01 captures (0051),
 `firefox-158-windows` with its 2026-11-01 captures, `chrome-157-ios`
 with its 2026-11-01 captures (0053), `firefox-159-ios` with its
 2026-11-03 captures (0053, amended), `firefox-159-macos` and
-`firefox-159-windows` with their 2026-11-03 quick refreshes, and the client
-hints rows with the 2026-11-04 `client-hints` captures (0055). The "Not
-covered" list was rechecked against the code on 2026-10-29.
+`firefox-159-windows` with their 2026-11-03 quick refreshes, the client
+hints rows with the 2026-11-04 `client-hints` captures (0055), and the URL
+rows with the 2026-11-04 `urls` captures (0057). The "Not covered" list
+was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
 
@@ -692,6 +693,31 @@ silently.
 | `clientHints.fullVersion` and `clientHints.machine` (but `downlink`) | W (every value of every hint sent, all samples) | Values: macOS `"27.0.1"`, `"arm"`, DPR 2, 1200 × 953; Windows `"10.0.0"`, `"x86"`, DPR 1, 1249 × 1285; both `"64"`, `""`, `?0`, `"Desktop"`, 32 GiB, `dark`, `no-preference`, `4g`. Captured on one display: with a DPR-1 display beside the Mac's, Chrome's navigations said DPR 2 and its subresources 1 |
 | `rtt` in steps of 50 ms; `downlink` in steps of 0.05 Mbps within 10% of `clientHints.machine.downlink` | W (rtt 0–100 and downlink 1.45–1.75 on both machines, fixed per host within a sample, different for a host's navigations and its subresources) | `downlink`'s centre is derived; the noise and rounding follow Chrome's (see "Not covered") |
 
+## URLs
+
+`urls` ([decision 0057](../docs/decisions/0057-url-parsing-measured.md)),
+derived by kindsgen from the `urls` captures (2026-11-04, 3 samples each,
+all identical within a browser): Chrome 156 and Firefox 159 on macOS and
+Windows, Safari 27 and Safari 26 on macOS: **W**. `safari-27-ios`,
+`chrome-157-ios` and `firefox-159-ios` inherit Safari 27's, `safari-26-ios`
+Safari 26's: **I**. `chrome-155-macos`, `firefox-158-macos` and
+`firefox-158-windows` have none (see "Not covered"). The page has each
+browser fetch and navigate to (an iframe) 43 URLs; Windows matched macOS
+on all of them. kindsgen refuses samples that disagree, a fetch and a
+navigation that differ, and a character every other browser encodes sent
+as written. `TestURLsMatchBrowser` sends each URL through mimicry and
+compares the request target, `Host` or `:authority` and SNI with every
+sample's fetch and navigation.
+
+| Claim | Evidence | Notes |
+|---|---|---|
+| Query: the URL standard's query set (space, `"`, `<`, `>`, controls, non-ASCII), and `'` for http(s) and ws(s); `` ` ``, `{`, `}`, `\|`, `\`, `^` and a lone `%` as written; `%XX` kept | W (`q-*`, every browser) | `'` was "Not covered" before: every browser sends `%27` |
+| Path: the query set and `?`, `^`, `` ` ``, `{`, `}` encoded; `'` as written; `\` a separator; `.` and `..` segments, as `%2e` too, resolved | W (`p-*`, `p-dots`, `p-pctdots`, every browser) | Go's own encoding sent `\` as `%5C` and kept dot segments |
+| `urls.pathEncodes`: `\|` in a path encoded (`%7C`) by Chrome; sent as written by Firefox and Safari | W (`p-bar`) | The request target, Referer, WebSocket URL and cookie paths use mimicry's form, not Go's `EscapedPath` (`internal/weburl`) |
+| Hosts: lowercase; non-ASCII through UTS #46 ToASCII; an explicit default port, `:0443` too, dropped; IPv4 in short, hex, octal, integer and trailing-dot forms as dotted decimal | W (`h-upper`, `h-idn`, `h-port443`, `h-port0`, `ip-*`, every browser) | `ip-*` from a plain `http://` page: Safari blocks even loopback `http://` from an `https://` page |
+| `urls.checkPunycode`: an ASCII host's `xn--` label that is not valid punycode refused by Firefox and Safari 26, sent as written by Chrome and Safari 27 | W (`h-badpuny`) | A valid `xn--` label goes out as written in every browser |
+| A host ending in a dot keeps it in `Host` and `:authority` | W (`h-dot`, `h-dotpool`; Safari's requests, the others' pooled ones) | SNI differs: see "Not covered" |
+
 ## CORS preflights
 
 `kinds.preflight` and `context.preflightCache` ([decision 0017](../docs/decisions/0017-cors-preflights.md)),
@@ -1140,7 +1166,10 @@ A difference closed is removed here, with its pinned gap entry.
 - **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API.
 - **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
 - **Pages below `/`** (all): the full-path `Referer` follows the standard, not a capture; detection medium if wrong; a deep kinds page.
-- **`'` in a query** (all): sent as written; the WHATWG URL standard encodes it (`%27`) for special schemes, and browsers have differed; no capture shows what each profile's browser sends; detection low; a query with `'` on the kinds page.
+- **A lone `%` in a path** (all): browsers send it as written (`urls`, `p-lonepct`); Go's `url.Parse` refuses the URL, so `http.NewRequest` fails before mimicry sees it; detection none (mimicry sends nothing); a request API taking the raw target (`urlsKnown`).
+- **SNI of a host ending in a dot** (all): Chrome and Firefox send the name with its dot, Safari sends no SNI; mimicry's uTLS strips the dot; Chrome and Firefox also pool `host.` onto `host`'s connection in one of fetch and navigation; detection low (hosts typed with a dot); a uTLS fork option and a profile field ([#88](https://github.com/roachadam/mimicry/issues/88), `urlsKnown`).
+- **URL rules without a `urls` capture** (`chrome-155-macos`, `firefox-158-macos`, `firefox-158-windows`): no `urls`; inheriting is only from older versions, and these browsers can no longer be installed; a `\|` in a path or an invalid `xn--` label is `ErrNotMeasured`, every other URL as the browsers measured agree; detection none.
+- **IPv6 literals** (all): kept as written; the URL standard compresses them (`[0:0::1]` is `[::1]`); not captured (the capture server listens on IPv4 only); detection low; a `::1` listener and `ip6-*` cases.
 - **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
 - **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
@@ -1261,7 +1290,8 @@ preflights, redirects, connection sharing),
 `TestConnectionsMatchBrowser` (the per-host HTTP/1.1 cap and coalescing,
 with `Config.DisableCoalescing` and without),
 `TestBodilessMatchesBrowser` (POST, PUT and PATCH without a body, over
-HTTP/2 and HTTP/3) and
+HTTP/2 and HTTP/3), `TestURLsMatchBrowser` (the urls page's URLs: request
+target, `Host` or `:authority` and SNI) and
 `TestHPACKReproducesBrowserBlocks`.
 
 The page replays of the kinds, headers-order, cors, cors-edge, redirects2,
@@ -1270,7 +1300,9 @@ just before sending it and check the plan against what the server
 received (`checkPlans`).
 
 Outside the e2e suite: the resolver's rules by unit tests in the root's
-`request_test.go`, `mimicry_test.go` and `preflight_test.go`; the pool's by
+`request_test.go`, `mimicry_test.go` and `preflight_test.go`; the URL
+parser's edges (dot segments at the root, IPv4 past its limits, each
+profile's `urls` rules) by `TestURLParserEdges` (`url_test.go`); the pool's by
 `internal/pool`'s, with fake connections and a fake clock;
 `Config.MaxConnsPerHost` by `internal/engine/native`'s `TestMaxConnsPerHost`,
 with fake servers. Header placement by `TestHeaderPlacement`

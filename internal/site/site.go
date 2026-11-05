@@ -150,3 +150,12 @@ func ASCII(domain string) (string, error) {
 
 	return strings.ToLower(domain), nil
 }
+
+// CheckLabels runs domain, ASCII, through UTS #46 ToASCII as a non-ASCII
+// one is, for its error: an "xn--" label that is not valid punycode fails
+// it, as Firefox refuses such a host (profile.URLs.CheckPunycode).
+func CheckLabels(domain string) error {
+	_, err := toASCII.ToASCII(domain)
+
+	return err
+}

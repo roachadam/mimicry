@@ -24,6 +24,7 @@ linters:
             - ${config-path}/internal/quic/quicwire/*.go
             - ${config-path}/internal/quic/testcert/*.go
             - ${config-path}/internal/testutil/*.go
+            - ${config-path}/internal/weburl/*.go
             - ${config-path}/internal/zdeflate/*.go
             - "!$test"
           list-mode: strict
@@ -36,8 +37,9 @@ linters:
           deny:
             - pkg: github.com/roachadam/mimicry/internal/testutil
               desc: test helpers; import them from _test.go files only
-        # profile: the standard library, and internal/checked, through which
-        # the root package reads the Spec a Profile holds.
+        # profile: the standard library; internal/checked, through which
+        # the root package reads the Spec a Profile holds; internal/weburl,
+        # whose path set urls.pathEncodes extends.
         profile:
           files:
             - ${config-path}/profile/*.go
@@ -46,6 +48,7 @@ linters:
           allow:
             - $gostd
             - github.com/roachadam/mimicry/internal/checked$
+            - github.com/roachadam/mimicry/internal/weburl$
         profiles:
           files:
             - ${config-path}/profiles/*.go
@@ -128,6 +131,7 @@ linters:
           allow:
             - $gostd
             - github.com/roachadam/mimicry/internal/headerorder$
+            - github.com/roachadam/mimicry/internal/weburl$
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net/http/httpguts
         internal/h2:
@@ -140,6 +144,7 @@ linters:
             - github.com/jonboulle/clockwork
             - github.com/roachadam/mimicry/internal/headerorder$
             - github.com/roachadam/mimicry/internal/hpack$
+            - github.com/roachadam/mimicry/internal/weburl$
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net
         internal/h3:
@@ -154,6 +159,7 @@ linters:
             - github.com/roachadam/mimicry/internal/qpack$
             - github.com/roachadam/mimicry/internal/quic$
             - github.com/roachadam/mimicry/internal/quic/quicwire$
+            - github.com/roachadam/mimicry/internal/weburl$
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net/http/httpguts
         internal/handshake:
