@@ -39,6 +39,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"runtime"
 	"slices"
@@ -60,6 +61,27 @@ import (
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/profile"
 )
+
+// checkLocalAddrs checks Config.LocalAddrs: host addresses, at most one per
+// family.
+func checkLocalAddrs(addrs []netip.Addr) error {
+	var v4, v6 bool
+
+	for _, a := range addrs {
+		a = a.Unmap()
+
+		switch {
+		case !a.IsValid() || a.IsUnspecified() || a.IsMulticast():
+			return fmt.Errorf("mimicry: Config.LocalAddrs: %v is no address of this host's to send from", a)
+		case a.Is6() && v6, a.Is4() && v4:
+			return fmt.Errorf("mimicry: Config.LocalAddrs: two addresses of %v's family; give at most one IPv4 and one IPv6", a)
+		}
+
+		v4, v6 = v4 || a.Is4(), v6 || a.Is6()
+	}
+
+	return nil
+}
 
 // engine sends requests: the pure-Go engine, or a test's fake.
 type engine interface {
@@ -89,7 +111,18 @@ type Config struct {
 	Timeout time.Duration
 	// DialContext opens TCP connections, to the proxy if there is one, as
 	// in http.Transport. TLS stays the browser's. Nil uses net.Dialer.
+	// HTTP/3's UDP sockets never go through it: bind them with LocalAddrs.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
+	// LocalAddrs are the local addresses mimicry's connections leave from,
+	// at most one IPv4 and one IPv6: TCP (unless DialContext opens it),
+	// HTTP/3's UDP sockets and SOCKS5 UDP relays, so a multi-address host
+	// sends one identity's TCP and QUIC from the same address, as a
+	// browser does. A server only reachable over a family with none is an
+	// error. With both, IPv6 and IPv4 race as without LocalAddrs (Happy
+	// Eyeballs), each from its own address. Nil, the default, leaves the
+	// choice to the system. NewTransport rejects two of one
+	// family, or an address that is not a host's (unspecified, multicast).
+	LocalAddrs []netip.Addr
 	// Resolver looks up host names. Nil uses net.DefaultResolver. Set it
 	// alongside DialContext when DialContext sends hosts to addresses DNS
 	// does not give, so connection sharing between hosts stays correct.
@@ -154,7 +187,8 @@ type Config struct {
 
 	// DisableHTTP3 keeps every request on TCP. By default a request moves
 	// to HTTP/3 when the browser would, falling back to TCP if QUIC fails.
-	// Note that QUIC ignores DialContext. See docs/concepts/http3.md.
+	// Note that QUIC ignores DialContext (LocalAddrs binds it). See
+	// docs/concepts/http3.md.
 	DisableHTTP3 bool
 	// AltSvc stores the HTTP/3 servers have advertised, shared by every
 	// Transport given the same cache, like a browser's tabs. Save and load
@@ -324,6 +358,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 		return nil, err
 	}
 
+	if err := checkLocalAddrs(cfg.LocalAddrs); err != nil {
+		return nil, err
+	}
+
 	t := &Transport{
 		engine:           cfg.engine,
 		profile:          p,
@@ -361,6 +399,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			RootCAs:             cfg.RootCAs,
 			DialTimeout:         cfg.DialTimeout,
 			DialContext:         cfg.DialContext,
+			LocalAddrs:          slices.Clone(cfg.LocalAddrs),
 			Resolver:            cfg.Resolver,
 			Proxy:               cfg.Proxy,
 			DisableHTTP3:        cfg.DisableHTTP3,

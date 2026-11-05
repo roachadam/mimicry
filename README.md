@@ -106,7 +106,7 @@ mimicry sends what a browser sends around your requests (redirects, CORS preflig
 - No Linux, iPad or Android profiles yet. Windows profiles are from Windows 10 x64.
 - The TCP/IP fingerprint is your machine's (or your proxy's), not the browser's.
 - One `Transport` acts as one browser tab: give parallel tasks and different sites one each. They can share a cookie jar.
-- HTTP/3 ignores `Config.DialContext`. Proxied requests use HTTP/1.1 or HTTP/2, as in browsers. `https://` proxies aren't supported.
+- HTTP/3 ignores `Config.DialContext`; bind it with `Config.LocalAddrs`, which sets the local address of TCP and HTTP/3 alike. Proxied requests use HTTP/1.1 or HTTP/2, as in browsers. `https://` proxies aren't supported.
 - Headers you set are sent as set, even ones a page couldn't set, which can make a request look less like the browser's.
 
 ## Performance

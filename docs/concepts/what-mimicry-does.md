@@ -240,7 +240,8 @@ connection. `Config.Resolver` answers the lookup.
 only after that origin sends an `Alt-Svc: h3` header. Each browser then
 switches its own way: Chrome from the next request, Firefox at once in the
 background, Safari on the next new connection. HTTP/3 traffic goes straight
-over UDP and ignores `Config.DialContext`. See [HTTP/3](http3.md).
+over UDP and ignores `Config.DialContext`; `Config.LocalAddrs` binds it to
+the address TCP leaves from. See [HTTP/3](http3.md).
 
 **Why.** A browser that has seen `Alt-Svc` moves to HTTP/3, and a CDN sees
 which protocol its visitors use.
