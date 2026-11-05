@@ -17,7 +17,7 @@ import (
 // TestURLsMatchBrowser fails once one matches every sample, so the entry
 // goes.
 var urlsKnown = map[string]string{
-	"p-lonepct": "Go's url.Parse refuses a path with a lone %, so http.NewRequest fails before mimicry sees the URL; browsers send it as written",
+	"p-lonepct": "Go's url.Parse refuses a path with a lone %, so http.NewRequest fails before mimicry sees the URL (URL.Opaque sends it); browsers send it as written",
 	"h-dot":     "SNI of a host ending in a dot: Chrome and Firefox keep the dot, Safari sends none, mimicry's uTLS strips it (issue #88)",
 	"h-dotpool": "as h-dot, and browsers pool www.urls.test. onto www.urls.test's connection in one of fetch() and navigation (issue #88)",
 }

@@ -61,9 +61,14 @@ func PercentEncode(s string, in func(byte) bool) string {
 	return b.String()
 }
 
-// Path is u's path as sent: RawPath when set (mimicry's canonical form
-// sets it to what the browser sends), else Go's EscapedPath; "/" for none.
+// Path is u's path as sent: with Opaque, the caller's own (OpaquePath);
+// else RawPath when set (mimicry's canonical form sets it to what the
+// browser sends), else Go's EscapedPath; "/" for none.
 func Path(u *url.URL) string {
+	if u.Opaque != "" {
+		return OpaquePath(u.Opaque)
+	}
+
 	p := u.RawPath
 	if p == "" {
 		p = u.EscapedPath()
@@ -76,12 +81,24 @@ func Path(u *url.URL) string {
 	return p
 }
 
-// RequestURI is u's request target in origin form: Path, then the query.
-func RequestURI(u *url.URL) string {
-	if u.Opaque != "" {
-		return u.RequestURI()
+// OpaquePath is the path an http(s) URL's Opaque names, as net/http and
+// x/net/http2 read it: "/raw/path" itself, "//host/raw/path" without its
+// authority ("/" for none).
+func OpaquePath(opaque string) string {
+	rest, ok := strings.CutPrefix(opaque, "//")
+	if !ok {
+		return opaque
 	}
 
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		return rest[i:]
+	}
+
+	return "/"
+}
+
+// RequestURI is u's request target in origin form: Path, then the query.
+func RequestURI(u *url.URL) string {
 	if u.ForceQuery || u.RawQuery != "" {
 		return Path(u) + "?" + u.RawQuery
 	}
@@ -91,15 +108,15 @@ func RequestURI(u *url.URL) string {
 
 // String is u.String() with its path as Path has it.
 func String(u *url.URL) string {
-	if u.RawPath == "" || u.Opaque != "" {
+	if u.RawPath == "" && u.Opaque == "" {
 		return u.String()
 	}
 
 	c := *u
 
-	c.Path, c.RawPath, c.RawQuery, c.ForceQuery, c.Fragment, c.RawFragment = "", "", "", false, "", ""
+	c.Opaque, c.Path, c.RawPath, c.RawQuery, c.ForceQuery, c.Fragment, c.RawFragment = "", "", "", "", false, "", ""
 
-	s := c.String() + u.RawPath
+	s := c.String() + Path(u)
 	if u.ForceQuery || u.RawQuery != "" {
 		s += "?" + u.RawQuery
 	}

@@ -59,6 +59,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithCertificatePinning`, `WithCertificatePinner` | `Config.Pins` (same `sha256/<base64>` format); `Config.VerifyConnection` for your own check |
 | `WithForceHttp1()` | none |
 | `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can pick the address family) |
+| a raw path through fhttp's `req.URL.Opaque` | the same: `req.URL.Opaque` goes out as written, path and query; every other URL takes the browser's form (lowercase host, `'` as `%27`, dot segments resolved) |
 | `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` to preview a request; otherwise wrap the `http.RoundTripper` |
 | `CloseIdleConnections()` | `client.CloseIdleConnections()`; `Config.IdleConnTimeout` |
 | a new client per proxy | `Config.MaxIdleProxies` |

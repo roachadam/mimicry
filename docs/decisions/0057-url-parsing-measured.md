@@ -65,6 +65,15 @@ hosts #69 did not touch (a malformed punycode label, short IPv4 forms).
   version's. `chrome-155-macos` and `firefox-158-*` have none: inheriting
   is only from an older version, and those browsers can no longer be
   installed.
+- `req.URL.Opaque` is the way to send a request target as written,
+  path and query untouched (the host still canonical), in Go's two forms
+  (`"/raw"`, `"//host/raw"`), `Exact` or not. Normalising is the default,
+  as the browser's; a security test needs targets no browser sends
+  (`/../`, `\`, invalid escapes). It is the idiom `net/http`, tls-client
+  and azuretls (both on fhttp) already have; curl's equivalents are
+  `--path-as-is` and `--request-target`. A `Request.RawTarget` field was
+  rejected as a second spelling of it, and `Exact` covering the URL as
+  making browser headers with a raw path impossible.
 
 ## Evidence
 
@@ -84,8 +93,10 @@ dot in `Host` everywhere; its SNI keeps it in Chrome and Firefox
 
 - Callers' URLs go out as a browser sends them in every case measured but
   two, pinned in `urlsKnown` (`TestURLsMatchBrowser`): a lone `%` in a
-  path, which Go's `url.Parse` refuses inside `http.NewRequest`, and
-  trailing-dot SNI (#88).
+  path, which Go's `url.Parse` refuses inside `http.NewRequest` (send it
+  with `URL.Opaque`), and trailing-dot SNI (#88).
+- `TestOpaqueTargetGoesOutAsWritten` keeps `URL.Opaque` raw over every
+  protocol.
 - `TestURLsMatchBrowser` fails when a case starts matching, so a pin
   cannot outlive its cause.
 - A profile without `urls` errors on two inputs it could not know; the

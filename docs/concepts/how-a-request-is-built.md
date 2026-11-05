@@ -72,6 +72,14 @@ refuse a host whose `xn--` label is not valid punycode (`checkPunycode`).
 A profile without `urls` returns `ErrNotMeasured` for those two inputs
 ([decision 0057](../decisions/0057-url-parsing-measured.md)).
 
+To send a request target exactly as written, as a security test may
+(`/../`, `\`, an invalid escape, a raw `'`), set `req.URL.Opaque`, as
+with `net/http`: `"/raw/path"`, or `"//host/raw/path"`, whose host part
+is dropped. Its path and `RawQuery` go out untouched over HTTP/1.1, HTTP/2
+and HTTP/3, `Exact` or not; only the host is still made canonical, since
+it picks the dial, SNI and connection pool. A browser never sends such a
+target, so it is a deviation the caller asks for.
+
 Everything after this sees that form: the dial, SNI, the connection pool
 and its tickets, `Host` and `:authority`, cookies, `Origin` and
 `Referer`. Your `req` is left as it is; `resp.Request.URL` is the URL
@@ -269,8 +277,9 @@ changes what goes out. See `ExampleTransport_Plan` for a full example.
   or a redirect hop in a condition no capture showed; Safari's `fetch()`
   with method OPTIONS; on a profile without `urls` (`chrome-155-macos`,
   `firefox-158-*`), a `|` in a path or an invalid `xn--` host label.
-- **A lone `%` in a path** cannot be sent: Go's `url.Parse` refuses the
-  URL inside `http.NewRequest`, where browsers send it as written.
+- **A lone `%` in a path** cannot be written in a URL: Go's `url.Parse`
+  refuses it inside `http.NewRequest`, where browsers send it as written.
+  Send it with `req.URL.Opaque` (above).
 - **A host ending in a dot** keeps the dot in `Host`, as browsers do, but
   not in SNI, where Chrome and Firefox keep it and Safari sends none
   ([#88](https://github.com/roachadam/mimicry/issues/88)).

@@ -41,9 +41,11 @@ func canonicalRequest(req *http.Request, p *profile.Spec) (*http.Request, error)
 // address in any of its forms dotted decimal; no port when it is the
 // scheme's default; the path's dot segments resolved and its characters
 // percent-encoded (canonicalPath); the query percent-encoded
-// (canonicalQuery). It returns u itself, nil included, when that changes
-// nothing; an error for a host the parser refuses, and ErrNotMeasured for
-// a URL where browsers differ when p has no URLs.
+// (canonicalQuery). A URL with Opaque set keeps its request target, path
+// and query, exactly as the caller wrote it (weburl.OpaquePath): only its
+// host is made canonical. It returns u itself, nil included, when that
+// changes nothing; an error for a host the parser refuses, and
+// ErrNotMeasured for a URL where browsers differ when p has no URLs.
 func canonicalURL(u *url.URL, p *profile.Spec) (*url.URL, error) {
 	if u == nil || u.Host == "" {
 		return u, nil
@@ -55,7 +57,11 @@ func canonicalURL(u *url.URL, p *profile.Spec) (*url.URL, error) {
 	}
 
 	special := defaultPort(u.Scheme) != 0
-	query := canonicalQuery(u.RawQuery, special)
+
+	query := u.RawQuery
+	if u.Opaque == "" {
+		query = canonicalQuery(query, special)
+	}
 
 	raw := ""
 	if u.Opaque == "" && (u.RawPath != "" || u.Path != "") {

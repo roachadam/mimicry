@@ -341,6 +341,54 @@ func TestURLParserEdges(t *testing.T) {
 	}
 }
 
+// A request whose URL.Opaque is set sends that target as written, path
+// and query, over every protocol, Exact or not, in both of Go's forms
+// ("/raw" and "//host/raw"): what a browser would never send (dot
+// segments, '\', an invalid escape, "'") is the caller's to send. Only the
+// host is made canonical, since it picks the dial, SNI and pool.
+func TestOpaqueTargetGoesOutAsWritten(t *testing.T) {
+	tr, err := mimicry.NewTransport(mimicry.Config{
+		Profile: profiles.ChromeMacOS(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const want = `/a/../b\c|%zz?q='z<`
+
+	for _, opaque := range []string{`/a/../b\c|%zz`, `//WWW.Shop.TEST/a/../b\c|%zz`} {
+		for _, exact := range []bool{false, true} {
+			req := request(t, "https://WWW.Shop.TEST/x")
+
+			req.URL.Opaque, req.URL.RawQuery = opaque, "q='z<"
+
+			if exact {
+				req = mimicry.Exact(req)
+			}
+
+			p, err := tr.Plan(req)
+			if err != nil {
+				t.Fatalf("%s (exact %t): %v", opaque, exact, err)
+			}
+
+			if p.HTTP1.Err != nil || p.HTTP1.RequestLine != "GET "+want+" HTTP/1.1" || pseudo(p.HTTP1, "Host") != "www.shop.test" {
+				t.Errorf("%s (exact %t) over HTTP/1.1: %q, Host %q, %v", opaque, exact, p.HTTP1.RequestLine, pseudo(p.HTTP1, "Host"), p.HTTP1.Err)
+			}
+
+			lines := map[string]mimicry.Lines{"HTTP/2": p.HTTP2}
+			if p.HTTP3 != nil {
+				lines["HTTP/3"] = *p.HTTP3
+			}
+
+			for name, l := range lines {
+				if got := pseudo(l, ":authority") + " " + pseudo(l, ":path"); l.Err != nil || got != "www.shop.test "+want {
+					t.Errorf("%s (exact %t) over %s: %q, %v", opaque, exact, name, got, l.Err)
+				}
+			}
+		}
+	}
+}
+
 // request is a GET of rawURL on t's context.
 func request(t *testing.T, rawURL string) *http.Request {
 	t.Helper()
