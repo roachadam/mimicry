@@ -469,31 +469,53 @@ func (m *machine) putTar(ctx context.Context, files []string) error {
 
 	dst := m.sh(ctx, "mkdir -p "+shellQuote(m.dir)+" && tar -C "+shellQuote(m.dir)+" -xf -")
 
-	pipe, err := src.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	dst.Stdin = pipe
-
-	var srcErr strings.Builder
+	var srcErr, dstOut strings.Builder
 
 	src.Stderr = &srcErr
+	dst.Stdout = &dstOut
+	dst.Stderr = &dstOut
 
-	if err := src.Start(); err != nil {
-		return err
+	packErr, copyErr := pipe(src, dst)
+	if copyErr != nil {
+		return fmt.Errorf("copying to %s: %w: %s", m, copyErr, dstOut.String())
 	}
 
-	if out, err := dst.CombinedOutput(); err != nil {
-		_ = src.Wait()
-		return fmt.Errorf("copying to %s: %w: %s", m, err, out)
-	}
-
-	if err := src.Wait(); err != nil {
-		return fmt.Errorf("packing for %s: %w: %s", m, err, srcErr.String())
+	if packErr != nil {
+		return fmt.Errorf("packing for %s: %w: %s", m, packErr, srcErr.String())
 	}
 
 	return nil
+}
+
+// pipe runs src with its standard output piped into dst's standard input
+// and waits for both, returning each one's error. Only the two commands
+// hold the pipe's ends, so when dst exits early (ssh losing the host),
+// src's next write fails (EPIPE) instead of blocking on a full pipe.
+func pipe(src, dst *exec.Cmd) (srcErr, dstErr error) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		return err, nil
+	}
+
+	src.Stdout = w
+	dst.Stdin = r
+
+	err = src.Start()
+	_ = w.Close()
+
+	if err != nil {
+		_ = r.Close()
+		return err, nil
+	}
+
+	dstErr = dst.Start()
+	_ = r.Close()
+
+	if dstErr == nil {
+		dstErr = dst.Wait()
+	}
+
+	return src.Wait(), dstErr
 }
 
 // fetch copies the directory remote (in m.dir) of a remote host into
@@ -515,29 +537,18 @@ func (m *machine) fetch(ctx context.Context, remote, local string) error {
 	src := m.command(ctx, "tar", "-C", remote, "-cf", "-", ".")
 	dst := exec.CommandContext(ctx, "tar", "-C", local, "-xf", "-") //nolint:gosec // the tool's own staging directory
 
-	pipe, err := src.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	dst.Stdin = pipe
-
 	var srcErr, dstErr strings.Builder
 
 	src.Stderr = &srcErr
 	dst.Stderr = &dstErr
 
-	if err := src.Start(); err != nil {
-		return err
+	packErr, unpackErr := pipe(src, dst)
+	if unpackErr != nil {
+		return fmt.Errorf("unpacking %s from %s: %w: %s", remote, m, unpackErr, dstErr.String())
 	}
 
-	if err := dst.Run(); err != nil {
-		_ = src.Wait()
-		return fmt.Errorf("unpacking %s from %s: %w: %s", remote, m, err, dstErr.String())
-	}
-
-	if err := src.Wait(); err != nil {
-		return fmt.Errorf("packing %s on %s: %w: %s", remote, m, err, srcErr.String())
+	if packErr != nil {
+		return fmt.Errorf("packing %s on %s: %w: %s", remote, m, packErr, srcErr.String())
 	}
 
 	return nil

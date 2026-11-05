@@ -321,20 +321,39 @@ func (c *checker) checkClientHints(p *Spec) {
 	}
 
 	c.checkMachine(path+".machine", &ch.Machine)
+	c.checkPlatformVersion(path+".machine.platformVersion", p.Platform, ch.Machine.PlatformVersion)
+}
 
-	switch linux := p.Platform == "linux"; {
-	case linux && ch.Machine.PlatformVersion != "":
-		c.add(path+".machine.platformVersion", "%q must be empty: Chrome on Linux sends no version", ch.Machine.PlatformVersion)
-	case !linux && ch.Machine.PlatformVersion == "":
-		c.add(path+".machine.platformVersion", "is required off Linux")
+// checkPlatformVersion checks a machine's platformVersion against the
+// platform of the profile it goes with: Chrome on Linux sends none, and
+// every other platform a version.
+func (c *checker) checkPlatformVersion(path, platform, version string) {
+	switch linux := platform == "linux"; {
+	case linux && version != "":
+		c.add(path, "%q must be empty: Chrome on Linux sends no version", version)
+	case !linux && version == "":
+		c.add(path, "is required off Linux")
 	}
 }
 
 // Validate checks m as Config.ClientHints takes it: every field set, in
 // the form Chrome sends. It returns a *ValidationError, or nil.
+// PlatformVersion may be empty or a version here; CheckPlatformVersion
+// checks it against a profile's platform.
 func (m *Machine) Validate() error {
 	c := &checker{}
 	c.checkMachine("machine", m)
+
+	return c.err()
+}
+
+// CheckPlatformVersion checks m.PlatformVersion against platform, the
+// Platform of the profile m goes with: empty on "linux", where Chrome
+// sends no version, and set on every other platform. It returns a
+// *ValidationError at machine.platformVersion, or nil.
+func CheckPlatformVersion(platform string, m *Machine) error {
+	c := &checker{}
+	c.checkPlatformVersion("machine.platformVersion", platform, m.PlatformVersion)
 
 	return c.err()
 }

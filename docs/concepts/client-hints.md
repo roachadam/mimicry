@@ -83,7 +83,10 @@ real machine, so its values agree with each other. Pick one per identity
 and keep it: a machine whose values change between requests, or mix
 several machines, gives a client away. You can also set values of your own
 (`profile.Machine`). `NewTransport` checks only their form, not that they
-are plausible together.
+are plausible together, and that `PlatformVersion` matches the profile's
+platform: empty with a Linux profile (Chrome on Linux sends no version),
+set with any other (`profile.CheckPlatformVersion`; `Machine.Validate`
+checks the form only). A mismatch is a `*profile.ValidationError`.
 
 Two hints depend on the connection:
 

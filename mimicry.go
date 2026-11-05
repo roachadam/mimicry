@@ -386,6 +386,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 				return nil, err
 			}
 
+			if err := profile.CheckPlatformVersion(p.Platform, m); err != nil {
+				return nil, err
+			}
+
 			own := *m
 
 			own.FormFactors = slices.Clone(m.FormFactors)

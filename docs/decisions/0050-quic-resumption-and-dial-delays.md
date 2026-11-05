@@ -148,3 +148,17 @@ mimicry waits for them (an assumption, in EVIDENCE.md's Not covered).
 A capture shows a browser resuming QUIC without 0-RTT, closing on GOAWAY
 with a request open, a fresh dial a Firefox request waits for, or more
 samples that explain the dial delays' outliers.
+
+## Amendment 2026-11-05: held requests decide `requestsAfterConfirmed`
+
+The Decision's "h3gen refuses a held request that left before" no longer
+holds ([0058](0058-linux-profiles.md)). `http3.requestsAfterConfirmed`
+was read from a full handshake's first request, which shows waiting only
+when it happens to be ready within 20 ms. A request held out of 0-RTT is
+ready before the handshake ends, so one that leaves before the handshake
+is confirmed proves the browser does not wait: h3gen now sets the rule
+false then instead of refusing the capture. Chrome's and Firefox's held
+requests left before confirmation in every `h3-early` and `h3-too-early`
+sample (counted for Chrome 155 and 156 on macOS and 157 on Linux, Firefox
+158 and 159 on macOS and 159 on Windows and Linux); Safari's rule stays
+true.

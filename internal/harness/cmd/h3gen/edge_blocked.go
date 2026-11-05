@@ -31,11 +31,19 @@ const (
 // where (before or after its STREAM frame) and with which limit. Any
 // other STREAMS_BLOCKED (unless sampleGaps pins "streamsBlocked.count"), a
 // unidirectional one, or a burst or sample that says otherwise is refused;
-// a sample pinned "streamsBlocked" is left out.
+// a sample pinned "streamsBlocked" is left out of the derivation, and its
+// pin is used only when that sample fails or says otherwise (a pin that
+// no longer differs is stale).
 func (s *edgeSet) streamsBlocked(e *collector) *profile.QUICStreamsBlocked {
-	var out *profile.QUICStreamsBlocked
+	var (
+		out    *profile.QUICStreamsBlocked
+		pinned []*edgePage
+	)
+
 	for _, p := range s.scenario(scenarioStreamsBlocked) {
-		if s.gap(p.at, "streamsBlocked") {
+		if _, ok := sampleGaps[p.at+": streamsBlocked"]; ok {
+			pinned = append(pinned, p)
+
 			continue
 		}
 
@@ -51,6 +59,15 @@ func (s *edgeSet) streamsBlocked(e *collector) *profile.QUICStreamsBlocked {
 		}
 
 		out = got
+	}
+
+	for _, p := range pinned {
+		var pe collector
+
+		got, ok := s.pageStreamsBlocked(p, &pe)
+		if !ok || len(pe.errs) > 0 || out == nil || *got != *out {
+			s.gap(p.at, "streamsBlocked")
+		}
 	}
 
 	return out

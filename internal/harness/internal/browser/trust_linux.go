@@ -53,11 +53,24 @@ func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error
 
 // browserEnv is the environment b runs in on profile directory dir:
 // Chrome's HOME is dir, so its certificate database is the run's own
-// (trustInProfile); nil keeps the tool's.
+// (trustInProfile), and its XAUTHORITY the real home's .Xauthority unless
+// set, so a display that wants its cookie (ssh -X, a desktop session)
+// still lets Chrome in; nil keeps the tool's.
 func browserEnv(b *Browser, dir string) []string {
 	if b.Name != "chrome" {
 		return nil
 	}
 
-	return append(os.Environ(), "HOME="+dir)
+	env := append(os.Environ(), "HOME="+dir)
+
+	if os.Getenv("XAUTHORITY") == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			xauth := filepath.Join(home, ".Xauthority")
+			if _, err := os.Stat(xauth); err == nil {
+				env = append(env, "XAUTHORITY="+xauth)
+			}
+		}
+	}
+
+	return env
 }

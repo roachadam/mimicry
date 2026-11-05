@@ -456,7 +456,7 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 
 	if m.linux && p.needsPort443() && rep.UnprivilegedPortStart > 443 {
 		if m.wsl != "" {
-			p.Manual = append(p.Manual, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443; refresh lowers net.ipv4.ip_unprivileged_port_start from %d to 443 as root in %s before each capture step (it lasts until the WSL VM stops)",
+			p.Manual = append(p.Manual, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443; refresh lowers net.ipv4.ip_unprivileged_port_start from %d to 443 as root in %s before each capture step, whenever it is above 443 (it lasts until the WSL VM stops)",
 				rep.UnprivilegedPortStart, m))
 		} else {
 			p.Problems = append(p.Problems, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443, but a user on %s may bind ports from %d only; there:\n    sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443   # and in /etc/sysctl.d/ to keep it",
@@ -572,14 +572,28 @@ func (r *refreshRun) checkLinux(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
 	}
 
+	if rep.User == "root" {
+		fix := "ssh to " + m.String() + " as a user that is not root"
+		if m.wsl != "" {
+			fix = "pass -wsl-user with a user of the distribution that is not root"
+		}
+
+		p.Problems = append(p.Problems, fmt.Sprintf("the browsers would run as root on %s, which Chrome refuses without --no-sandbox: %s", m, fix))
+	}
+
 	trust := "Chrome trusts the capture CA in an NSS database under its throwaway profile (HOME is that profile for the run)"
 	if p.Browser == "firefox" {
 		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts"
 	}
 
+	changed := "nothing outside the run's directory on " + m.String() + " is changed"
+	if m.wsl != "" {
+		changed = "outside the run's directory on " + m.String() + ", only net.ipv4.ip_unprivileged_port_start may change: lowered to 443 when a scenario needs that port and users may not bind it"
+	}
+
 	p.Manual = append(p.Manual,
 		fmt.Sprintf("%s opens on Xvfb, a virtual display the capture tool starts for the run (unless the session has $DISPLAY): an ordinary windowed browser, never headless, on no screen", p.Browser),
-		fmt.Sprintf("%s; nothing outside the run's directory on %s is changed", trust, m))
+		fmt.Sprintf("%s; %s", trust, changed))
 }
 
 // checkIPhone adds to p what a capture of a browser on the iPhone needs:

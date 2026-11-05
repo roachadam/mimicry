@@ -205,8 +205,23 @@ Windows; never the snap, whose private `/tmp` the tool cannot reach); NSS's
 version 2 (`python3 -m pip install --user --break-system-packages
 'aioquic>=1.0'` as that user: Ubuntu 24.04's `python3-aioquic` is
 0.9.25, too old); and a
-user that is not root, since Chrome refuses root without its sandbox.
-Go is not needed. The preflight checks each of these.
+user that is not root, since Chrome refuses root without its sandbox
+(ssh in as another user, or in WSL pass `-wsl-user`). Go is not needed.
+The preflight finds the browsers, `certutil`, Xvfb (when the session has
+no display, and always in WSL), aioquic (when a planned scenario needs
+it), the user and the lowest port a user may bind (below); the plan
+refuses to run while one is missing. Firefox is whatever `firefox` is on
+`PATH`; the preflight cannot tell Mozilla's build from a snap or a
+distribution's.
+
+A scenario whose pages name https://'s default port (`urls`) needs the
+capture tool, running as that user, to listen on port 443, which Linux
+allows a user only from `net.ipv4.ip_unprivileged_port_start`, 1024 by
+default. On a Linux machine of its own, lower it yourself (`sudo sysctl
+-w net.ipv4.ip_unprivileged_port_start=443`, and in `/etc/sysctl.d/` to
+keep it): the plan refuses otherwise. In WSL, refresh lowers it to 443 as
+root before each capture step that needs it, only if it is higher; it
+lasts until the WSL VM restarts.
 
 The tool cross-compiles for linux/amd64 and runs each step in
 `~/mimicry-capture/refresh-<stamp>/`. `capture` opens the browser on
@@ -215,14 +230,16 @@ display that answers: an ordinary windowed browser, not headless, on no
 screen. Each browser trusts the run's capture CA in its own throwaway
 profile (Chrome's NSS database under a `HOME` that is that profile;
 Firefox's profile database, on pages across hosts), so nothing outside the
-run's directory changes and nothing needs cleaning up.
+run's directory changes but, in WSL, the port setting above, and nothing
+needs cleaning up.
 
 **In WSL on the Windows machine** (`-linux <its alias> -wsl <distribution>
 -wsl-user <user>`), each step runs through `wsl.exe -d <distribution> -u
 <user>` over ssh to that machine, its command line base64-encoded so
 neither PowerShell nor cmd quotes anything in it, and files go in and out
 as tar streams (scp cannot reach a distribution). The distribution lives
-as long as each step; nothing is configured on Windows. WSLg's display is
+as long as each step; nothing is configured on Windows, and in the
+distribution only the port setting. WSLg's display is
 never used: on the PC measured it accepted connections and never answered,
 or its Wayland socket, which Firefox prefers, hung; the tool uses Xvfb
 inside the distribution instead. Linux and Windows runs on one machine

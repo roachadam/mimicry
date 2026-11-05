@@ -136,6 +136,8 @@ func run() error {
 			return fmt.Errorf("-linux and -mini are both %q: the Linux machine and the second Mac are two machines", cfg.mini)
 		case linux && cfg.wsl == "" && cfg.linux == cfg.windows:
 			return fmt.Errorf("-linux and -windows are both %q: name its WSL distribution with -wsl", cfg.linux)
+		case cfg.wslUser != "" && cfg.wsl == "":
+			return fmt.Errorf("-wsl-user %q needs -wsl: on a Linux machine of its own the browsers run as -linux's ssh user", cfg.wslUser)
 		case !wslName.MatchString(cfg.wsl) || !wslName.MatchString(cfg.wslUser):
 			return fmt.Errorf("-wsl %q, -wsl-user %q: letters, digits, '.', '_' and '-' only", cfg.wsl, cfg.wslUser)
 		}

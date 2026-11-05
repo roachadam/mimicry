@@ -898,16 +898,18 @@ var h3Gaps = map[string]string{
 	"firefox-158-macos/h3-discovery HTTP/3 /h3/markup-image2.so field lines": "as its header list",
 	"firefox-159-linux/h3-discovery HTTP/3 /h3/markup-image2.so header list": "as firefox-158-macos's: Firefox 159 on Linux gave the second page's only image u=4, i in 3 of 3 samples (its kind's u=5, i): a layout-driven image priority, pinned in kindsgen's h3PriorityGaps too",
 	"firefox-159-linux/h3-discovery HTTP/3 /h3/markup-image2.so field lines": "as its header list",
-	// Firefox draws its first Initial's packet number from 1 to 1024; one
-	// of 5 Windows draws of 128 or more went in 1 byte, the others (and
-	// macOS's 4) in the 2 RFC 9000's appendix A.2 asks.
-	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2":    "Firefox on Windows sent this first Initial's packet number 242 in 1 byte (the other 4 of 5 draws of 128 or more in 2, as quic.packetNumbers' rule says, macOS's 4 too); mimicry encodes it as the rule says",
-	"firefox-159-macos/rules h3-page.local-roots sample 1 connection 18 (www.h3-a.test): packet numbers: the first Initial's 213 in 1 bytes, not 2":     "as firefox-158-windows's: Firefox 159 on macOS sent this first Initial's packet number 213 in 1 byte, on a side connection of the burst h3gen's sampleGaps pins; mimicry encodes it as quic.packetNumbers' rule says",
-	"firefox-159-windows/rules h3-page sample 2 connection 2 (www.h3-b.test): packet numbers: the first Initial's 133 in 1 bytes, not 2":                "as firefox-158-windows's: Firefox on Windows sent this first Initial's packet number in 1 byte; mimicry encodes it as quic.packetNumbers' rule says",
-	"firefox-159-windows/rules h3-page.local-roots sample 2 connection 20 (www.h3-b.test): packet numbers: the first Initial's 167 in 1 bytes, not 2":   "as sample 2 connection 2 of h3-page, on a side connection of the burst h3gen's sampleGaps pins",
-	"firefox-159-linux/rules h3-discovery.local-roots sample 2 connection 2 (www.h3-a.test): packet numbers: the first Initial's 188 in 1 bytes, not 2": "as firefox-158-windows's: Firefox 159 on Linux sent this first Initial's packet number 188 in 1 byte, on a resumed side connection of the burst h3gen's sampleGaps pins (3 of its 12 draws of 128 or more went in 1 byte, 181, 188 and 209, all on that burst's side connections; the 9 from 280 up in 2); mimicry encodes it as quic.packetNumbers' rule says",
-	"firefox-159-linux/rules h3-page.local-roots sample 2 connection 4 (www.h3-a.test): packet numbers: the first Initial's 181 in 1 bytes, not 2":      "as sample 2 connection 2 of h3-discovery.local-roots, on a side connection of the burst h3gen's sampleGaps pins",
-	"firefox-159-linux/rules h3-page.local-roots sample 2 connection 8 (www.h3-a.test): packet numbers: the first Initial's 209 in 1 bytes, not 2":      "as sample 2 connection 4 of h3-page.local-roots",
+	// Firefox draws its first Initial's packet number from 1 to 1024. Before
+	// anything in a packet number space is acknowledged, neqo sizes the
+	// packet number by pn + 1, not RFC 9000 appendix A.2's doubled range,
+	// so 127 to 254 go in 1 byte: all 28 such first Initials in the Firefox
+	// captures follow it. mimicry encodes A.2's rule until #91 is fixed.
+	"firefox-158-windows/rules h3-page.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: the first Initial's 242 in 1 bytes, not 2":    "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 242 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-macos/rules h3-page.local-roots sample 1 connection 18 (www.h3-a.test): packet numbers: the first Initial's 213 in 1 bytes, not 2":     "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 213 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-windows/rules h3-page sample 2 connection 2 (www.h3-b.test): packet numbers: the first Initial's 133 in 1 bytes, not 2":                "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 133 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-windows/rules h3-page.local-roots sample 2 connection 20 (www.h3-b.test): packet numbers: the first Initial's 167 in 1 bytes, not 2":   "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 167 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-linux/rules h3-discovery.local-roots sample 2 connection 2 (www.h3-a.test): packet numbers: the first Initial's 188 in 1 bytes, not 2": "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 188 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-linux/rules h3-page.local-roots sample 2 connection 4 (www.h3-a.test): packet numbers: the first Initial's 181 in 1 bytes, not 2":      "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 181 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
+	"firefox-159-linux/rules h3-page.local-roots sample 2 connection 8 (www.h3-a.test): packet numbers: the first Initial's 209 in 1 bytes, not 2":      "neqo sizes a first Initial's packet number by pn + 1 before anything is acknowledged (#91): 209 in 1 byte, as all 28 such Initials in the Firefox captures; mimicry encodes RFC 9000 A.2's 2 until #91 is fixed",
 	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway": "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
 	"firefox-159-ios/rules h3-page sample 1 connection 1 (www.h3-a.test): padding: datagram 3 carries an Initial packet in 1038 bytes, not 1200": "the iPhone's Initial probe (iosProbes): the server's first flight reached Firefox over Wi-Fi too late, so 35 ms in it resent its ClientHello as a 1038-byte unpadded datagram and a 1200-byte one; every other Initial of its h3-discovery and h3-page samples is 1200 bytes (h3gen's sampleGaps pins the same datagram)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.
@@ -1840,7 +1842,15 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 				t.Fatal("the profile has no http3 section")
 			}
 
+			// Every pin under a source this profile reads must apply to a
+			// connection, so a stale one fails.
+			sources, used := map[string]bool{}, map[string]bool{}
+
 			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
+				source := capture.Source(p, sc.Name)
+
+				sources[source] = true
+
 				for _, cond := range []string{"", ".local-roots"} {
 					// As captured: the encoded bytes are compared.
 					path, _, _ := capturePath(t, p, sc.Name, cond+".pagetrace.json.gz")
@@ -1860,11 +1870,24 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 							}
 
 							at := fmt.Sprintf("%s%s sample %d connection %d", sc.Name, cond, i+1, j+1)
+							key := source + "/" + at
+
+							if _, ok := qpackRepeatedCapacity[key]; ok {
+								used[key] = true
+							}
+
 							t.Run(at, func(t *testing.T) {
-								reencode(t, p.HTTP3, sc, c, qpackRepeatedCapacity[name+"/"+at])
+								reencode(t, p.HTTP3, sc, c, qpackRepeatedCapacity[key])
 							})
 						}
 					}
+				}
+			}
+
+			for key := range qpackRepeatedCapacity {
+				source, _, _ := strings.Cut(key, "/")
+				if sources[source] && !used[key] {
+					t.Errorf("qpackRepeatedCapacity pins %q, which matches no connection: remove or fix the pin", key)
 				}
 			}
 		})
@@ -1874,7 +1897,8 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 // qpackRepeatedCapacity pins connections whose encoder stream repeats a
 // Set Dynamic Table Capacity the browser had already sent: on a resumed
 // connection it fills the table in 0-RTT from the SETTINGS it remembers,
-// then sets the same capacity again once the server's arrive. mimicry
+// then sets the same capacity again once the server's arrive. Keys are
+// the capture's source profile (capture.Source), as the other gap maps'. mimicry
 // keeps no remembered SETTINGS (Not covered, profiles/EVIDENCE.md), so
 // the repeat is left out of the comparison, and a pin whose connection
 // has none fails.
@@ -1908,14 +1932,22 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 	}
 
 	if repeated != "" {
-		set, n := false, len(want)
+		set, first, n := false, uint64(0), len(want)
 
+		// Only a repeat of the first capacity is dropped; a different
+		// one stays in the comparison.
 		want = slices.DeleteFunc(want, func(in quictrace.EncoderInstruction) bool {
-			again := in.Op == quictrace.OpSetCapacity && set
+			if in.Op != quictrace.OpSetCapacity {
+				return false
+			}
 
-			set = set || in.Op == quictrace.OpSetCapacity
+			if !set {
+				set, first = true, in.Capacity
 
-			return again
+				return false
+			}
+
+			return in.Capacity == first
 		})
 
 		if len(want) == n {

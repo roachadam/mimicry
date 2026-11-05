@@ -259,13 +259,16 @@ Linux differs:
   ±10% (kindsgen's `downlinkGaps`).
 - **W, from the edge captures (h3gen):** `tcpDelayMs` 302–303 (macOS
   305–306); `quic.crypto.addedFrames.min` 1 (2).
-- **W, `http3.requestsAfterConfirmed` false, as on macOS:** its full
-  handshakes' first requests read as waiting for the handshake to be
-  confirmed, but the requests held out of 0-RTT left before it in all six
+- **W, `http3.requestsAfterConfirmed` false:** its full handshakes'
+  first requests read as waiting for the handshake to be confirmed, but
+  16 of the 30 requests held out of 0-RTT left before it, in all six
   `h3-early` and `h3-too-early` samples, and h3gen now lets those decide.
+  Chrome 155 and 156 on macOS are false the same way (19 of 31 held
+  requests, six of six samples), where before the rule was not measured.
 - **Pinned as on macOS and Windows:** NEW_TOKEN presented on some
-  reconnections and the server's Initial acknowledged in 3 of 22 full
-  handshakes (macOS 1 of 21; h3gen's `sampleGaps`), the unused preconnect
+  reconnections and the server's Initial acknowledged in 2 of 12 full
+  handshakes and 1 of 10 resumed ones, that one also ACKing before its
+  Finished (macOS 1 of 21 full; h3gen's `sampleGaps`), the unused preconnect
   (`connectionsPreconnects`), the XHR header order (`headersOrderGaps`),
   the error-page reload after hop 19 (`redirectsReload`), the plain-HTTP
   page's link navigation (`proxyPlainGaps`), the client-hints third
@@ -277,10 +280,9 @@ Linux differs:
   connection unused and sent the page on a resumed one, where it filled
   the QPACK table in 0-RTT from the SETTINGS it remembered and set the
   capacity again in 1-RTT (`qpackRepeatedCapacity`; Not covered, below);
-  in h3gen's `sampleGaps`, that unused connection's lack of
-  PRIORITY_UPDATE, one control stream after its Finished's datagram (1 of
-  12), one MAX_STREAM_DATA 2.07% above 3 MiB and the after-raise
-  STREAMS_BLOCKED pair sent twice in one sample.
+  in h3gen's `sampleGaps`, one control stream after its Finished's
+  datagram (1 of 12), one MAX_STREAM_DATA 2.07% above 3 MiB and the
+  after-raise STREAMS_BLOCKED pair sent twice in one sample.
 
 `realcheck` in WSL found no difference between Chrome and
 `chrome-157-linux` on the echo endpoints (tls.peet.ws, browserleaks' TLS
@@ -301,8 +303,10 @@ are macOS Firefox 159's but for the platform. Where Linux differs:
 - **W, from the edge captures (h3gen):** `raceDelayMs` 2–3 (macOS 6),
   `dialDelayMs` 0–6 (not measured on macOS), `resumedDialDelayMs` 0–4
   (0–34), `revalidateMs` 0–3000 (797–3020) and `http3.firstDataFrame`
-  32238 (32224); `quic.loss.resumed.afterMs` 5000, as on macOS, from the
-  4 of 6 `h3-broken` samples without side connections. A first
+  32238 (32224); `quic.loss.resumed.afterMs` 5000, as on macOS, from 3
+  of the 6 `h3-broken` samples: the 2 with side connections ended their
+  resumed attempt silently and sample 2 padded its close to 600 bytes,
+  each pinned (below and under Side connections). A first
   three-sample capture's only closing attempt gave up at 6.1 s, so
   `h3-broken` was captured six times.
 - **Side connections, as on macOS and Windows:** Firefox opened its
@@ -331,7 +335,9 @@ are macOS Firefox 159's but for the platform. Where Linux differs:
   more was read) and one 2.3% above; in two `h3-streams-blocked`
   samples, the second burst's two waiting streams opened in one packet
   behind one STREAMS_BLOCKED; one 0-RTT close padded to 600 bytes, not
-  255 (1 of 10 closes on any platform).
+  255 (1 of 10 closes on any platform); the one resumed connection of 14
+  whose ACK left before its Finished (`h3-discovery` sample 1, QUIC
+  connection 4: `resumedAckBeforeFinished`).
 
 `realcheck` in WSL found no difference between Firefox and
 `firefox-159-linux` on the echo endpoints; browserleaks' HTTP/2 page
@@ -996,14 +1002,14 @@ with a GOAWAY (Firefox), Chrome's transport parameters unshuffled.
 | `quic.packetNumbers` | W: `shared` from 1; 2-byte second Initial PN iff no token (33 of 33) | W: `random_initial` (first Initial PN 2–32, four of 33 at 497–813: neqo's formula, 1–1024); 1-RTT after 0-RTT | W: `per_space` | W: as 27 |
 | `quic.dcidLength`, `dcidLengthRule`, `scidLength`, `newConnectionIds` | W: 8; fixed; 0; 0 | W: 8 with `biased` (23 of 33 at 8, others 10–17, neqo's max(8, 5 + (v & v>>4))); 3; 4 in all 21 completed, retire_prior_to 0, against a server limit of 4 | W: 8; 0; 0 | W: as 27 |
 | `quic.transportParameters`, `transportParameterOrder` | W: 12 parameters + GREASE (0–15 bytes) + `initial_rtt` when resumed; `version_information` 1, then {1, GREASE} shuffled; `shuffled` | W: 14, incl. 0x1d empty and `min_ack_delay` 0xff02de1a = 1000; `version_information` 1, GREASE, v2, 1; `fixed` | W: 8, `max_idle_timeout` 300000; `rotated` (rotations of one cycle in 3 samples: a rotation cannot be told from another permutation). Until midday 2026-10-25 Safari 27 also sent 0xff080808 = 09, last (the first h3-discovery capture, 3 of 3); every connection since leaves it out: the edge captures (33), the h3-discovery recapture (3), and fp.impersonate.pro over HTTP/3 on port 443 (`internal/harness/reports/realcheck-2026-10-25.md`). Same Safari and macOS build throughout: an Apple-side switch, not modelled | W: 8, no idle timeout, 0xff080808 = 07 (still sent, also on the internet: realcheck); `rotated` |
-| `quic.ackInitial`, `ackBeforeFinished`, `coalesce` | W: false (1 of 12 full handshakes ACKed an Initial: pinned); false; true | W: true; true (full handshakes; resumed ones ACK with the Finished); true | W: true; true; false (no datagram holds two packets) | W: as 27 |
+| `quic.ackInitial`, `ackBeforeFinished`, `coalesce` | W: false (1 of 12 full handshakes ACKed an Initial: pinned); false; true | W: true; true (full handshakes; resumed ones ACK with the Finished, but for one on Linux: pinned); true | W: true; true; false (no datagram holds two packets) | W: as 27 |
 | `quic.ackDelay`, `ackDelayConstant` | W: `actual` | W: `actual` | W: `constant`, raw 27–29 in the h3-discovery recapture (one value per connection; the first capture's three were 19–24, so the range is narrower than the browser's) | W: `constant`, 9–27 |
 | `quic.ackOnlyLimit`, `ackOnlyFrame` | W: 19, `MAX_DATA` (every ACK + MAX_DATA packet follows exactly 19 ACK-only packets, no run longer) | W: 0 (runs up to 24, never made ack-eliciting) | W: 0 (no run that long: not measured) | W: as 27 |
 | `quic.spinBit` | W: `zero` | W: `random` (varies within connections) | W: `spin` (0, then 1 against quic-go) | W: as 27 |
 | `quic.tokens`, `zeroRtt`, `closeReply` | W: true (two reconnections after idle without one: pinned); true (9 of 9 resumed sent 0-RTT, and every resumed one of the edge captures); false (no reply to the server's close, 3 of 3) | W: true; true (9 of 9, and the edge captures'); true (CONNECTION_CLOSE NO_ERROR, frame type 0x1d, 3 of 3) | W: false; true (since decision 0050, from the edge captures: 60 of 60 resumed connections sent 0-RTT, 54 on `h3-early`/`h3-too-early` after an idle timeout, 3 after its own 12 s close, 3 after its own close on the server's GOAWAY; their first flights hold to the full handshakes' padding, packet numbers, CRYPTO cut and transport parameters); not measured (the server never closed) | W: as 27 (60 of 60) |
 | `http3.settings`, `greaseSetting`, `greaseFrame` | W: 4 settings; a GREASE setting last (N and value 32-bit); GREASE frame (N 32-bit, 0–3 bytes) | W: 6 settings; none; GREASE frame (any N, 0–7 bytes) | W: 2 settings (table 16383); GREASE setting; none | W: as 27 |
 | `http3.uniStreams`, `streamsWithFinished`, `earlyRequestFirst` | W: control at the handshake, 6 never written (decoder, [INFERENCE]: the only type left), encoder on the first insert; true; false | W: control, encoder, decoder at the handshake; false; true | W: control only; false; — | W: as 27 |
-| `http3.requestsAfterConfirmed` | not measured (no request waited for a full handshake: the first came 300 ms or more after it) | not measured (the first came 47–74 ms after the Finished, from the parser) | W: true: the request waiting for the connection leaves 0.7–2.4 ms after the Finished with the ACK of the server's next 1-RTT packet (pn 3, its HANDSHAKE_DONE), after the control stream (3 of 3); its spin bit 1 | W: as 27 |
+| `http3.requestsAfterConfirmed` | W: false: requests held out of 0-RTT left before the handshake was confirmed (19 of 31, in 6 of 6 `h3-early` and `h3-too-early` samples); no first request of a full handshake waited (the first came 300 ms or more after it) | W: false: held requests left before confirmation (32 of 35, 6 of 6 samples); the first request of a full handshake came 47–74 ms after the Finished, from the parser | W: true: the request waiting for the connection leaves 0.7–2.4 ms after the Finished with the ACK of the server's next 1-RTT packet (pn 3, its HANDSHAKE_DONE), after the control stream (3 of 3); its spin bit 1 | W: as 27 |
 | `http3.closeOnGoaway` (from every QUIC connection the server sent GOAWAY on, `h3-discovery` and `h3-broken`) | W: false (the server closed every one) | W: false (it replied to the server's close) | W: true: an application CONNECTION_CLOSE (0x1d) H3_NO_ERROR 2.2–2.8 ms after the response and GOAWAY, before the server's own close a second later (3 of 3); no request was open on any | W: as 27 (3 of 3) |
 | `http3.earlyStreamsWithRequest` (a connection dialled for a 0-RTT request sends the control stream in its packet) | W: false: the control stream alone first, then the request (18 of 18 on `h3-early`/`h3-too-early`) | — (`earlyRequestFirst`: the request leads the streams in their packet) | W: true: control stream then request in one 0-RTT packet (18 of 18 GET, HEAD, OPTIONS connections); the pair's connection (a POST made with the GET) sent the control stream alone, then the GET (6 of 6: Not covered) | W: as 27 (18 of 18; pair 6 of 6) |
 | `http3.discovery.dialDelayMs`, `resumedDialDelayMs` (every delay, sorted, from the request that waits for it to a fresh or resumed attempt's first datagram, edge pages, a navigation's left out; nil where every delay is within the `?t=` clock's 3 ms; a dial draws one plus up to 1 ms, only with `Config.BrowserDialDelay`: off by default, decision 0050) | W: none: resumed 0–3 ms (50 dials; Chrome 156 51, Windows 0–2 in 34); its fresh dials go beside a request on TCP, none waited for | W: fresh none (its fresh dials are background validations no request waits for); resumed 48 delays, mean 5.1 ms: 11 of 0–3, 36 of 4–9, one 34 (on `h3-too-early` sample 1's first resumed connection); the draw's mean 5.6 | W: fresh 30, 3–10 ms, mean 7.1 (draw 7.6); resumed 51, mean 8.8 (draw 9.3): all but one 5–11, the 22 on `h3-too-early` sample 1's first resumed connection, as Firefox's 34 | W: fresh 27, mean 8.9 (draw 9.4): 23 of 3–10, then 17, 18, 25, 28; resumed 51, mean 8.5 (draw 9.0): all but one 6–11, then 23. Requests on open connections arrive 0–2 ms after they are made (Safari 26 up to 7), so the delay is the dial's; nothing ties the outliers to the slower Mac, so they stay, as rare as measured. Checked by `TestHTTP3EdgeMatchesBrowser` (`checkDialDelays`) and `TestDialDelayAfterReconnect` (the default, the draw) |
@@ -1252,7 +1258,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
 - **Long and slow transfers** (all): key updates past 37,000 packets and credit past 50 MiB not measured; no client key update; detection low; longer captures.
 - **Keep-alive with a short server idle timeout** (all): PINGs at half of it; detection low; a short-idle capture.
-- **`requestsAfterConfirmed`** (Chrome, Firefox): no request waited for a full handshake; detection low; an immediate-request scenario.
+- **`requestsAfterConfirmed` on full handshakes** (Chrome, Firefox): the rule is false from the requests held out of 0-RTT, which leave before the handshake is confirmed; no request waited for a full handshake, so whether one ready during it waits is not captured; detection low; an immediate-request scenario.
 - **Firefox v2 edges** (Firefox): a v2 connection's NEW_TOKEN not passed on; a v2-only server sending `version_information` untested; the resumed hello's SNI cut varies; detection low; more samples.
 - **QUIC stack gaps** (all): the server's `preferred_address` is not used, its `max_udp_payload_size` not acted on; detection low ([UPSTREAM.md](../internal/quic/UPSTREAM.md)).
 - **STREAMS_BLOCKED where not captured** (Chrome 155, Chrome 156 on Windows, Safari 26): no `h3-streams-blocked` capture (`missingCaptures`), and none can inherit another's (decision 0035: from an older version of the same browser and platform only), so `quic.streamsBlocked` is not measured and they send none; only against servers allowing few streams; detection low; the capture on the Windows PC and the macOS 26 Mac.

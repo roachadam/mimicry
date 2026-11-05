@@ -52,19 +52,22 @@ captured without a Linux machine?
   depends on the display.
 - Each browser trusts the capture CA in its throwaway profile: Chrome an
   NSS database under a `HOME` that is that profile, Firefox its profile's
-  database, on pages across hosts. Nothing outside the run changes.
+  database, on pages across hosts. Nothing outside the run changes but,
+  in WSL, the port setting below.
 - The `urls` scenario forwards port 443; Linux lets a user bind it only
-  below `net.ipv4.ip_unprivileged_port_start`, which refresh lowers to 443
-  as root in WSL before each step (the setting dies with the VM), and
-  asks for on a machine of its own.
+  when `net.ipv4.ip_unprivileged_port_start` is 443 or lower, so refresh
+  lowers it to 443 as root in WSL before each step if it is higher (the
+  setting dies with the VM), and asks for it on a machine of its own.
 - An HTTP/1.1 page's capture takes the first connection's ClientHello, as
   a page across hosts already did: Firefox on Linux sometimes asked for
   `/done` on a connection that had resumed another's session.
 - The `h3-v2` scenario needs aioquic 1.0 or later (QUIC version 2);
   Ubuntu 24.04's package is 0.9, so the capture user installs it with pip.
 - `clientHints.machine.platformVersion` is `""` on Linux, as Chrome sends
-  it, and required everywhere else; `Machine.Validate`, which has no
-  platform, accepts both forms.
+  it, and required everywhere else, both in a profile and in
+  `Config.ClientHints`. `Machine.Validate`, which has no platform, accepts
+  both forms; `NewTransport` then refuses a machine whose version does not
+  match the profile's platform (`profile.CheckPlatformVersion`).
 - What the Linux captures taught the generators:
   - `http3.requestsAfterConfirmed` was read from a full handshake's first
     request, which shows waiting only when it happens to be ready within
@@ -75,12 +78,20 @@ captured without a Linux machine?
     handshakes suggested waiting.
   - `http3.streamsWithFinished` and `http3.priorityUpdate` take the
     majority, as the QUIC rules do, so a timing exception can be pinned.
+    A connection that carried no request with a `priority` header (one
+    Chrome opened and never used) measures nothing for `priorityUpdate`
+    and is left out.
   - Chrome's `downlink` estimate can move during a run (`downlinkGaps`).
     Its per-host noise is fixed at 0.90–1.10, yet one host got 1.3 and
     1.75 Mbps in one sample. The profile keeps the centre of the values
-    sent (1.55).
+    sent (1.55); the pin carries the range seen, and kindsgen still
+    refuses a value outside it.
   - A sample, or a give-up attempt, pinned in h3gen's `sampleGaps` is
     left out of the rule, so a pinned odd sample can no longer set it.
+    Its pin is used only when it still differs from what the others
+    give (`quic.loss` give-up: silent while others closed, another
+    close, or outside the window; `quic.streamsBlocked`: failing or
+    disagreeing), so a pin goes stale once its sample stops differing.
 
 ## Evidence
 

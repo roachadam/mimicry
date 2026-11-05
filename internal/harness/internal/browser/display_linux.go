@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -50,37 +51,125 @@ func EnsureDisplay(ctx context.Context) (func(), error) {
 			continue
 		}
 
-		display := ":" + strconv.Itoa(n)
+		stop, err := startXvfb(ctx, xvfb, n)
+		if errors.Is(err, errDisplayTaken) {
+			log.Printf("%v; trying the next display", err)
 
-		// No window manager: none changes what a browser sends.
-		cmd := exec.CommandContext(context.WithoutCancel(ctx), xvfb, display, "-screen", "0", "1920x1080x24", "-nolisten", "tcp") //nolint:gosec // a fixed program found on PATH
-		if err := cmd.Start(); err != nil {
-			return nil, fmt.Errorf("starting Xvfb: %w", err)
+			continue
 		}
 
-		if err := waitForDisplay(ctx, n, 5*time.Second); err != nil {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-
+		if err != nil {
 			return nil, err
 		}
 
+		display := ":" + strconv.Itoa(n)
 		if err := os.Setenv("DISPLAY", display); err != nil {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
+			stop()
 
 			return nil, err
 		}
 
 		log.Printf("no display: browsers open on Xvfb %s", display)
 
-		return func() {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
-		}, nil
+		return stop, nil
 	}
 
 	return nil, errors.New("no free X display for Xvfb (:99 to :119 taken)")
+}
+
+// errDisplayTaken is a display another X server holds: our Xvfb exited
+// (Xvfb exits when another server holds the display's lock file), or the
+// display answers but is not ours.
+var errDisplayTaken = errors.New("another X server holds the display")
+
+// startXvfb starts Xvfb on display n and returns what stops it, once the
+// display accepts connections and is ours: its lock file names our Xvfb,
+// so a display another server holds (a lock without a socket that
+// answers, or one starting at the same time) is never taken for ours
+// (errDisplayTaken). It stops on SIGTERM, which lets it remove its lock
+// file and socket (killed only if it lingers), and gets SIGTERM as well
+// when this process dies first (Pdeathsig, sent when the thread that
+// started it ends: in Go, with the process, unless a goroutine exits
+// locked to that thread).
+func startXvfb(ctx context.Context, xvfb string, n int) (func(), error) {
+	xctx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+
+	// No window manager: none changes what a browser sends. Not
+	// -displayfd, with which Xvfb takes the display without its lock.
+	cmd := exec.CommandContext(xctx, xvfb, ":"+strconv.Itoa(n), "-screen", "0", "1920x1080x24", "-nolisten", "tcp") //nolint:gosec // a fixed program found on PATH
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Pdeathsig: syscall.SIGTERM,
+	}
+	cmd.Cancel = func() error {
+		return cmd.Process.Signal(syscall.SIGTERM)
+	}
+	cmd.WaitDelay = 5 * time.Second
+
+	if err := cmd.Start(); err != nil {
+		cancel()
+
+		return nil, fmt.Errorf("starting Xvfb: %w", err)
+	}
+
+	exited := make(chan struct{})
+
+	go func() {
+		_ = cmd.Wait()
+
+		close(exited)
+	}()
+
+	stop := func() {
+		cancel()
+		<-exited
+	}
+
+	const timeout = 5 * time.Second
+
+	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		select {
+		case <-exited:
+			cancel()
+
+			return nil, fmt.Errorf("display :%d: our Xvfb exited: %w", n, errDisplayTaken)
+
+		case <-ctx.Done():
+			stop()
+
+			return nil, ctx.Err()
+
+		default:
+		}
+
+		if !displayAnswers(ctx, n) {
+			continue
+		}
+
+		if lockPID(n) != cmd.Process.Pid {
+			stop()
+
+			return nil, fmt.Errorf("display :%d answers, but not from our Xvfb: %w", n, errDisplayTaken)
+		}
+
+		return stop, nil
+	}
+
+	stop()
+
+	return nil, fmt.Errorf("display :%d of our Xvfb not ready within %s", n, timeout)
+}
+
+// lockPID is the process holding X display n's lock file, 0 if none.
+func lockPID(n int) int {
+	data, err := os.ReadFile("/tmp/.X" + strconv.Itoa(n) + "-lock")
+	if err != nil {
+		return 0
+	}
+
+	pid, _ := strconv.Atoi(strings.TrimSpace(string(data)))
+
+	return pid
 }
 
 // dialDisplay connects to X display n: its socket file or, where
@@ -110,17 +199,6 @@ func displayAnswers(ctx context.Context, n int) bool {
 	_ = c.Close()
 
 	return true
-}
-
-// waitForDisplay waits for X display n to accept connections.
-func waitForDisplay(ctx context.Context, n int, timeout time.Duration) error {
-	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if displayAnswers(ctx, n) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("no X server on display :%d within %s of starting Xvfb", n, timeout)
 }
 
 // x11Setup is an X11 connection setup request: little-endian, protocol

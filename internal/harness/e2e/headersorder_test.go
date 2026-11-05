@@ -19,21 +19,9 @@ import (
 // XHR's repeated name: kindsgen's headersGaps. Chrome and Firefox on the
 // iPhone have macOS Safari's (decision 0053).
 var headersOrderGaps = map[string][]string{
-	"chrome-155-macos": {
-		"letters-rev.xhr.so", "around-rev.xhr.so",
-		"letters-rev.xhr.cs", "around-rev.xhr.cs",
-		"letters-rev.xhr.h1", "around-rev.xhr.h1",
-	},
-	"chrome-156-windows": {
-		"letters-rev.xhr.so", "around-rev.xhr.so",
-		"letters-rev.xhr.cs", "around-rev.xhr.cs",
-		"letters-rev.xhr.h1", "around-rev.xhr.h1",
-	},
-	"chrome-157-linux": {
-		"letters-rev.xhr.so", "around-rev.xhr.so",
-		"letters-rev.xhr.cs", "around-rev.xhr.cs",
-		"letters-rev.xhr.h1", "around-rev.xhr.h1",
-	},
+	"chrome-155-macos":    chromeHeadersOrderGaps,
+	"chrome-156-windows":  chromeHeadersOrderGaps,
+	"chrome-157-linux":    chromeHeadersOrderGaps,
 	"chrome-157-ios":      safariHeadersOrderGaps,
 	"firefox-159-ios":     safariHeadersOrderGaps,
 	"firefox-158-macos":   firefoxHeadersOrderGaps,
@@ -53,7 +41,14 @@ var safariHeadersOrderGaps = []string{
 	"around-rev.xhr.h1", "case.xhr.h1",
 }
 
-// firefoxHeadersOrderGaps are Firefox's (macOS and Windows alike).
+// chromeHeadersOrderGaps are Chrome's (macOS, Windows and Linux alike).
+var chromeHeadersOrderGaps = []string{
+	"letters-rev.xhr.so", "around-rev.xhr.so",
+	"letters-rev.xhr.cs", "around-rev.xhr.cs",
+	"letters-rev.xhr.h1", "around-rev.xhr.h1",
+}
+
+// firefoxHeadersOrderGaps are Firefox's (macOS, Windows and Linux alike).
 var firefoxHeadersOrderGaps = []string{
 	"pair-ba.xhr.so", "letters-rev.xhr.so", "around-rev.xhr.so", "case.xhr.so",
 	"pair-ba.xhr.cs", "letters-rev.xhr.cs", "around-rev.xhr.cs", "case.xhr.cs",

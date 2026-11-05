@@ -20,12 +20,25 @@ import (
 // hints' order and values from.
 const hintsNavigation = "/h3/next.nav"
 
-// downlinkGaps are, per capture source, why the downlink values sent
-// stray beyond Chrome's noise around one estimate (downlinkInBand): the
-// estimate itself moved during the run. The values must still be Chrome's
-// steps, and a pin no value needs is an error.
-var downlinkGaps = map[string]string{
-	"chrome-157-linux": "1.3 to 1.75 Mbps, and www.ch-a.test got both in sample 2: Chrome's per-host multiplier is fixed (0.9 + (hash % 21) * 0.01, content/browser/client_hints/client_hints.cc), so its network quality estimate rose by 30% or more within the sample; the centre (1.55) is still the profile's estimate",
+// downlinkGaps are, per capture source, the downlink values sent when
+// they stray beyond Chrome's noise around one estimate (downlinkInBand)
+// and why: the estimate itself moved during the run. The values must
+// still be Chrome's steps within the pinned range, and a pin no value
+// needs is an error.
+var downlinkGaps = map[string]downlinkGap{
+	"chrome-157-linux": {
+		lo:  1.3,
+		hi:  1.75,
+		why: "1.3 to 1.75 Mbps, and www.ch-a.test got both in sample 2: Chrome's per-host multiplier is fixed (0.9 + (hash % 21) * 0.01, content/browser/client_hints/client_hints.cc), so its network quality estimate rose by 30% or more within the sample; the centre (1.55) is still the profile's estimate",
+	},
+}
+
+// downlinkGap is the range of downlink values (Mbps) a moving estimate
+// gave, and why.
+type downlinkGap struct {
+	lo  float64
+	hi  float64
+	why string
 }
 
 // hintName reports whether a header name is a client hint: every
@@ -567,7 +580,12 @@ func checkHintValue(p *profile.Spec, name, value string) error {
 			return fmt.Errorf("downlink %q is not a multiple of 0.05 Mbps up to 10", value)
 		}
 
-		if _, moved := downlinkGaps[capture.Source(p, server.ClientHints.Name)]; !moved && !downlinkInBand(p, mbps) {
+		gap, moved := downlinkGaps[capture.Source(p, server.ClientHints.Name)]
+
+		switch {
+		case moved && (mbps < gap.lo-1e-9 || mbps > gap.hi+1e-9):
+			return fmt.Errorf("downlink %q is beyond the pinned %v to %v (%s)", value, gap.lo, gap.hi, gap.why)
+		case !moved && !downlinkInBand(p, mbps):
 			return fmt.Errorf("downlink %q is beyond 10%% of %v", value, p.ClientHints.Machine.Downlink)
 		}
 

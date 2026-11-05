@@ -640,7 +640,9 @@ func huffman(done []*conn, e *collector) profile.HuffmanRule {
 // priorityUpdate: each request with a priority header gets a matching
 // PRIORITY_UPDATE no later than its HEADERS (unless sampleGaps pins
 // "priorityUpdate <path>"), or no connection sends any; a connection that
-// differs from most is pinned ("priorityUpdate").
+// differs from most is pinned ("priorityUpdate"). A connection that sent
+// neither a request with a priority header nor a PRIORITY_UPDATE measures
+// nothing and is left out.
 func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 	var (
 		vs    []bool
@@ -655,8 +657,6 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 			continue
 		}
 
-		conns = append(conns, c)
-
 		updates := map[uint64]quictrace.H3Frame{}
 
 		for _, f := range cs.Frames {
@@ -666,9 +666,17 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 		}
 
 		if len(updates) == 0 {
+			if !slices.ContainsFunc(c.c.H3.Requests, hasPriority) {
+				continue
+			}
+
+			conns = append(conns, c)
 			vs = append(vs, false)
+
 			continue
 		}
+
+		conns = append(conns, c)
 
 		vs = append(vs, true)
 
@@ -701,6 +709,13 @@ func priorityUpdate(s *captureSet, done []*conn, e *collector) bool {
 	}
 
 	return majority(s, vs, conns, "priorityUpdate", e)
+}
+
+// hasPriority reports whether q carried a priority header.
+func hasPriority(q quictrace.H3Request) bool {
+	return slices.ContainsFunc(q.Section.Fields, func(f quictrace.FieldLine) bool {
+		return f.Name == "priority"
+	})
 }
 
 // dataFrames derives how request bodies are framed: one DATA frame each,

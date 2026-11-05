@@ -241,6 +241,63 @@ func TestNewTransportRejectsProfile(t *testing.T) {
 	}
 }
 
+// Config.ClientHints's platformVersion must match the profile's platform:
+// empty with Chrome on Linux, which sends no version, set elsewhere.
+func TestNewTransportRejectsClientHints(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		profile profile.Profile
+		version string
+		ok      bool
+	}{
+		{
+			name:    "linux with a version",
+			profile: profiles.ChromeLinux(),
+			version: "6.8.0",
+		},
+		{
+			name:    "linux without",
+			profile: profiles.ChromeLinux(),
+			ok:      true,
+		},
+		{
+			name:    "macos without a version",
+			profile: profiles.ChromeMacOS(),
+		},
+		{
+			name:    "macos with",
+			profile: profiles.ChromeMacOS(),
+			version: "15.0.0",
+			ok:      true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := tc.profile.Spec().ClientHints.Machine
+
+			m.PlatformVersion = tc.version
+
+			_, err := NewTransport(Config{
+				Profile:     tc.profile,
+				ClientHints: &m,
+			})
+			if tc.ok {
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				return
+			}
+
+			verr, ok := errors.AsType[*profile.ValidationError](err)
+			if !ok || !slices.ContainsFunc(verr.Problems, func(p profile.Problem) bool {
+				return p.Path == "machine.platformVersion"
+			}) {
+				t.Errorf("NewTransport error = %v, want a *ValidationError at machine.platformVersion", err)
+			}
+		})
+	}
+}
+
 // transportProfile builds a Transport from p and returns its copy of p.
 func transportProfile(t *testing.T, p profile.Profile) *profile.Spec {
 	t.Helper()

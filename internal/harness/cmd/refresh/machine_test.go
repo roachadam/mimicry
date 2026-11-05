@@ -1,12 +1,75 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
+
+// A tar stream between two commands (putTar, fetch) arrives whole, and
+// ends when its receiver does: a receiver that exits without reading (ssh
+// losing the host) fails the copy at once instead of leaving the sender
+// blocked on a full pipe forever.
+func TestPipeEndsWithEitherSide(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		src, dst []string
+		want     string
+		dstCode  int
+	}{
+		{
+			name:    "delivered",
+			src:     []string{"printf", "a tar stream"},
+			dst:     []string{"cat"},
+			want:    "a tar stream",
+			dstCode: 0,
+		},
+		{
+			name:    "receiver gone",
+			src:     []string{"yes"},
+			dst:     []string{"sh", "-c", "exit 3"},
+			want:    "",
+			dstCode: 3,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+
+			src := exec.CommandContext(ctx, tc.src[0], tc.src[1:]...) //nolint:gosec // the test's own commands
+			dst := exec.CommandContext(ctx, tc.dst[0], tc.dst[1:]...) //nolint:gosec // the test's own commands
+
+			var out strings.Builder
+
+			dst.Stdout = &out
+
+			srcErr, dstErr := pipe(src, dst)
+			if ctx.Err() != nil {
+				t.Fatalf("still running after 30s: sender %v, receiver %v", srcErr, dstErr)
+			}
+
+			var exit *exec.ExitError
+
+			switch {
+			case tc.dstCode == 0 && (srcErr != nil || dstErr != nil):
+				t.Fatalf("sender %v, receiver %v", srcErr, dstErr)
+			case tc.dstCode != 0 && (!errors.As(dstErr, &exit) || exit.ExitCode() != tc.dstCode):
+				t.Fatalf("receiver %v, want exit status %d", dstErr, tc.dstCode)
+			case tc.dstCode != 0 && srcErr == nil:
+				t.Fatal("the sender wrote to a pipe nobody reads and succeeded")
+			}
+
+			if out.String() != tc.want {
+				t.Errorf("received %q, want %q", out.String(), tc.want)
+			}
+		})
+	}
+}
 
 // A WSL step's command line carries nothing the Windows host's shell
 // (PowerShell or cmd) would read but one double-quoted word of base64 and
