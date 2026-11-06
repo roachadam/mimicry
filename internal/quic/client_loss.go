@@ -293,7 +293,7 @@ func (c *Conn) planOldestProbe() (plannedPacket, bool) {
 			pn++
 		}
 
-		return cc.chaosProtect(frames, cc.initialRoom(packetNumberLength(pn, -1)), c.crypto[initialSpace].out.end)
+		return cc.chaosProtect(frames, cc.initialRoom(packetNumberLength(pn, cc.pnMaxAcked(pn, -1))), c.crypto[initialSpace].out.end)
 	}
 
 	return plannedPacket{}, false

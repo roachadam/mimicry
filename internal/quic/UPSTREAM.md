@@ -80,7 +80,9 @@ the mechanical import rewrites.
    handshake that must not share it waits for it), `Done`/`Err`,
    `SmoothedRTT`, `ErrIdleTimeout`, the profile's draws, close reply,
    extension frames), `client_send.go` (the client send path:
-   first-flight CRYPTO plans, packet numbers, coalescing, padding, spin
+   first-flight CRYPTO plans, packet numbers and, before anything is
+   acknowledged, their length (`pnMaxAcked`: neqo's for
+   `random_initial`), coalescing, padding, spin
    bit, ACK-only rule), `client_tls.go` (the uTLS preset, 0-RTT keys,
    sessions with the server's transport parameters, rejected early data,
    NEW_TOKEN) and `client_params.go` (transport parameters from the
