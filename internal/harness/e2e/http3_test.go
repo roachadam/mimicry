@@ -900,6 +900,8 @@ var h3Gaps = map[string]string{
 	"firefox-159-linux/h3-discovery HTTP/3 /h3/markup-image2.so field lines":                                                                     "as its header list",
 	"safari-27-macos/h3-page TCP www.h3-a.test #2 goaway":                                                                                        "not the page's traffic: a second TCP connection repeating GET /h3/kinds.so with another user agent (Mac OS X 10_11_1), no referer and sec-fetch-site none, another system client (report http3-2026-10-25, section 4)",
 	"firefox-159-ios/rules h3-page sample 1 connection 1 (www.h3-a.test): padding: datagram 3 carries an Initial packet in 1038 bytes, not 1200": "the iPhone's Initial probe (iosProbes): the server's first flight reached Firefox over Wi-Fi too late, so 35 ms in it resent its ClientHello as a 1038-byte unpadded datagram and a 1200-byte one; every other Initial of its h3-discovery and h3-page samples is 1200 bytes (h3gen's sampleGaps pins the same datagram)",
+	// Edge's second Initial in 1 byte (h3gen's sampleGaps, secondInitialLength).
+	"edge-157-macos/rules h3-discovery.local-roots sample 1 connection 3 (www.h3-a.test): packet numbers: the second Initial's in 1 bytes, not 2": "Edge sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte, as Chrome does with a token; Edge put it in 2 bytes in 115 of 123 connections, token or not, so quic.packetNumbers is shared_second_long; what decides is not on the wire (h3gen's sampleGaps pins the same connection as secondInitialLength)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.
 	"safari-27-ios/h3-page transport /h3/beacon.so":                                     iosBeacon,
 	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection":   iosBeacon,
@@ -917,6 +919,8 @@ var h3Gaps = map[string]string{
 	"chrome-156-windows/client-hints transport /h3/b.fetch #1":          noSitePartition,
 	"chrome-157-linux/client-hints transport /h3/b.nav #1":              noSitePartition,
 	"chrome-157-linux/client-hints transport /h3/b.fetch #1":            noSitePartition,
+	"edge-157-macos/client-hints transport /h3/b.nav #1":                noSitePartition,
+	"edge-157-macos/client-hints transport /h3/b.fetch #1":              noSitePartition,
 	"firefox-159-macos/client-hints transport /h3/b.nav #1":             noSitePartition,
 	"firefox-159-macos/client-hints transport /h3/b.fetch #1":           noSitePartition,
 	"firefox-159-linux/client-hints transport /h3/b.nav #1":             noSitePartition,
@@ -926,6 +930,7 @@ var h3Gaps = map[string]string{
 	"chrome-156-macos/client-hints header list /h3/next.width-img #1":   noWidth,
 	"chrome-156-windows/client-hints header list /h3/next.width-img #1": noWidth,
 	"chrome-157-linux/client-hints header list /h3/next.width-img #1":   noWidth,
+	"edge-157-macos/client-hints header list /h3/next.width-img #1":     noWidth,
 }
 
 // iosBeacon is the iPhone's beacon gap (h3Gaps).
@@ -935,9 +940,9 @@ const iosBeacon = "the iPhone sent the beacon over HTTP/3, on a QUIC connection 
 // third party's gap (h3Gaps), in every browser.
 const noSitePartition = "the top-level navigation to www.ch-b.test (and its page's fetch) went on a connection of its own in every sample, partitioned by top-level site; mimicry has no top-level-site partition and reuses the connection the third party's subresources from www.ch-a.test went on (EVIDENCE.md: No top-level-site partition; decision 0011)"
 
-// noWidth is Chrome's Width gap on the client-hints page (h3Gaps): its
-// header list is otherwise the browser's (compareHintRequests).
-const noWidth = "Chrome sent width and sec-ch-width (the image's layout width from its sizes, 100 on macOS, 50 on Windows and Linux; 3 of 3 samples each) on the <img srcset sizes> of an origin that opted in; mimicry has no sizes or layout width, so sends neither, and the rest of the header list is Chrome's"
+// noWidth is Chrome's Width gap on the client-hints page (h3Gaps), Edge's
+// too: its header list is otherwise the browser's (compareHintRequests).
+const noWidth = "Chrome sent width and sec-ch-width (the image's layout width from its sizes, 100 on macOS, 50 on Windows and Linux; 3 of 3 samples each; Edge on macOS 100, 3 of 3) on the <img srcset sizes> of an origin that opted in; mimicry has no sizes or layout width, so sends neither, and the rest of the header list is Chrome's"
 
 // firefoxFont is Firefox's FontFace gap (h3Gaps), on macOS, Windows and Linux.
 const firefoxFont = "FontFace loads are no request kind of mimicry's (the kinds test skips them too): its Font kind is a stylesheet's @font-face load, which Firefox sends with accept-encoding identity"

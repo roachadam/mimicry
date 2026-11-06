@@ -78,7 +78,7 @@ func (o options) samplesFor(sc *server.Scenario) int {
 
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
-	only := flag.String("browsers", "", "comma-separated browsers to capture (default: every installed one); "+browser.IOSSafariName+", "+browser.IOSChromeName+" and "+browser.IOSFirefoxName+", Safari, Chrome and Firefox on an iPhone on this Mac's network, only when named here, with -listen")
+	only := flag.String("browsers", "", "comma-separated browsers to capture, of chrome, edge, firefox and safari (default: every installed one); "+browser.IOSSafariName+", "+browser.IOSChromeName+" and "+browser.IOSFirefoxName+", Safari, Chrome and Firefox on an iPhone on this Mac's network, only when named here, with -listen")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
 	samples := flag.Int("samples", 3, "connections to sample per browser and scenario; the default scenario needs 2 or more to tell whether a browser shuffles its extensions")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
@@ -86,8 +86,8 @@ func run() error {
 	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go), each optionally name:samples to override -samples; "+
 		"replay-<site> replays -pages/<site>.json, replay all of them")
 	pages := flag.String("pages", "testdata/pages", "directory of recorded page shapes (cmd/pageshape) for replay scenarios")
-	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
-		"(Chrome: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
+	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome, Edge and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
+		"(Chrome and Edge: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files, and the iPhone's driver")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
@@ -330,7 +330,7 @@ func run() error {
 
 		// On Linux each run's profile trusts the CA (browser.Target.CAFile),
 		// never the system.
-		if b.Name == "chrome" && runtime.GOOS != "linux" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
+		if capture.Chromium(b.Name) && runtime.GOOS != "linux" && slices.ContainsFunc(scenarios, (*server.Scenario).HTTP3) && !server.TrustedBySystem(cert, server.CaptureHost) {
 			// http_network_transaction.cc processes Alt-Svc only when the
 			// certificate verified without errors.
 			log.Printf("%s: the capture CA is not trusted, so %s will ignore every Alt-Svc and never try HTTP/3 (--ignore-certificate-errors loads the page, but its certificate status keeps the error). Trust it as for Safari:\n"+

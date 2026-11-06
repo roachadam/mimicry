@@ -17,12 +17,12 @@ import (
 )
 
 // On Windows a capture runs over ssh as an administrator: it trusts the
-// capture CA in the machine's Root store for the run (Chrome trusts the
-// machine's roots, so it also takes HTTP/3 through Alt-Svc; Firefox imports
-// them, security.enterprise_roots.enabled) and opens the browser on the
-// console user's desktop through scheduled tasks. Chrome maps the capture
-// hosts with --host-resolver-rules and Firefox with network.dns.localDomains
-// in its throwaway profile, so DNS is never touched.
+// capture CA in the machine's Root store for the run (Chrome and Edge trust
+// the machine's roots, so they also take HTTP/3 through Alt-Svc; Firefox
+// imports them, security.enterprise_roots.enabled) and opens the browser on
+// the console user's desktop through scheduled tasks. Chrome and Edge map
+// the capture hosts with --host-resolver-rules and Firefox with
+// network.dns.localDomains in its throwaway profile, so DNS is never touched.
 
 // windowsHost is what a capture needs of this PC.
 type windowsHost struct {
@@ -90,7 +90,14 @@ func (h windowsHost) problems() []string {
 	}
 
 	if len(h.browsers) == 0 {
-		p = append(p, "neither Chrome nor Firefox is installed: looked for "+strings.Join(append(browser.Locations("chrome"), browser.Locations("firefox")...), ", "))
+		names := []string{"chrome", "edge", "firefox"}
+		looked := make([]string, 0, 3*len(names))
+
+		for _, name := range names {
+			looked = append(looked, browser.Locations(name)...)
+		}
+
+		p = append(p, "none of Chrome, Edge and Firefox is installed: looked for "+strings.Join(looked, ", "))
 	}
 
 	return p
@@ -180,8 +187,8 @@ func cleanUp(dataDir string) error {
 }
 
 // startDNSStub starts nothing on Windows: only Safari needs the stub, and
-// Chrome and Firefox map the capture hosts themselves. Serving a device on
-// the network (-listen, for Safari on an iPhone) is for the Mac.
+// Chrome, Edge and Firefox map the capture hosts themselves. Serving a
+// device on the network (-listen, for Safari on an iPhone) is for the Mac.
 func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
 	if clients.IsValid() {
 		return errors.New("-listen serves a device on the network from a Mac; not on Windows")
@@ -207,7 +214,7 @@ func describeExecutable(ctx context.Context, b *browser.Browser, pb *preflightBr
 }
 
 // preflightPlatform adds what a Windows capture needs: elevation, a console
-// user who runs the tool, certutil, schtasks and Chrome or Firefox.
+// user who runs the tool, certutil, schtasks and Chrome, Edge or Firefox.
 func preflightPlatform(ctx context.Context, r *preflightReport) error {
 	h, err := checkHost(ctx)
 	if err != nil {

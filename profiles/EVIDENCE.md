@@ -5,16 +5,17 @@ from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`chrome-157-linux`, `chrome-157-ios`, `firefox-158-macos`,
-`firefox-158-windows`, `firefox-159-macos`, `firefox-159-windows`,
-`firefox-159-linux`, `firefox-159-ios`, `safari-27-macos`,
-`safari-26-macos`, `safari-27-ios` and `safari-26-ios`. Safari 27 was
-captured on macOS 27; Safari 26 on a second Mac kept on macOS 26, as was
-Firefox 159 for macOS; Chrome 156 and Firefox 158 and 159 for Windows on
-Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1 for Linux, Google's
-and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on that Windows PC;
-Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS on an iPhone
-on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
+`chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
+`firefox-158-macos`, `firefox-158-windows`, `firefox-159-macos`,
+`firefox-159-windows`, `firefox-159-linux`, `firefox-159-ios`,
+`safari-27-macos`, `safari-26-macos`, `safari-27-ios` and
+`safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
+second Mac kept on macOS 26, as were Firefox 159 and Edge 157 for macOS
+(that Mac on 26.2 by Edge's run); Chrome 156 and Firefox 158 and 159 for
+Windows on Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1 for
+Linux, Google's and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on that
+Windows PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS
+on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -44,9 +45,10 @@ with its 2026-11-01 captures (0053), `firefox-159-ios` with its
 2026-11-03 captures (0053, amended), `firefox-159-macos` and
 `firefox-159-windows` with their 2026-11-03 quick refreshes, the client
 hints rows with the 2026-11-04 `client-hints` captures (0055), the URL
-rows with the 2026-11-04 `urls` captures (0057), and `chrome-157-linux`
-and `firefox-159-linux` with their 2026-11-05 captures (0058). The "Not
-covered" list was rechecked against the code on 2026-10-29.
+rows with the 2026-11-04 `urls` captures (0057), `chrome-157-linux` and
+`firefox-159-linux` with their 2026-11-05 captures (0058), and
+`edge-157-macos` with its 2026-11-06 captures (0059). The "Not covered"
+list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
 
@@ -343,6 +345,49 @@ are macOS Firefox 159's but for the platform. Where Linux differs:
 `firefox-159-linux` on the echo endpoints; browserleaks' HTTP/2 page
 showed Firefox's stream WINDOW_UPDATE on the browser's side only (on
 macOS, on mimicry's).
+
+**`edge-157-macos`** (2026-11-06, Edge 157.0.4341.42 on the second Mac,
+macOS 26.2,
+[report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md);
+[decision 0059](../docs/decisions/0059-edge-profiles.md)) has no column
+of its own. It inherits nothing: every scenario and replay was captured
+from Edge, three samples each, and its profile started as
+`chrome-156-macos`'s, every generated section derived again and every
+copied one checked against Edge's captures. Each row has the class and
+value of `chrome-155-macos`'s column but where Edge differs:
+
+- **The browser:** `user-agent` ends `Edg/157.0.0.0`, `sec-ch-ua` names
+  `"Microsoft Edge"`, in every header list.
+- **W, TLS:** no Trust Anchor IDs (`0xca34`) in any hello, so 16
+  extensions where Chrome sends 17; everything else is Chrome's.
+- **W, `accept`:** no `image/jxl`, in navigations, frames and every image
+  kind and variant.
+- **W, client hints:** `fullVersion` 157.0.4341.42 and the new
+  `chromiumFullVersion` 157.0.8103.39, the Chromium brand's version in
+  `sec-ch-ua-full-version-list`; the second Mac's machine (macOS 26.2,
+  arm, 16 GB, reduced motion and transparency); `width` 100.
+- **W, `quic.packetNumbers`:** `shared_second_long`: Chrome's counter,
+  but the second Initial's number in 2 bytes in 115 of 123 connections,
+  token or not (Chrome: only without a token, 283 of 283); the 8 others,
+  all with a token, are pinned (Not covered, below).
+- **W, from the edge captures (h3gen):** `tcpDelayMs` 313–315 (Chrome on
+  macOS 305–306); the server's Initial acknowledged in 4 of 12 full
+  handshakes (pinned, as Chrome's).
+- **Pinned as Chrome's:** NEW_TOKEN presented on some reconnections
+  (h3gen's `sampleGaps`), the XHR header order (`headersOrderGaps`), the
+  error-page reload after hop 19 (`redirectsReload`), markup images at
+  `u=1` in 8 of 24 requests (`redirectsLineGaps`), the plain-HTTP page's
+  link navigation (`proxyPlainGaps`), the client-hints third party's
+  connection and `width` (`h3Gaps`), the blackhole resend 54.4 s in and
+  the resumed probes (2 Initials, Chrome on macOS 4), the idle origin's
+  moves to new TCP connections after 8.0 and 10.0 s (`h3EdgeGaps`), the
+  fast fallback (`h3EdgeFastGaps`) and the burst order
+  (`h3EdgeSchedulingGaps`).
+
+`realcheck` on the second Mac found no difference between Edge and
+`edge-157-macos` on the echo endpoints (tls.peet.ws, browserleaks' TLS
+and HTTP/2 pages, impersonate.pro over HTTP/2 and HTTP/3); browserleaks'
+HTTP/2 page also logged Edge's own `/favicon.ico` request.
 
 **`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
 27.2, over Wi-Fi,
@@ -1203,7 +1248,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's re-prioritisation** (Chrome): a PRIORITY frame mid-load, and a mid-upload stream kept in its lists ([INFERENCE]); never sent; detection medium; model `OnStreamUpdate` against the page traces.
 - **Several requests in the opening record** (Safari on iOS): with three requests waiting as a connection opened, the iPhone put all three HEADERS in the opening's TLS record; `http2.openingRecords` describes the first request's only; detection low; a capture with requests of known count waiting, and a record rule for them.
 - **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
-- **Idle origin moved to new TCP** (Chrome on macOS and Linux): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Idle origin moved to new TCP** (Chrome on macOS and Linux, Edge): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples; Edge: 8.0 s, and again after 10.0 s, 3 of 3); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
 - **Blob and File bodies joined with the head** (Chrome): Chrome sends a Blob or File body apart from its head even when the two fit 1400 bytes (`http1-upload`'s `/up/blob-100`, `-500`); mimicry cannot tell a Blob from bytes and joins every small body up to `http1.uploadRecords.joinUpTo`; small file uploads over HTTP/1.1; detection low; none planned (decision 0052).
 - **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
@@ -1251,6 +1296,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
 - **QPACK on a resumed connection** (Chrome; Firefox's side connections): with 0-RTT the browser fills its QPACK table from the SETTINGS it remembers, before the server's arrive, and Chrome sets the same capacity again once they do (one `chrome-157-linux` `h3-page` connection; 13 resumed Firefox side connections set it in 0-RTT); mimicry remembers no SETTINGS, so its 0-RTT request uses no dynamic table; detection low; a page that reliably resumes with a dynamic table allowed, then remembered SETTINGS ([#90](https://github.com/roachadam/mimicry/issues/90), `qpackRepeatedCapacity`).
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
+- **Edge's second Initial in 1 byte** (Edge): 8 of 123 connections sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
@@ -1279,12 +1325,12 @@ A difference closed is removed here, with its pinned gap entry.
 - **URL rules without a `urls` capture** (`chrome-155-macos`, `firefox-158-macos`, `firefox-158-windows`): no `urls`; inheriting is only from older versions, and these browsers can no longer be installed; a `\|` in a path or an invalid `xn--` label is `ErrNotMeasured`, every other URL as the browsers measured agree; detection none.
 - **IPv6 literals** (all): kept as written; the URL standard compresses them (`[0:0::1]` is `[::1]`); not captured (the capture server listens on IPv4 only); detection low; a `::1` listener and `ip6-*` cases.
 - **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
-- **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
+- **Layout-driven image priorities** (Firefox, Chrome, Edge): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
 - **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
 - **Safari's bodiless fetch() order** (Safari 27 macOS): its fetch() POST, PUT and PATCH without a body start `sec-fetch-site, accept, origin` (its header table without `content-type`); mimicry sends the order of its lists measured with a body, `accept, origin, sec-fetch-site`, as it did before; `content-length: 0` and the framing match; detection medium; the header table applied to Safari's own headers whenever the list's measured set differs (`bodilessGaps`).
-- **`Width` and `Sec-CH-Width`** (Chrome): an `<img>` with `sizes` sends its layout width once the page's origin opted in (`client-hints`, `next.width-img`: 50px × DPR); mimicry has no way to say an image's width and sends neither; detection low (sizes images on opted-in sites); a request field for the width (`h3Gaps`, the `client-hints` header list of `/h3/next.width-img`).
+- **`Width` and `Sec-CH-Width`** (Chrome, Edge): an `<img>` with `sizes` sends its layout width once the page's origin opted in (`client-hints`, `next.width-img`: 50px × DPR); mimicry has no way to say an image's width and sends neither; detection low (sizes images on opted-in sites); a request field for the width (`h3Gaps`, the `client-hints` header list of `/h3/next.width-img`).
 - **`Clear-Site-Data` on a redirect** (Chrome): emptied like any other response's, not captured; detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
 - **Network client hints** (Chrome): `rtt` is mimicry's last TCP connect time (QUIC connections do not update it) and `downlink` the machine's captured estimate (1.6 Mbps; 1.55 on Linux), each with ±10% noise and fixed per host for the Transport's life, where Chrome's network quality estimator measures HTTP round trips and throughput and changes over time: on Linux it rose by 30% or more within one sample (1.3 and 1.75 Mbps to one host; kindsgen's `downlinkGaps`); detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
 - **Client hints opt-in without a capture** (`chrome-155-macos`): no `clientHints`, so `Accept-CH` is ignored as before; detection high on sites that opt in; a `client-hints` capture, which Chrome 155 can no longer give (not installable as branded Chrome).
@@ -1307,7 +1353,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari 26's clicked navigations** (Safari 26): not captured; follow its script's; detection low (`missingCaptures`).
 - **Chrome 155's hop `cookie` slot** (Chrome 155): no twin captures, so cookies go after the list; detection medium; ends with its deprecation.
 - **`cookie` slot on hops no twin carried cookies on** (all): credentialed cross-site hops, hops from `http://`, Safari 27's same-site image hop; detection low to medium ([0048](../docs/decisions/0048-cookie-twins.md)).
-- **Chrome's error-page reload** (Chrome): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
+- **Chrome's error-page reload** (Chrome, Edge): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
 - **Unmeasured chain rules** (all): `navigationSite` on longer chains; `hopPreflight` to another cross-site origin; CORS checks of style, font and preload redirects; Safari's `keep` Origin through a third origin; the frame redirect limit; detection low to medium; a `redirects2` step each.
 - **Safari's cold first sample** (Safari): a hop on a new connection with another order; detection low (`sampleGaps` in kindsgen).
 
@@ -1621,7 +1667,9 @@ the first on an iPhone the
 the first on Linux the
 [Chrome 157 on Linux report](../internal/harness/reports/refresh-chrome-157-linux-2026-11-05.md)
 (Firefox's: the
-[Firefox 159 on Linux report](../internal/harness/reports/refresh-firefox-159-linux-2026-11-05.md)).
+[Firefox 159 on Linux report](../internal/harness/reports/refresh-firefox-159-linux-2026-11-05.md));
+the first Edge profile the
+[Edge 157 on macOS report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md).
 
 ## Keeping it true
 

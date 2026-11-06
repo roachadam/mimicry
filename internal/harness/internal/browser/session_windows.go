@@ -19,12 +19,12 @@ import (
 	"unicode/utf16"
 )
 
-// On Windows Chrome and Firefox are captured. A process started from an ssh
-// session runs in that session, which has no desktop, so the browser is
-// started through a one-shot scheduled task that runs as the user logged on
-// at the console with their interactive token: its window shows on their
+// On Windows Chrome, Edge and Firefox are captured. A process started from
+// an ssh session runs in that session, which has no desktop, so the browser
+// is started through a one-shot scheduled task that runs as the user logged
+// on at the console with their interactive token: its window shows on their
 // desktop. The profile directory (DataDir) is shared by the two sessions:
-// the capture tool writes Firefox's prefs there, and Chrome writes
+// the capture tool writes Firefox's prefs there, and Chrome and Edge write
 // DevToolsActivePort there for the capture tool to read.
 
 // TaskPrefix starts the name of every scheduled task the capture tool
@@ -48,13 +48,17 @@ var windowsBrowsers = []windowsBrowser{
 		exe:  `Google\Chrome\Application\chrome.exe`,
 	},
 	{
+		name: "edge",
+		exe:  `Microsoft\Edge\Application\msedge.exe`,
+	},
+	{
 		name: "firefox",
 		exe:  `Mozilla Firefox\firefox.exe`,
 	},
 }
 
 // Supported reports whether every named browser can be captured here: on
-// Windows, Chrome and Firefox.
+// Windows, Chrome, Edge and Firefox.
 func Supported(names []string) error {
 	var errs []error
 
@@ -62,7 +66,7 @@ func Supported(names []string) error {
 		if !slices.ContainsFunc(windowsBrowsers, func(b windowsBrowser) bool {
 			return b.name == n
 		}) {
-			errs = append(errs, fmt.Errorf("%s is not supported on Windows: the Windows capture covers Chrome and Firefox", n))
+			errs = append(errs, fmt.Errorf("%s is not supported on Windows: the Windows capture covers Chrome, Edge and Firefox", n))
 		}
 	}
 
@@ -70,8 +74,8 @@ func Supported(names []string) error {
 }
 
 // Locations are where Find looks for the named browser's executable, in
-// order: the machine-wide installations (64-bit, then 32-bit) and the
-// per-user one.
+// order: the machine-wide installations (64-bit, then 32-bit, where Edge
+// is) and the per-user one.
 func Locations(name string) []string {
 	var paths []string
 
@@ -90,8 +94,8 @@ func Locations(name string) []string {
 	return paths
 }
 
-// Find returns the supported browsers installed here, Chrome then Firefox,
-// each at the first of its Locations that exists.
+// Find returns the supported browsers installed here, Chrome, Edge then
+// Firefox, each at the first of its Locations that exists.
 func Find() []*Browser {
 	var found []*Browser
 
@@ -106,13 +110,13 @@ func Find() []*Browser {
 				Path: p,
 			}
 
-			switch wb.name {
-			case "chrome":
+			switch {
+			case chromium(wb.name):
 				b.prepare = chromeArgs
 				b.warmup = chromeWarmup
 				b.binary = p
 
-			case "firefox":
+			case wb.name == "firefox":
 				b.prepare = firefoxProfile
 			}
 
@@ -126,7 +130,8 @@ func Find() []*Browser {
 }
 
 // Version is the installed browser's version, from its executable's
-// version resource (chrome.exe: "156.0.8078.76"; firefox.exe: "158.0.1").
+// version resource (chrome.exe: "156.0.8078.76"; msedge.exe:
+// "156.0.4314.58"; firefox.exe: "158.0.1").
 func (b *Browser) Version(ctx context.Context) (string, error) {
 	v, err := PowerShell(ctx, `(Get-Item -LiteralPath `+PSQuote(b.Path)+`).VersionInfo.ProductVersion`)
 	if err != nil {

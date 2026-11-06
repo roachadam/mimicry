@@ -78,8 +78,8 @@ func (c *checker) checkQUIC(q *QUIC) {
 
 	c.checkQUICCrypto(&q.Crypto)
 
-	if !slices.Contains([]string{PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace}, q.PacketNumbers) {
-		c.add(path+".packetNumbers", "%q must be %q, %q or %q", q.PacketNumbers, PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace)
+	if rules := []string{PacketNumbersShared, PacketNumbersSharedSecondLong, PacketNumbersRandomInitial, PacketNumbersPerSpace}; !slices.Contains(rules, q.PacketNumbers) {
+		c.add(path+".packetNumbers", "%q must be one of %q", q.PacketNumbers, rules)
 	}
 
 	if q.DCIDLength < 8 || q.DCIDLength > maxCIDLength {

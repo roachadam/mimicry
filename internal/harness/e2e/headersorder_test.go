@@ -22,6 +22,7 @@ var headersOrderGaps = map[string][]string{
 	"chrome-155-macos":    chromeHeadersOrderGaps,
 	"chrome-156-windows":  chromeHeadersOrderGaps,
 	"chrome-157-linux":    chromeHeadersOrderGaps,
+	"edge-157-macos":      chromeHeadersOrderGaps,
 	"chrome-157-ios":      safariHeadersOrderGaps,
 	"firefox-159-ios":     safariHeadersOrderGaps,
 	"firefox-158-macos":   firefoxHeadersOrderGaps,
@@ -41,7 +42,8 @@ var safariHeadersOrderGaps = []string{
 	"around-rev.xhr.h1", "case.xhr.h1",
 }
 
-// chromeHeadersOrderGaps are Chrome's (macOS, Windows and Linux alike).
+// chromeHeadersOrderGaps are Chrome's (macOS, Windows and Linux alike), and
+// Edge's on macOS.
 var chromeHeadersOrderGaps = []string{
 	"letters-rev.xhr.so", "around-rev.xhr.so",
 	"letters-rev.xhr.cs", "around-rev.xhr.cs",

@@ -43,6 +43,9 @@
 # yet from a runner's log.
 205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-linux
 205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-linux
+# Edge (2026-11-06) is estimated as Chrome on macOS, not yet from a
+# runner's log.
+190        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-
 175        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
 190        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
 22         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
@@ -57,6 +60,7 @@
 305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios)
 305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux
 290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-
+290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,
 # nearly all of their time): apart, each decodes them.

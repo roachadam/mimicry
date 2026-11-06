@@ -33,6 +33,11 @@ type ClientHints struct {
 	// sec-ch-ua-full-version, and the browser's brands' versions in
 	// sec-ch-ua-full-version-list.
 	FullVersion string `json:"fullVersion"`
+	// ChromiumFullVersion, when set, is the Chromium brand's version in
+	// sec-ch-ua-full-version-list, where the browser is built on a
+	// Chromium of another full version (Edge 157.0.4341.42 on
+	// 157.0.8103.39); empty, the Chromium brand takes FullVersion (Chrome).
+	ChromiumFullVersion string `json:"chromiumFullVersion,omitempty"`
 	// Machine is the captured machine's: the values the hints carry
 	// unless the client sets its own (Config.ClientHints).
 	Machine Machine `json:"machine"`
@@ -165,7 +170,7 @@ func (p *Spec) ClientHintValue(name string, m *Machine) (value string, ok bool) 
 			return "", false
 		}
 
-		return fullVersionList(brands, ch.FullVersion)
+		return fullVersionList(brands, ch.FullVersion, ch.ChromiumFullVersion)
 
 	case "sec-ch-ua-arch":
 		return strconv.Quote(m.Arch), true
@@ -223,9 +228,10 @@ func navigationValue(p *Spec, name string) (string, bool) {
 var brandEntry = regexp.MustCompile(`^("(?:[^"\\]|\\.)*");v="([0-9]+)"$`)
 
 // fullVersionList is sec-ch-ua-full-version-list for sec-ch-ua's brands:
-// a brand at the browser's major version takes the full version, any
-// other (the GREASE brand) its major version with ".0.0.0".
-func fullVersionList(brands, full string) (string, bool) {
+// a brand at the browser's major version takes the full version (the
+// Chromium brand chromium, when set), any other (the GREASE brand) its
+// major version with ".0.0.0".
+func fullVersionList(brands, full, chromium string) (string, bool) {
 	major, _, _ := strings.Cut(full, ".")
 	entries := strings.Split(brands, ", ")
 	out := make([]string, len(entries))
@@ -237,7 +243,12 @@ func fullVersionList(brands, full string) (string, bool) {
 		}
 
 		v := m[2] + ".0.0.0"
-		if m[2] == major {
+
+		switch {
+		case m[2] != major:
+		case m[1] == `"Chromium"` && chromium != "":
+			v = chromium
+		default:
 			v = full
 		}
 
@@ -311,9 +322,13 @@ func (c *checker) checkClientHints(p *Spec) {
 	if !fullVersion.MatchString(ch.FullVersion) {
 		c.add(path+".fullVersion", "%q must be four dot-separated numbers", ch.FullVersion)
 	} else if brands, ok := navigationValue(p, "sec-ch-ua"); ok && seen["sec-ch-ua-full-version-list"] {
-		if _, ok := fullVersionList(brands, ch.FullVersion); !ok {
+		if _, ok := fullVersionList(brands, ch.FullVersion, ch.ChromiumFullVersion); !ok {
 			c.add(path+".fullVersion", "the navigation's sec-ch-ua %q is no brand list", brands)
 		}
+	}
+
+	if ch.ChromiumFullVersion != "" && !fullVersion.MatchString(ch.ChromiumFullVersion) {
+		c.add(path+".chromiumFullVersion", "%q must be four dot-separated numbers", ch.ChromiumFullVersion)
 	}
 
 	if p.Context == nil || p.Context.HeaderTable == nil {

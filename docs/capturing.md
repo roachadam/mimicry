@@ -85,9 +85,10 @@ for the keychain on screen.
 
 ## Browser setup
 
-- **Chrome and Firefox** run with throwaway profiles (no extensions,
-  default settings) and resolve the capture hosts to 127.0.0.1 themselves;
-  Chrome ignores certificate errors and Firefox gets a certificate
+- **Chrome, Edge and Firefox** run with throwaway profiles (no
+  extensions, default settings) and resolve the capture hosts to
+  127.0.0.1 themselves; Chrome and Edge (both Chromium, launched with the
+  same flags) ignore certificate errors and Firefox gets a certificate
   exception (or, for pages across several hosts, trusts the system's
   roots). Nothing on the system changes.
 - **Safari** cannot be isolated: it opens a tab in the user's own window
@@ -109,7 +110,7 @@ for the keychain on screen.
   `*.localhost` host as a site of its own, which turns same-site requests
   cross-site.
 - **The capture CA.** Safari must trust it, and so must the system for
-  Chrome's HTTP/3 (see below). The CA lives in
+  Chrome's and Edge's HTTP/3 (see below). The CA lives in
   `<user config dir>/mimicry/capture-ca/`, outside the repo, and is
   name-constrained to `test` and `localhost` with IP addresses excluded, so
   it cannot vouch for any real site. Trust it once; the capture command
@@ -402,7 +403,7 @@ does, so each navigation has user activation (`Sec-Fetch-User`; a script's
 `click()` has none): a page waiting for a click takes the title
 `mimicry-click` and fills its window with its link or submit button, and
 the tool clicks its middle once per URL (again after 6 s if it is still
-there). Chrome is clicked over the DevTools protocol
+there). Chrome and Edge are clicked over the DevTools protocol
 (`Input.dispatchMouseEvent`) and Firefox over WebDriver BiDi
 (`input.performActions`, with `remote.prefs.recommended` off), both on
 their throwaway profiles. Safari is clicked through the system's mouse

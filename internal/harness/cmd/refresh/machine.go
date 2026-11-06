@@ -76,6 +76,14 @@ var targets = map[string]target{
 		browser: "firefox",
 		remote:  remoteWindows,
 	},
+	"edge": {
+		browser: "edge",
+		remote:  remoteMini,
+	},
+	"edge-windows": {
+		browser: "edge",
+		remote:  remoteWindows,
+	},
 	"chrome-linux": {
 		browser: "chrome",
 		remote:  remoteLinux,

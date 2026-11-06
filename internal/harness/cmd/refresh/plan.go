@@ -71,7 +71,8 @@ type plan struct {
 	// before Windows), platformWindows, platformLinux or platformIOS.
 	Platform string `json:"platform,omitempty"`
 	// NewPlatform is the first profile of the browser on Platform: copied
-	// from another platform's, so it captures every scenario and
+	// from another platform's, or for a Chromium browser with none to copy
+	// (Edge's first), from Chrome's, so it captures every scenario and
 	// inherits nothing.
 	NewPlatform bool `json:"newPlatform,omitempty"`
 	// Installed is the browser's version where it runs.
@@ -416,31 +417,7 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		p.InPlace = true
 		p.Previous = p.Name
 	} else {
-		var newest int
-
-		p.Previous, newest = newestProfile(builtins, p.Browser, p.Platform)
-
-		switch {
-		case p.Previous == "" && p.Platform != platformMacOS:
-			// The first profile on the platform starts from the macOS one of
-			// its version, or the newest macOS one: everything it keeps is
-			// recaptured or regenerated.
-			p.Previous = p.Browser + "-" + p.Version + "-" + platformMacOS
-			if builtins[p.Previous] == nil {
-				p.Previous, _ = newestProfile(builtins, p.Browser, platformMacOS)
-			}
-
-			if p.Previous == "" {
-				p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
-			} else {
-				p.NewPlatform = true
-			}
-
-		case p.Previous == "":
-			p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
-		case newest > v:
-			p.Problems = append(p.Problems, fmt.Sprintf("%s %s on %s is older than the newest profile, %s: update it", p.Browser, p.Installed, m, p.Previous))
-		}
+		p.choosePrevious(builtins, v, m)
 	}
 
 	switch {
@@ -478,6 +455,48 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 	}
 
 	return nil
+}
+
+// choosePrevious sets p.Previous for p.Name, which is no built-in profile
+// (v its major version): the browser's newest profile on p.Platform. The
+// first one there (NewPlatform) starts from the browser's macOS profile of
+// its version, or its newest macOS one; a Chromium browser with neither
+// (Edge's first profile) from the newest Chrome profile on p.Platform, or
+// on macOS, whose engine and network stack it shares. Everything it keeps
+// of that profile is recaptured or regenerated from its own captures, or
+// hand-written and checked against them.
+func (p *plan) choosePrevious(builtins map[string]*profile.Spec, v int, m *machine) {
+	var newest int
+	if p.Previous, newest = newestProfile(builtins, p.Browser, p.Platform); p.Previous != "" {
+		if newest > v {
+			p.Problems = append(p.Problems, fmt.Sprintf("%s %s on %s is older than the newest profile, %s: update it", p.Browser, p.Installed, m, p.Previous))
+		}
+
+		return
+	}
+
+	p.NewPlatform = true
+
+	if name := p.Browser + "-" + p.Version + "-" + platformMacOS; builtins[name] != nil {
+		p.Previous = name
+
+		return
+	}
+
+	if p.Previous, _ = newestProfile(builtins, p.Browser, platformMacOS); p.Previous != "" {
+		return
+	}
+
+	if capture.Chromium(p.Browser) {
+		for _, on := range []string{p.Platform, platformMacOS} {
+			if p.Previous, _ = newestProfile(builtins, "chrome", on); p.Previous != "" {
+				return
+			}
+		}
+	}
+
+	p.NewPlatform = false
+	p.Problems = append(p.Problems, fmt.Sprintf("no built-in %s profile to start %s from", p.Browser, p.Name))
 }
 
 // newestProfile is the built-in profile of browser on platform with the
@@ -546,7 +565,7 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
 	}
 
-	hosts := "Chrome reaches the capture hosts through --host-resolver-rules"
+	hosts := "Chromium browsers (Chrome, Edge) reach the capture hosts through --host-resolver-rules"
 	if p.Browser == "firefox" {
 		hosts = "Firefox reaches the capture hosts through network.dns.localDomains in its throwaway profile and trusts the capture CA from the Root store (security.enterprise_roots.enabled)"
 	}
@@ -578,10 +597,10 @@ func (r *refreshRun) checkLinux(p *plan, rep *preflightReport) {
 			fix = "pass -wsl-user with a user of the distribution that is not root"
 		}
 
-		p.Problems = append(p.Problems, fmt.Sprintf("the browsers would run as root on %s, which Chrome refuses without --no-sandbox: %s", m, fix))
+		p.Problems = append(p.Problems, fmt.Sprintf("the browsers would run as root on %s, which Chromium browsers refuse without --no-sandbox: %s", m, fix))
 	}
 
-	trust := "Chrome trusts the capture CA in an NSS database under its throwaway profile (HOME is that profile for the run)"
+	trust := "Chromium browsers (Chrome, Edge) trust the capture CA in an NSS database under their throwaway profile (HOME is that profile for the run)"
 	if p.Browser == "firefox" {
 		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts"
 	}
@@ -721,12 +740,12 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			p.Problems = append(p.Problems, fmt.Sprintf("%s needs python3 with aioquic on %s: %s; install it with\n    %s", sc.Name, r.machine(p), rep.Aioquic, install))
 		}
 
-		// Chrome and Firefox on a computer refuse QUIC with the capture
-		// CA's certificates unless told otherwise (-h3-local-roots). The
-		// committed captures keep both kinds for h3-discovery and
-		// h3-page, the unforced one for h3-blackhole (its QUIC never
-		// answers) and the forced one for the rest. A browser on the
-		// iPhone takes no such flag: unforced only.
+		// Chromium browsers and Firefox on a computer refuse QUIC with the
+		// capture CA's certificates unless told otherwise
+		// (-h3-local-roots). The committed captures keep both kinds for
+		// h3-discovery and h3-page, the unforced one for h3-blackhole (its
+		// QUIC never answers) and the forced one for the rest. A browser on
+		// the iPhone takes no such flag: unforced only.
 		forced := !shared && !iphone && sc.HTTP3() && sc != server.H3Blackhole
 		unforced := shared || iphone || !sc.HTTP3() || sc == server.H3Discovery || sc == server.H3Page || sc == server.H3Blackhole
 
@@ -859,10 +878,10 @@ func replayScenarios() ([]*server.Scenario, error) {
 }
 
 // estimate is a ceiling on how long samples of sc take: each launches the
-// browser (Chrome waits out its warm-up first; a browser on the iPhone is
-// opened through devicectl) and runs the page for its length, or about 8 s
-// for the single-host pages (slow-idle: 30 s). tool is the capture tool's
-// name for the browser.
+// browser (a Chromium browser waits out its warm-up first; a browser on
+// the iPhone is opened through devicectl) and runs the page for its
+// length, or about 8 s for the single-host pages (slow-idle: 30 s). tool
+// is the capture tool's name for the browser.
 func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 	page := 8 * time.Second
 	if _, length, multi := sc.MultiHost(); multi {
@@ -875,10 +894,10 @@ func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 
 	launch := 6 * time.Second
 
-	switch tool {
-	case "chrome":
+	switch {
+	case capture.Chromium(tool):
 		launch += 5 * time.Second
-	case browser.IOSSafariName, browser.IOSChromeName, browser.IOSFirefoxName:
+	case tool == browser.IOSSafariName, tool == browser.IOSChromeName, tool == browser.IOSFirefoxName:
 		launch = 15 * time.Second
 	}
 
@@ -1084,8 +1103,9 @@ func linuxSteps(w *strings.Builder, p *plan, m *machine) {
 
 // schedule groups the plans by machine (each machine's run at once), and
 // each machine's into steps run one after the other, each step's plans at
-// once: Chrome and Firefox together on a Mac in quick mode, anything else
-// alone. A Windows PC's browsers take turns: each capture run trusts the CA
+// once: Chrome, Firefox and Edge together on a Mac in quick mode, anything
+// else alone (a first profile on its platform too: it captures the full
+// set). A Windows PC's browsers take turns: each capture run trusts the CA
 // in the Root store only while it runs, and removing it as one run ends
 // would pull it from under the other. A Linux machine's take turns too,
 // and with the Windows PC's when it is that PC's WSL (one host). The
@@ -1096,9 +1116,9 @@ func (r *refreshRun) schedule() map[string][][]*plan {
 		steps := out[p.Host]
 		i := -1
 
-		if r.Mode == modeQuick && !r.Serial && p.Browser != "safari" && p.Platform != platformWindows && p.Platform != platformLinux && p.Platform != platformIOS {
+		if r.Mode == modeQuick && !r.Serial && together(p) {
 			i = slices.IndexFunc(steps, func(step []*plan) bool {
-				return step[0].Browser != "safari"
+				return together(step[0])
 			})
 		}
 
@@ -1114,6 +1134,13 @@ func (r *refreshRun) schedule() map[string][][]*plan {
 	}
 
 	return out
+}
+
+// together reports whether p captures at once with others of its kind on
+// its Mac in quick mode (schedule): Chrome, Firefox or Edge, refreshing a
+// profile it has on macOS.
+func together(p *plan) bool {
+	return p.Browser != "safari" && !p.NewPlatform && p.Platform != platformWindows && p.Platform != platformLinux && p.Platform != platformIOS
 }
 
 func planTargets(ps []*plan) string {

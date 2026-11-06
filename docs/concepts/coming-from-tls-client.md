@@ -289,11 +289,12 @@ Speed and memory compared with tls-client are in
 
 ## Where mimicry is weaker
 
-- **Few profiles.** Eleven desktop profiles (Chrome, Firefox and Safari on
-  macOS, Chrome and Firefox on Windows and Linux) and four on iPhone, whose
-  HTTP/3 failure timing and challenge-answering proxy credentials are not
-  measured. No Android, iPad or Edge, and no Linux distribution's own
-  build of a browser. Making a new one needs a real browser capture; see
+- **Few profiles.** Twelve desktop profiles (Chrome, Edge, Firefox and
+  Safari on macOS, Chrome and Firefox on Windows and Linux) and four on
+  iPhone, whose HTTP/3 failure timing and challenge-answering proxy
+  credentials are not measured. No Android, iPad or Edge on Windows, and
+  no Linux distribution's own build of a browser. Making a new one needs a
+  real browser capture; see
   [refreshing profiles](../refreshing-profiles.md).
 - **Proxy limits.** No `https://` proxies; see [proxies](proxies.md).
 - **Cookie strings need a domain.** `SetString` needs the domain the

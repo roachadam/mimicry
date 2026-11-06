@@ -13,6 +13,7 @@ import (
 )
 
 var macOSApps = map[string]string{
+	"edge":    "/Applications/Microsoft Edge.app",
 	"firefox": "/Applications/Firefox.app",
 	"safari":  "/Applications/Safari.app",
 }
@@ -21,6 +22,10 @@ var linuxCommands = map[string][]string{
 	"chrome": {
 		"google-chrome-stable",
 		"google-chrome",
+	},
+	"edge": {
+		"microsoft-edge-stable",
+		"microsoft-edge",
 	},
 	"firefox": {
 		"firefox",
@@ -33,11 +38,11 @@ func Supported([]string) error {
 	return nil
 }
 
-// Find returns the supported browsers installed here: Chrome, Firefox, then
-// Safari.
+// Find returns the supported browsers installed here: Chrome, Edge,
+// Firefox, then Safari.
 func Find() []*Browser {
 	var found []*Browser
-	for _, name := range []string{"chrome", "firefox", "safari"} {
+	for _, name := range []string{"chrome", "edge", "firefox", "safari"} {
 		b := &Browser{
 			Name: name,
 		}
@@ -66,8 +71,8 @@ func Find() []*Browser {
 			continue
 		}
 
-		switch name {
-		case "chrome":
+		switch {
+		case chromium(name):
 			b.prepare = chromeArgs
 			b.warmup = chromeWarmup
 			b.binary = b.Path
@@ -77,9 +82,9 @@ func Find() []*Browser {
 				b.binary = filepath.Join(b.App, "Contents", "MacOS", strings.TrimSuffix(filepath.Base(b.App), ".app"))
 			}
 
-		case "firefox":
+		case name == "firefox":
 			b.prepare = firefoxProfile
-		case "safari":
+		case name == "safari":
 			b.Shared = true
 		}
 
