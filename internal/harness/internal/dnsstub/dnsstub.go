@@ -9,7 +9,6 @@ package dnsstub
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/netip"
 	"os"
@@ -31,9 +30,6 @@ const (
 	ResolverConfig = "nameserver 127.0.0.1\nport 15353\n"
 	// InstallCommand creates ResolverFile.
 	InstallCommand = `sudo mkdir -p /etc/resolver && printf 'nameserver 127.0.0.1\nport 15353\n' | sudo tee /etc/resolver/test`
-	// resolvConf lists the system's resolvers (on macOS, the primary
-	// network service's, written by configd).
-	resolvConf = "/etc/resolv.conf"
 	// forwardTimeout bounds a forwarded query's wait for its answer.
 	forwardTimeout = 5 * time.Second
 	// maxForwards bounds the forwarded queries waiting at once; past it a
@@ -59,24 +55,6 @@ type Config struct {
 func ResolverInstalled() bool {
 	data, err := os.ReadFile(ResolverFile)
 	return err == nil && string(data) == ResolverConfig
-}
-
-// SystemResolver returns the first nameserver of /etc/resolv.conf as
-// "host:53": the resolver this machine uses.
-func SystemResolver() (string, error) {
-	data, err := os.ReadFile(resolvConf)
-	if err != nil {
-		return "", err
-	}
-
-	for line := range strings.Lines(string(data)) {
-		fields := strings.Fields(line)
-		if len(fields) >= 2 && fields[0] == "nameserver" {
-			return net.JoinHostPort(fields[1], "53"), nil
-		}
-	}
-
-	return "", errors.New(resolvConf + " names no nameserver")
 }
 
 // Serve answers queries arriving on conn until ctx ends: A records for names
