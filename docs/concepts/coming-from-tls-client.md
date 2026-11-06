@@ -151,7 +151,12 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead
   (`profiles.ChromeWindows()` for Chrome on Windows, `profiles.FirefoxLinux()`
-  for Firefox on Linux).
+  for Firefox on Linux). This matters for Edge: tls-client has no Edge
+  profile, and a Chrome profile with Edge's user agent sends Chrome's
+  Trust Anchor IDs, which Edge never does (its JA4 has 16 extensions to
+  Chrome's 17); Chrome's `accept`, if copied, also carries `image/jxl`,
+  which Edge's lacks. `profiles.EdgeMacOS()` is Edge's own (decision
+  0059).
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.

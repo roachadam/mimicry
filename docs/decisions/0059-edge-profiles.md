@@ -15,10 +15,26 @@ follows when its machine can capture.
 ## Problem
 
 Edge is the second most used desktop browser on Windows, and decision
-0047 deferred it. Libraries that ship Edge reuse Chrome's wire with
-Edge's user agent and brands. Whether that is right was unknown:
-Chrome's Trust Anchor IDs come from the Chrome Root Store, Edge runs its
-own field trials, and the two update on different schedules.
+0047 deferred it. Whether Chrome's wire with Edge's user agent and
+brands is right was unknown: Chrome's Trust Anchor IDs come from the
+Chrome Root Store, Edge runs its own field trials, and the two update on
+different schedules. What other clients offered for Edge (their sources,
+2026-11-06):
+
+- **uTLS** (`u_common.go`): `HelloEdge_85` and `HelloEdge_106`, with
+  `HelloEdge_Auto` set to Edge 85 ("HelloEdge_106 seems to be
+  incompatible with this library"); TLS only.
+- **curl_cffi / curl-impersonate** (`requests/impersonate.py`): `edge99`
+  and `edge101`, `edge` meaning Edge 101.
+- **bogdanfinn/tls-client** (`profiles/`): no Edge profile. Its Chrome
+  profiles send `0xca34` with Chrome's trust anchors, so a Chrome profile
+  given an Edge user agent, the usual way to get Edge there, pairs
+  Edge's headers with Chrome's hello.
+- **fphttp** (as #65 describes it): Edge 119–155 as Chrome's wire with
+  Edge's user agent and brands, Chrome's 28 Trust Anchor IDs included.
+
+So every Edge on offer was years old, or Chrome's hello under Edge's
+name. The captures below show both are detectable.
 
 ## Options
 
@@ -61,8 +77,11 @@ Microsoft's package before capturing), 71 captures:
 
 - **TLS:** the same cipher suites and extensions as Chrome 157 but Trust
   Anchor IDs (`0xca34`), which Edge never sends: 16 extensions to
-  Chrome's 17. The issue's question answered: Edge verifies with the
-  system's store, not the Chrome Root Store.
+  Chrome's 17, JA4 `t13d1516h2_8daaf6152771_806a8c22fdea` where Chrome's
+  is `t13d1517h2_8daaf6152771_cb7bf5808d99`. A Chrome hello under Edge's
+  user agent is therefore told apart by its JA4 alone. That Edge
+  verifies with the system's store rather than the Chrome Root Store is
+  [INFERENCE] from the absence.
 - **Headers:** `accept` without `image/jxl`, in navigations and image
   requests; `sec-ch-ua` with `"Microsoft Edge"`; the user agent ends
   `Edg/157.0.0.0`. HTTP/2 settings, priorities, header order and QUIC

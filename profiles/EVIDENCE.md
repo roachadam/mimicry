@@ -359,7 +359,10 @@ value of `chrome-155-macos`'s column but where Edge differs:
 - **The browser:** `user-agent` ends `Edg/157.0.0.0`, `sec-ch-ua` names
   `"Microsoft Edge"`, in every header list.
 - **W, TLS:** no Trust Anchor IDs (`0xca34`) in any hello, so 16
-  extensions where Chrome sends 17; everything else is Chrome's.
+  extensions where Chrome sends 17; everything else is Chrome's. JA4
+  `t13d1516h2_8daaf6152771_806a8c22fdea` (Chrome 157's:
+  `t13d1517h2_8daaf6152771_cb7bf5808d99`), as realcheck showed for the
+  real Edge and mimicry alike.
 - **W, `accept`:** no `image/jxl`, in navigations, frames and every image
   kind and variant.
 - **W, client hints:** `fullVersion` 157.0.4341.42 and the new
