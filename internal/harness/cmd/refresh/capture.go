@@ -141,6 +141,16 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 
 		log.Printf("%s: capturing on %s: %s", p.Target, m, strings.Join(entries, " "))
 
+		if m.wsl != "" && p.needsPort443() {
+			// Lost when the WSL VM stops, so set before each step; only
+			// lowered, so a distribution letting users bind lower ports
+			// keeps that.
+			const lower = `[ "$(cat /proc/sys/net/ipv4/ip_unprivileged_port_start)" -le 443 ] || sysctl -qw net.ipv4.ip_unprivileged_port_start=443`
+			if out, err := ssh(ctx, m.host, wslLine(m.wsl, "root", lower)).CombinedOutput(); err != nil {
+				return fmt.Errorf("letting users bind 443 in %s: %w: %s", m, err, out)
+			}
+		}
+
 		err := m.stream(ctx, p.Target, logFile, m.bin("capture"), args...)
 		if p.Host != "" {
 			// Whatever was written comes back, even after a failure.

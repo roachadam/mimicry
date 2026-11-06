@@ -112,6 +112,10 @@ var redirectsReload = map[string]bool{
 	"chrome-155-macos":   true,
 	"chrome-156-macos":   true, // its own capture: redirects2-cookies
 	"chrome-156-windows": true,
+	// As chrome-156-windows's: in all six samples (redirects2 and
+	// redirects2-cookies) the chain stopped after hop19 and the error
+	// page reloaded hop19, then followed it to hop25.
+	"chrome-157-linux": true,
 }
 
 // redirectsMerged are hosts whose connections are compared as one, per
@@ -120,6 +124,12 @@ var redirectsReload = map[string]bool{
 var redirectsMerged = map[string]map[string]string{
 	"firefox-158-macos":   firefoxRedirectsMerged,
 	"firefox-158-windows": firefoxRedirectsMerged,
+	"firefox-159-linux": {
+		// As firefox-158-macos's: redirects2 put the fetch-acao and
+		// cred-acac hops on two connections in samples 1 and 3, on one
+		// in sample 2; redirects2-cookies on one in all three.
+		"www.redir-c.test": "credentialed and credential-less hops on connections of their own in some samples (redirects2 samples 1 and 3), on this host only",
+	},
 	"chrome-156-macos": {
 		// redirects2-cookies: in one sample of three the error page's
 		// reload of nav-chain.so (browser UI, redirectsReload) went on a
@@ -134,6 +144,7 @@ var redirectsMerged = map[string]map[string]string{
 var redirectsLineGaps = map[string]map[string]string{
 	"firefox-158-macos":   firefoxRedirectsLineGaps,
 	"firefox-158-windows": firefoxRedirectsLineGaps,
+	"firefox-159-linux":   firefoxRedirectsLineGaps,
 	"chrome-155-macos": {
 		"/p/img-markup.ss.hop1": "the hop of a markup image goes at u=1 (weight 219), raised once layout found it visible",
 	},
@@ -162,8 +173,8 @@ var firefoxRedirectsMerged = map[string]string{
 	"www.redir-c.test": "credentialed and credential-less hops on connections of their own, on this host only",
 }
 
-// firefoxRedirectsLineGaps are Firefox's redirectsLineGaps (macOS and
-// Windows alike).
+// firefoxRedirectsLineGaps are Firefox's redirectsLineGaps (macOS, Windows
+// and Linux alike: u=4 in every sample).
 var firefoxRedirectsLineGaps = map[string]string{
 	"/p/img-markup.so":      "markup images here get priority u=4 (weight 13), the kinds page's u=5",
 	"/p/img-markup.so.hop1": "markup images here get priority u=4 (weight 13), the kinds page's u=5",

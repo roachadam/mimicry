@@ -78,6 +78,15 @@ func run() error {
 		}
 	}
 
+	if len(bs) > 0 {
+		release, err := browser.EnsureDisplay(ctx)
+		if err != nil {
+			return err
+		}
+
+		defer release()
+	}
+
 	// Browsers first, so no earlier client's requests from this address
 	// colour what a site shows them; Go's client, the one most likely to
 	// be flagged, last.

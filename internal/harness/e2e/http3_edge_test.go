@@ -166,6 +166,45 @@ var h3EdgeGaps = func() map[string]string {
 		}
 	}
 
+	// Chrome on Linux: the late resend of the silenced request and the
+	// resumed attempt's probes, as on macOS and Windows, and h3-b's
+	// requests moved to a new TCP connection, as on macOS.
+	for k, why := range map[string]string{
+		"edge request /h3/silence.so sent":               "as chrome-156-windows's: Chrome on Linux sent the silenced request again over a new TCP connection 54.4 s after it made it (54410–54413 ms, 3 of 3 samples), when it closed its migrated connection with '85:Network blackhole detected' 60.4 s after the connection started, a rule no profile field holds; mimicry's waits on its QUIC connection",
+		"edge request /h3/silence.so delay ms":           "as its sending",
+		"edge TCP www.h3-a.test #2 goaway":               "the TCP connection that carried Chrome's late resend of silence.so",
+		"edge TCP www.h3-a.test #2 trigger":              "as its goaway",
+		"edge TCP www.h3-a.test #2 after its trigger ms": "as its goaway",
+		"edge QUIC www.h3-b.test #2 datagrams":           "as chrome-156-windows's: Chrome on Linux's resumed attempt probes first with its whole resumed hello, cut afresh (2 Initials in 2 of 3 samples, 4 in the third), and sends a lone 0-RTT datagram 2.0 s in; quic.loss's one_packet probe sends one Initial per PTO and says nothing of the 0-RTT ones (12–13 datagrams, Chrome 14–16; timing and give-up match)",
+		"edge TCP www.h3-b.test #3 goaway":               "as chrome-155-macos's: Chrome on Linux moved h3-b's requests to a new TCP connection after 8.0 s idle on its last one (closed5.cs, 3 of 3 samples; closed6.cs to another after 10.0 s in 1), not captured why; mimicry keeps its HTTP/2 connection",
+		"edge TCP www.h3-b.test #3 trigger":              "as its goaway",
+		"edge TCP www.h3-b.test #3 after its trigger ms": "as its goaway",
+		"edge request /h3/closed5.cs sent":               "as its goaway",
+	} {
+		gaps["chrome-157-linux/h3-broken "+k] = why
+	}
+
+	gaps["firefox-159-linux/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-windows's: Firefox on Linux's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT in 2 of 6; from 300 ms in 4, two or three Initials first; lone 40–42-B 0-RTT datagrams beside them; 14–26 datagrams in the 4 samples whose attempt ran to its 5.0 s close, mimicry's 31–37), and the profile has no resumed-probe rule; give-up time and close match"
+
+	// Firefox on Linux's side connections on the h3-streams-blocked page,
+	// in every sample: each one's start, close and trigger time, and its
+	// trigger where the samples agree (the 3rd to 6th's differ, as does
+	// whether the 7th resumed: not compared).
+	const firefoxSide = "as firefox-159-macos's and firefox-159-windows's short-lived side connections (h3gen's sampleGaps; EVIDENCE.md, Not covered): in every Linux sample of this page (3 of 3) Firefox opened 6 QUIC connections beside the page's, none carrying a request, each within 4 ms of one of the page's fetches (fetch1.so, two in each burst, last.so; the first resumed with 0-RTT) and closed by Firefox 1–13 ms after it started (H3_NO_ERROR); mimicry opens none. firefox-158's captures of the page, which the macOS and Windows 159 profiles inherit, have none"
+	for i := 2; i <= 7; i++ {
+		k := fmt.Sprintf("firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #%d", i)
+
+		gaps[k+" closed by"] = firefoxSide
+		gaps[k+" after its trigger ms"] = firefoxSide
+
+		if i < 7 {
+			gaps[k] = firefoxSide
+		}
+	}
+
+	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #2 trigger"] = firefoxSide
+	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #7 trigger"] = firefoxSide
+
 	// Safari's OPTIONS fetch: the h3-early pages make one, its kinds
 	// captures none.
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
@@ -248,6 +287,8 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 		gaps["firefox-158-windows/"+sc+" edge request /h3/pair-post.so streams"] = firefoxPair
 	}
 
+	gaps["chrome-157-linux/h3-too-early edge QUIC www.h3-a.test #6 trigger"] = "as chrome-156-windows's: Chrome on Linux made the pair's POST 4–5 ms after its GET, whose resumed connection started 0–1 ms after it, so the GET is the trigger (3 of 3 samples; in h3-early the samples differ), and the POST went in 1-RTT in 1 sample and held for the Finished in 2. mimicry's replay makes both in the same millisecond, so its POST is held for the handshake (http3.earlyData) and is the later trigger as this process schedules the two"
+
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
 			gaps[name+"/"+sc+" edge QUIC www.h3-a.test #6 trigger"] = "Safari made the pair's GET and POST together (0–1 ms apart) 5–9 ms before its connection started, so the POST is the later trigger; mimicry's replay makes both in the same millisecond, before its resumedDialDelayMs dial, so which counts as the later is this process's scheduling"
@@ -255,16 +296,17 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	}
 
 	// The h3-streams-blocked bursts: the page makes each burst's six
-	// fetches one after another (Chrome and Firefox 0–6 ms apart, Safari
-	// in the same millisecond), and every browser gives the waiting ones
-	// streams in that order: two at once, two after ~300 ms, two after
-	// ~600 ms. The replay starts the six together, each on its own
-	// goroutine, so which of them waits is this process's scheduling.
+	// fetches one after another (Chrome and Firefox 0–6 ms apart, Firefox
+	// on Linux 3–14, Safari in the same millisecond), and every browser
+	// gives the waiting ones streams in that order: two at once, two
+	// after ~300 ms, two after ~600 ms. The replay starts the six
+	// together, each on its own goroutine, so which of them waits is this
+	// process's scheduling.
 	// How many wait and how long is compared without the order
 	// (compareBurstWaits), and each request still goes on the QUIC
 	// connection (its "sent").
 	const burstOrder = "the replay makes the burst's six requests together, so which of them waits for the server's stream limit is this process's scheduling (the waits themselves, sorted, are compared: compareBurstWaits); the browser made them in order and gave them streams in that order"
-	for _, name := range []string{"chrome-156-macos", "firefox-158-macos", "firefox-158-windows", "safari-27-macos"} {
+	for _, name := range []string{"chrome-156-macos", "chrome-157-linux", "firefox-158-macos", "firefox-158-windows", "firefox-159-linux", "safari-27-macos"} {
 		for _, burst := range []string{"a", "b"} {
 			for i := 1; i <= 6; i++ {
 				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
@@ -279,6 +321,8 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	for _, name := range []string{"firefox-158-macos", "firefox-158-windows"} {
 		gaps[name+"/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams"] = firefoxBlocked
 	}
+
+	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams"] = "as firefox-158-windows's: the replay's request spacing. Firefox on Linux sent each burst's first two requests 3–10 ms apart and one STREAMS_BLOCKED with each waiting stream but a burst's last (6 7 8 in 3 of 3 samples, 12 13 14 in 1; in the other 2, pinned in h3gen's sampleGaps, the second burst's first two waiting streams left in one packet behind one 13); when this process puts a burst's first two requests in one packet, quic-go raises the limit by two and mimicry sends one per raise (7, 13), else Firefox's"
 
 	return gaps
 }()
@@ -300,7 +344,7 @@ var h3EdgeFastGaps = func() map[string]string {
 		"firefox-158-macos/h3-broken edge TCP www.h3-b.test #3 trigger":                firefox,
 		"firefox-158-windows/h3-broken edge TCP www.h3-b.test #3 after its trigger ms": firefoxWin,
 	}
-	for _, name := range []string{"chrome-155-macos", "chrome-156-windows"} {
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux"} {
 		for k, why := range map[string]string{
 			"edge request /h3/closed1.cs delay ms":            chromeHold,
 			"edge TCP www.h3-b.test #2 trigger":               chromeHold,

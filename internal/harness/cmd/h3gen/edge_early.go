@@ -13,9 +13,12 @@ import (
 
 // earlyData derives http3.earlyData from the h3-early and h3-too-early
 // captures; nil unless q.ZeroRTT. Each method must be consistently sent
-// in 0-RTT or held until Finished, and 425 retries consistent too. With
-// h.RequestsAfterConfirmed every held request must leave once the
-// handshake is confirmed (confirmedBy), as the profile sends it.
+// in 0-RTT or held until Finished, and 425 retries consistent too. A held
+// request is ready before the handshake ends, so one that leaves before
+// the handshake is confirmed (confirmedBy) proves the browser does not
+// wait for it: h.RequestsAfterConfirmed, which a full handshake's first
+// request suggests only when it happened to be ready in time, is then
+// false. One leaving after proves nothing (it may have been ready late).
 func (s *edgeSet) earlyData(q *profile.QUIC, h *profile.HTTP3, e *collector) *profile.H3EarlyData {
 	if !q.ZeroRTT {
 		return nil
@@ -28,7 +31,7 @@ func (s *edgeSet) earlyData(q *profile.QUIC, h *profile.HTTP3, e *collector) *pr
 		withFinishedAt []string
 	)
 
-	retried, notRetried := 0, 0
+	retried, notRetried, unconfirmed := 0, 0, false
 
 	for _, p := range slices.Concat(s.scenario(scenarioEarly), s.scenario(scenarioTooEarly)) {
 		seen := map[string]bool{}
@@ -76,9 +79,7 @@ func (s *edgeSet) earlyData(q *profile.QUIC, h *profile.HTTP3, e *collector) *pr
 						withFinishedAt = append(withFinishedAt, p.at+" "+nameOf(l))
 					}
 
-					if h.RequestsAfterConfirmed && !confirmedBy(c, finished, pos.Datagram) {
-						edgeErr(e, p.at, "held %s left before the handshake was confirmed (requestsAfterConfirmed)", nameOf(l))
-					}
+					unconfirmed = unconfirmed || !confirmedBy(c, finished, pos.Datagram)
 
 					continue
 				}
@@ -99,6 +100,10 @@ func (s *edgeSet) earlyData(q *profile.QUIC, h *profile.HTTP3, e *collector) *pr
 				}
 			}
 		}
+	}
+
+	if h.RequestsAfterConfirmed && unconfirmed {
+		h.RequestsAfterConfirmed = false
 	}
 
 	out := &profile.H3EarlyData{}

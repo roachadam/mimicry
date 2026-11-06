@@ -41,14 +41,19 @@ type preflightReport struct {
 	// SafariProxy is how the system sends Safari to the capture proxy
 	// (safariProxyConfig): "none", "pac" or "manual".
 	SafariProxy string `json:"safariProxy"`
-	// Platform, Admin, Certutil and Missing are set on Windows only:
-	// Platform is "windows"; Admin says the tool runs elevated; Certutil is
-	// certutil.exe's path ("" if absent); Missing lists, as instructions,
-	// everything that keeps a capture from running here.
-	Platform string   `json:"platform,omitempty"`
-	Admin    bool     `json:"admin,omitempty"`
-	Certutil string   `json:"certutil,omitempty"`
-	Missing  []string `json:"missing,omitempty"`
+	// Platform, Admin, Certutil and Missing are set on Windows and Linux
+	// only: Platform is "windows" or "linux"; Admin says the tool runs
+	// elevated (Windows); Certutil is certutil's path ("" if absent:
+	// Windows' for its Root store, Linux's NSS one for each browser's
+	// profile); Missing lists, as instructions, everything that keeps a
+	// capture from running here; UnprivilegedPortStart (Linux) is the
+	// lowest port a user may bind, which must be 443 at most for a
+	// scenario naming https://'s default port (Scenario.DefaultPort).
+	Platform              string   `json:"platform,omitempty"`
+	Admin                 bool     `json:"admin,omitempty"`
+	Certutil              string   `json:"certutil,omitempty"`
+	Missing               []string `json:"missing,omitempty"`
+	UnprivilegedPortStart int      `json:"unprivilegedPortStart,omitempty"`
 }
 
 // preflightBrowser is an installed browser.

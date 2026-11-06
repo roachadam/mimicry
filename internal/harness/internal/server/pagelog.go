@@ -336,15 +336,7 @@ func (r *wsRecorder) fail(err error) {
 // connection may have resumed and its request varies with timing, ports
 // and cookies; the page's data is its traces.
 func (l *pageLog) pageProfile(c *capture.Capture) {
-	l.mu.Lock()
-
-	if len(l.connections) > 0 {
-		c.ClientHello = l.firstHello
-		c.Records = l.firstRecords
-		c.Profile.TLS = *l.connections[0].Hello
-	}
-
-	l.mu.Unlock()
+	l.firstConnectionHello(c)
 
 	ua := c.UserAgent()
 
@@ -354,5 +346,21 @@ func (l *pageLog) pageProfile(c *capture.Capture) {
 			Name:  "user-agent",
 			Value: ua,
 		},
+	}
+}
+
+// firstConnectionHello gives c, the connection that asked for /done, the
+// page's first connection's ClientHello: on a fresh server it cannot
+// resume, while a page spread over several HTTP/1.1 connections may ask
+// for /done on one that resumed another's session (Firefox on Linux
+// does, now and then).
+func (l *pageLog) firstConnectionHello(c *capture.Capture) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if len(l.connections) > 0 {
+		c.ClientHello = l.firstHello
+		c.Records = l.firstRecords
+		c.Profile.TLS = *l.connections[0].Hello
 	}
 }

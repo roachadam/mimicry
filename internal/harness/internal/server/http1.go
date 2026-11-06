@@ -232,6 +232,7 @@ func serveHTTP1(conn net.Conn, rlog *recordLog, host string, c *capture.Capture,
 			} else {
 				c.H1 = log.snapshot()
 				c.Profile.Headers = profileHeaders(c.H1[0].Headers)
+				log.firstConnectionHello(c)
 			}
 
 			c.Finished = true

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
@@ -43,7 +44,7 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 		delays   []int
 	)
 
-	raced, alone := 0, 0
+	raced, alone := 0, []string{}
 	goAways, replaced := 0, 0
 
 	for _, dp := range s.discovery {
@@ -82,7 +83,7 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 
 			case s.pinned(dp.at + ", " + q.Host + ": raceAfterGoAway"):
 			default:
-				alone++
+				alone = append(alone, dp.at+", "+q.Host)
 			}
 		}
 	}
@@ -97,8 +98,8 @@ func discovery(s *captureSet, e *collector) profile.Discovery {
 	}
 
 	switch {
-	case raced > 0 && alone > 0:
-		e.add(s.conns[0], "raced TCP after %d server GOAWAYs, not after %d", raced, alone)
+	case raced > 0 && len(alone) > 0:
+		e.add(s.conns[0], "raced TCP after %d server GOAWAYs, not after %d (%s: pin raceAfterGoAway)", raced, len(alone), strings.Join(alone, "; "))
 	case raced > 0:
 		out.RaceAfterGoAway = true
 		out.RaceDelayMillis = span(delays)

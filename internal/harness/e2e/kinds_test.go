@@ -197,12 +197,14 @@ func withoutRaceCookie(lines []string) []string {
 // kinds page, label to "mimicry with X, browser with Y": a sample may show
 // one or not, and one no sample shows fails. Firefox gives credential-less
 // requests their own connection to the same-site host only (every macOS
-// sample, 2 of 3 on Windows); no rule found. The iPhone sends a beacon,
-// cookies and all, on its credential-less connection to the host (3 of 3).
+// sample, 2 of 3 on Windows, 1 of 3 on Linux); no rule found. The iPhone
+// sends a beacon, cookies and all, on its credential-less connection to
+// the host (3 of 3).
 var partitionGaps = map[string]map[string]string{
 	"firefox-158-macos":   firefoxPartitionGaps,
 	"firefox-158-windows": firefoxPartitionGaps,
 	"firefox-159-windows": firefox159WindowsPartitionGaps,
+	"firefox-159-linux":   firefoxPartitionGaps,
 	"safari-27-ios":       iosPartitionGaps,
 	"chrome-157-ios":      iosPartitionGaps,
 	"firefox-159-ios":     iosPartitionGaps,
@@ -217,14 +219,15 @@ var iosPartitionGaps = map[string]string{
 }
 
 // partitionGapsInSome are the sources whose partitionGaps show in only some
-// samples (Windows Firefox: 2 of 3); elsewhere a listed gap must show in
-// every sample.
+// samples (Windows Firefox: 2 of 3; Linux Firefox: 1 of 3); elsewhere a
+// listed gap must show in every sample.
 var partitionGapsInSome = map[string]bool{
 	"firefox-158-windows": true,
 	"firefox-159-windows": true,
+	"firefox-159-linux":   true,
 }
 
-// firefoxPartitionGaps are Firefox's (macOS and Windows alike).
+// firefoxPartitionGaps are Firefox's (macOS, Windows and Linux alike).
 var firefoxPartitionGaps = map[string]string{
 	"script-cors.ss":  "mimicry with script.ss, browser with script-cors.ss",
 	"image-cors.ss":   "mimicry with script.ss, browser with script-cors.ss",

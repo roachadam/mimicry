@@ -582,6 +582,7 @@ var webSocketEndGaps = map[string]string{
 	"firefox-158-windows/websocket-h2 cs-protocols":        "Firefox on Windows put this cross-site socket on an HTTP/2 connection of its own (no top-level-site partition in mimicry) and ended its stream with RST_STREAM CANCEL 1.0 s after the close handshake (every sample), its other HTTP/2 sockets never (the server ended them at 3 s); no profile field holds a stream end that depends on the connection, so closeH2 stays unmeasured and mimicry leaves the stream to the server",
 	"firefox-159-macos/websocket-h2 cs-protocols":          "as firefox-158-windows's, now also on macOS (Firefox 159): its own HTTP/2 connection and RST_STREAM CANCEL 1.0 s after the close handshake, the other HTTP/2 sockets ended by the server at 3 s",
 	"firefox-159-windows/websocket-h2 cs-protocols":        "as firefox-158-windows's (Firefox 159, 1 sample)",
+	"firefox-159-linux/websocket-h2 cs-protocols":          "as firefox-158-windows's, now also on Linux (Firefox 159, 3 of 3 samples): its own HTTP/2 connection and RST_STREAM CANCEL 1.0 s after the close handshake, the other 11 HTTP/2 sockets ended by the server at 3 s",
 	"firefox-159-macos/proxy-websocket px-h1":              firefox159ProxyEnd,
 	"firefox-159-macos/proxy-websocket px-h1-again":        firefox159ProxyEnd,
 	"firefox-159-macos/proxy-websocket px-plain":           firefox159ProxyEnd,

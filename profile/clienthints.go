@@ -43,7 +43,8 @@ type ClientHints struct {
 // opts in. Every field is required, in the form Chrome sends.
 type Machine struct {
 	// PlatformVersion is the system's version (sec-ch-ua-platform-version):
-	// "27.0.1" for macOS 27.0.1, "10.0.0" or "19.0.0" on Windows.
+	// "27.0.1" for macOS 27.0.1, "10.0.0" or "19.0.0" on Windows, and empty
+	// on Linux, where Chrome sends "".
 	PlatformVersion string `json:"platformVersion"`
 	// Arch is the CPU architecture (sec-ch-ua-arch): "arm" or "x86".
 	Arch string `json:"arch"`
@@ -320,10 +321,25 @@ func (c *checker) checkClientHints(p *Spec) {
 	}
 
 	c.checkMachine(path+".machine", &ch.Machine)
+	c.checkPlatformVersion(path+".machine.platformVersion", p.Platform, ch.Machine.PlatformVersion)
+}
+
+// checkPlatformVersion checks a machine's platformVersion against the
+// platform of the profile it goes with: Chrome on Linux sends none, and
+// every other platform a version.
+func (c *checker) checkPlatformVersion(path, platform, version string) {
+	switch linux := platform == "linux"; {
+	case linux && version != "":
+		c.add(path, "%q must be empty: Chrome on Linux sends no version", version)
+	case !linux && version == "":
+		c.add(path, "is required off Linux")
+	}
 }
 
 // Validate checks m as Config.ClientHints takes it: every field set, in
 // the form Chrome sends. It returns a *ValidationError, or nil.
+// PlatformVersion may be empty or a version here; CheckPlatformVersion
+// checks it against a profile's platform.
 func (m *Machine) Validate() error {
 	c := &checker{}
 	c.checkMachine("machine", m)
@@ -331,8 +347,20 @@ func (m *Machine) Validate() error {
 	return c.err()
 }
 
-// platformVersion is the form of Machine.PlatformVersion.
-var platformVersion = regexp.MustCompile(`^[0-9]+(\.[0-9]+){0,3}$`)
+// CheckPlatformVersion checks m.PlatformVersion against platform, the
+// Platform of the profile m goes with: empty on "linux", where Chrome
+// sends no version, and set on every other platform. It returns a
+// *ValidationError at machine.platformVersion, or nil.
+func CheckPlatformVersion(platform string, m *Machine) error {
+	c := &checker{}
+	c.checkPlatformVersion("machine.platformVersion", platform, m.PlatformVersion)
+
+	return c.err()
+}
+
+// platformVersion is the form of Machine.PlatformVersion: empty, as Chrome
+// on Linux sends it, or the system's version.
+var platformVersion = regexp.MustCompile(`^([0-9]+(\.[0-9]+){0,3})?$`)
 
 // formFactors are the values Chrome's sec-ch-ua-form-factors takes.
 var formFactors = []string{
@@ -355,7 +383,7 @@ var ectValues = []string{
 
 func (c *checker) checkMachine(path string, m *Machine) {
 	if !platformVersion.MatchString(m.PlatformVersion) {
-		c.add(path+".platformVersion", "%q must be dot-separated numbers", m.PlatformVersion)
+		c.add(path+".platformVersion", "%q must be empty or dot-separated numbers", m.PlatformVersion)
 	}
 
 	if m.Arch != "arm" && m.Arch != "x86" {

@@ -39,16 +39,23 @@
 200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-macos
 205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-windows
 200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-.*-macos
+# The Linux profiles (2026-11-05) are estimated as the Windows ones, not
+# yet from a runner's log.
+205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-linux
+205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-linux
 175        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
 190        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
 22         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
 36         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
 5          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures
 # 48 subtests of about 50 s, 12 per profile: a profile's take about 300 s
-# on a 4-CPU Linux box, about 1200 s whole, so a slice per profile.
+# on a 4-CPU Linux box, about 1200 s whole, so a slice per profile (the
+# Linux ones estimated as the Windows ones).
 290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos
 305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows
-305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-
+305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux
+305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios)
+305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux
 290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,

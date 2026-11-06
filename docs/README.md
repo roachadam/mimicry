@@ -57,6 +57,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0047](decisions/0047-windows-profiles.md) | Windows profiles: `<browser>-<major>-windows`, `ChromeWindows()` and `FirefoxWindows()` | Amended by 0051; amended (Firefox on Windows) |
 | [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Amended by 0053 (the iPhone's header order is Safari's, not the platform's) |
 | [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Amended (Firefox on an iPhone; `abandonOnTcp` derived) |
+| [0058](decisions/0058-linux-profiles.md) | Linux profiles: Google's Chrome and Mozilla's Firefox, one profile each for every distribution, captured in WSL2 on Xvfb | Accepted |
 
 ### Requests and headers
 

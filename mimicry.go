@@ -21,9 +21,10 @@
 // Defaults match the browser; Config fields that change that say so. A
 // profile holds only what was recorded from the real browser: asking for
 // anything else fails with ErrNotMeasured instead of guessing. Built-in
-// profiles are in package profiles: Chrome, Firefox and Safari on macOS,
-// Chrome and Firefox on Windows (profiles.ChromeWindows,
-// profiles.FirefoxWindows). Guides are in the repository's docs directory.
+// profiles are in package profiles: Chrome, Firefox and Safari on macOS and
+// the iPhone, Chrome and Firefox on Windows and Linux (profiles.ChromeLinux,
+// profiles.FirefoxWindows, ...). Guides are in the repository's docs
+// directory.
 package mimicry
 
 import (
@@ -382,6 +383,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 
 		if m := cfg.ClientHints; m != nil {
 			if err := m.Validate(); err != nil {
+				return nil, err
+			}
+
+			if err := profile.CheckPlatformVersion(p.Platform, m); err != nil {
 				return nil, err
 			}
 

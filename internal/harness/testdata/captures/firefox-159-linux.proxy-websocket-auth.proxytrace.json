@@ -1,0 +1,257 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 407,
+      "target": "www.ws-a.test:33165",
+      "lines": [
+        "CONNECT www.ws-a.test:33165 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33165"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 9,
+      "status": 200,
+      "target": "www.ws-a.test:33165",
+      "lines": [
+        "CONNECT www.ws-a.test:33165 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:33165",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 11,
+      "status": 200,
+      "target": "h1.ws-a.test:33165",
+      "lines": [
+        "CONNECT h1.ws-a.test:33165 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33165",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "h1.ws-a.test:33165",
+      "lines": [
+        "CONNECT h1.ws-a.test:33165 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33165",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 200,
+      "target": "h1.ws-a.test:33165",
+      "lines": [
+        "CONNECT h1.ws-a.test:33165 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:33165",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "www.ws-a.test:35347",
+      "lines": [
+        "CONNECT www.ws-a.test:35347 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:35347",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "www.ws-a.test:46713",
+      "lines": [
+        "CONNECT www.ws-a.test:46713 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:46713"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "www.ws-a.test:46713",
+      "lines": [
+        "CONNECT www.ws-a.test:46713 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:46713",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 200,
+      "target": "h1.ws-a.test:46713",
+      "lines": [
+        "CONNECT h1.ws-a.test:46713 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:46713",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "h1.ws-a.test:46713",
+      "lines": [
+        "CONNECT h1.ws-a.test:46713 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:46713",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "h1.ws-a.test:46713",
+      "lines": [
+        "CONNECT h1.ws-a.test:46713 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:46713",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 17,
+      "status": 200,
+      "target": "www.ws-a.test:44289",
+      "lines": [
+        "CONNECT www.ws-a.test:44289 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:44289",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 407,
+      "target": "www.ws-a.test:35271",
+      "lines": [
+        "CONNECT www.ws-a.test:35271 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:35271"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 8,
+      "status": 200,
+      "target": "www.ws-a.test:35271",
+      "lines": [
+        "CONNECT www.ws-a.test:35271 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:35271",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 12,
+      "status": 200,
+      "target": "h1.ws-a.test:35271",
+      "lines": [
+        "CONNECT h1.ws-a.test:35271 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:35271",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 13,
+      "status": 200,
+      "target": "h1.ws-a.test:35271",
+      "lines": [
+        "CONNECT h1.ws-a.test:35271 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:35271",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 14,
+      "status": 200,
+      "target": "h1.ws-a.test:35271",
+      "lines": [
+        "CONNECT h1.ws-a.test:35271 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: h1.ws-a.test:35271",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 16,
+      "status": 200,
+      "target": "www.ws-a.test:44755",
+      "lines": [
+        "CONNECT www.ws-a.test:44755 HTTP/1.1",
+        "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:159.0) Gecko/20100101 Firefox/159.0",
+        "Proxy-Connection: keep-alive",
+        "Connection: keep-alive",
+        "Host: www.ws-a.test:44755",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ]
+]

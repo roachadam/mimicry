@@ -375,7 +375,10 @@ func covered(p *quictrace.Packet) []cryptoRange {
 var elapsedRE = regexp.MustCompile(`after (\d+)us`)
 
 // giveUp derives when attempts give up and what they send then, each
-// within 20 ms after the round time it implies.
+// within 20 ms after the round time it implies. An attempt sampleGaps pins
+// under feature is left out of the derivation; its pin is used only when
+// that attempt differs (silent while others closed, or closed otherwise
+// or outside the window), so a pin that no longer differs is stale.
 func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *collector) profile.QUICGiveUp {
 	var out profile.QUICGiveUp
 
@@ -387,98 +390,149 @@ func giveUp(q *profile.QUIC, us []unanswered, feature string, s *edgeSet, e *col
 		}
 	}
 
-	type closed struct {
-		u    unanswered
-		at   float64
-		give profile.QUICGiveUp
-	}
-
-	var closes []closed
-
-	silent := 0
+	var (
+		closes, pinned []gaveUp
+		silent         int
+	)
 
 	for _, u := range us {
-		f := u.a.closeFlight()
-		if f == nil {
-			if s.gap(u.at(), feature) {
-				continue
-			}
+		if _, ok := sampleGaps[u.at()+": "+feature]; ok {
+			var pe collector
 
-			silent++
+			g := attemptGaveUp(u, idle, &pe)
 
-			if end := u.a.end() - float64(u.a.start); end >= idle {
-				edgeErr(e, u.at(), "sent its last datagram %.0f ms in, past max_idle_timeout", end)
-			}
+			g.bad = len(pe.errs) > 0
+			pinned = append(pinned, g)
 
 			continue
 		}
 
-		p, fr := closeFrame(f)
-		t := u.a.millis(f[0].Micros) - float64(u.a.start)
-		g := profile.QUICGiveUp{
-			DatagramSize: f[0].Size,
+		g := attemptGaveUp(u, idle, e)
+		if g.silent {
+			silent++
+
+			continue
 		}
 
-		switch {
-		case p.Type != quictrace.PacketInitial || fr.Code != 0x1c || fr.ErrorCode == nil:
-			edgeErr(e, u.at(), "gave up with a %s close (frame %#x), not an Initial transport one", p.Type, fr.Code)
-		case *fr.ErrorCode == errNoError && fr.Reason != "":
-			g.Close = profile.CloseTransport
-
-			m := elapsedRE.FindStringSubmatchIndex(fr.Reason)
-
-			if m == nil {
-				g.Reason = fr.Reason
-				break
-			}
-
-			g.Reason = fr.Reason[:m[2]] + "{elapsed_us}" + fr.Reason[m[3]:]
-			if us, _ := strconv.ParseFloat(fr.Reason[m[2]:m[3]], 64); math.Abs(us/1000-t) > 5 {
-				edgeErr(e, u.at(), "close reason says %.0f us, sent at %.1f ms", us, t)
-			}
-
-		case *fr.ErrorCode == errApplicationError && fr.Reason == "":
-			g.Close = profile.CloseApplication
-		default:
-			edgeErr(e, u.at(), "gave up with error %#x reason %q: neither a transport nor an application close", *fr.ErrorCode, fr.Reason)
-		}
-
-		closes = append(closes, closed{
-			u:    u,
-			at:   t,
-			give: g,
-		})
+		closes = append(closes, g)
 	}
 
 	switch {
 	case len(closes) == 0:
-		return out
 	case silent > 0:
 		edgeErr(e, s.set.name, "%s: %d attempts closed, %d ended silently", feature, len(closes), silent)
+	default:
+		out = closes[0].give
 
-		return out
-	}
+		first := math.Inf(1)
 
-	out = closes[0].give
-
-	first := math.Inf(1)
-
-	for _, c := range closes {
-		first = min(first, c.at)
-	}
-
-	out.AfterMillis = roundTo(first, 100)
-	for _, c := range closes {
-		if g := c.give; g.Close != out.Close || g.Reason != out.Reason || g.DatagramSize != out.DatagramSize {
-			edgeErr(e, c.u.at(), "%s: closed %+v, others %+v", feature, g, out)
+		for _, c := range closes {
+			first = min(first, c.at)
 		}
 
-		if (c.at < float64(out.AfterMillis)-1 || c.at > float64(out.AfterMillis)+20+c.u.p.slack) && !s.gap(c.u.at(), feature) {
-			edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within %.0f ms of %d", feature, c.at, 20+c.u.p.slack, out.AfterMillis)
+		out.AfterMillis = roundTo(first, 100)
+		for _, c := range closes {
+			if g := c.give; !sameClose(g, out) {
+				edgeErr(e, c.u.at(), "%s: closed %+v, others %+v", feature, g, out)
+			}
+
+			if !inWindow(c, out) {
+				edgeErr(e, c.u.at(), "%s: gave up %.1f ms in, not within %.0f ms of %d", feature, c.at, 20+c.u.p.slack, out.AfterMillis)
+			}
+		}
+	}
+
+	for _, c := range pinned {
+		var differs bool
+
+		switch {
+		case c.bad:
+			differs = true
+		case c.silent:
+			differs = len(closes) > 0
+		default:
+			differs = len(closes) == 0 || !sameClose(c.give, out) || !inWindow(c, out)
+		}
+
+		if differs {
+			s.gap(c.u.at(), feature)
 		}
 	}
 
 	return out
+}
+
+// gaveUp is how an attempt gave up: silently, or with give's close at
+// millisecond at. bad: the attempt failed a check of its own.
+type gaveUp struct {
+	u      unanswered
+	silent bool
+	at     float64
+	give   profile.QUICGiveUp
+	bad    bool
+}
+
+// attemptGaveUp reads how u gave up, refusing to e a silent attempt that
+// outlived idle (max_idle_timeout) or a close giveUp cannot model.
+func attemptGaveUp(u unanswered, idle float64, e *collector) gaveUp {
+	f := u.a.closeFlight()
+	if f == nil {
+		if end := u.a.end() - float64(u.a.start); end >= idle {
+			edgeErr(e, u.at(), "sent its last datagram %.0f ms in, past max_idle_timeout", end)
+		}
+
+		return gaveUp{
+			u:      u,
+			silent: true,
+		}
+	}
+
+	p, fr := closeFrame(f)
+	t := u.a.millis(f[0].Micros) - float64(u.a.start)
+	g := profile.QUICGiveUp{
+		DatagramSize: f[0].Size,
+	}
+
+	switch {
+	case p.Type != quictrace.PacketInitial || fr.Code != 0x1c || fr.ErrorCode == nil:
+		edgeErr(e, u.at(), "gave up with a %s close (frame %#x), not an Initial transport one", p.Type, fr.Code)
+	case *fr.ErrorCode == errNoError && fr.Reason != "":
+		g.Close = profile.CloseTransport
+
+		m := elapsedRE.FindStringSubmatchIndex(fr.Reason)
+
+		if m == nil {
+			g.Reason = fr.Reason
+			break
+		}
+
+		g.Reason = fr.Reason[:m[2]] + "{elapsed_us}" + fr.Reason[m[3]:]
+		if us, _ := strconv.ParseFloat(fr.Reason[m[2]:m[3]], 64); math.Abs(us/1000-t) > 5 {
+			edgeErr(e, u.at(), "close reason says %.0f us, sent at %.1f ms", us, t)
+		}
+
+	case *fr.ErrorCode == errApplicationError && fr.Reason == "":
+		g.Close = profile.CloseApplication
+	default:
+		edgeErr(e, u.at(), "gave up with error %#x reason %q: neither a transport nor an application close", *fr.ErrorCode, fr.Reason)
+	}
+
+	return gaveUp{
+		u:    u,
+		at:   t,
+		give: g,
+	}
+}
+
+// sameClose reports whether g closes as out does, timing aside.
+func sameClose(g, out profile.QUICGiveUp) bool {
+	return g.Close == out.Close && g.Reason == out.Reason && g.DatagramSize == out.DatagramSize
+}
+
+// inWindow reports whether c gave up within 20 ms (plus its sample's
+// slack) after out.AfterMillis.
+func inWindow(c gaveUp, out profile.QUICGiveUp) bool {
+	return c.at >= float64(out.AfterMillis)-1 && c.at <= float64(out.AfterMillis)+20+c.u.p.slack
 }
 
 // silenced is a h3-broken sample's silenced connection: the one that

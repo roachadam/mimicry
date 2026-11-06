@@ -98,7 +98,11 @@ func (b *Browser) Version(context.Context) (string, error) {
 // handTo passes url to the instance running on profile directory dir by
 // invoking the browser again on it.
 func (b *Browser) handTo(ctx context.Context, dir, url string) error {
-	if out, err := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url).CombinedOutput(); err != nil { //nolint:gosec // the binary is a known browser location; dir is our own
+	cmd := exec.CommandContext(ctx, b.binary, "--user-data-dir="+dir, url) //nolint:gosec // the binary is a known browser location; dir is our own
+
+	cmd.Env = browserEnv(b, dir)
+
+	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("handing %s the capture URL: %w: %s", b.Name, err, strings.TrimSpace(string(out)))
 	}
 
@@ -115,6 +119,7 @@ func (b *Browser) start(ctx context.Context, dir string, args []string) (*Sessio
 		cmd = exec.CommandContext(ctx, "open", append([]string{"-n", "-W", "-a", b.App, "--args"}, args...)...) //nolint:gosec // the app is a known browser location
 	} else {
 		cmd = exec.CommandContext(ctx, b.Path, args...) //nolint:gosec // the path is a known browser location
+		cmd.Env = browserEnv(b, dir)
 	}
 
 	if err := cmd.Start(); err != nil {

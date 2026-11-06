@@ -141,7 +141,7 @@ func (r *refreshRun) runRealcheck(ctx context.Context, p *plan) *result {
 		res.duration = time.Since(start)
 	}()
 
-	bin, err := build(ctx, r.Dir, "realcheck", m.windows)
+	bin, err := build(ctx, r.Dir, "realcheck", m.goos())
 	if err != nil {
 		res.err = err
 		return res

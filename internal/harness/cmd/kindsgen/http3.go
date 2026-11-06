@@ -27,6 +27,7 @@ var h3PriorityGaps = map[string]string{
 	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 1, /h3/markup-image2.so":   "as firefox-158-macos's: u=4, i where its kind's is u=5, i; in samples 1 and 2 (firefox-158-macos: all three), sample 3 sent its kind's",
 	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 1, /h3/markup-image2.so":   "as sample 1",
 	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 3, QUIC connection 1, /h3/markup-image2.so": "as firefox-159-macos's: u=4, i where its kind's is u=5, i, in 1 of 3 samples (firefox-158-windows: none)",
+	"firefox-159-linux /h3/markup-image2.so": "as firefox-158-macos's: u=4, i where its kind's is u=5, i, in all three samples",
 }
 
 // h3AltUsedGaps pins h3 requests (their h3Request.at) whose alt-used
@@ -38,6 +39,7 @@ var h3AltUsedGaps = map[string]string{
 	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 11, /h3/after-goaway.so":   "as sample 1",
 	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 10, /h3/after-goaway.so": "as firefox-159-macos's: in the burst's samples, a fresh QUIC connection without alt-used, no TCP race",
 	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 3, QUIC connection 11, /h3/after-goaway.so": "as sample 1",
+	"firefox-159-linux.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 9, /h3/after-goaway.so":    "as firefox-159-macos's: in the burst's sample, a fresh QUIC connection without alt-used, no TCP race; samples 1 and 3 raced TCP",
 }
 
 // h3Request is one HTTP/3 request of the h3 captures. priority is "" when

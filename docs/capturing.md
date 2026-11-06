@@ -32,7 +32,9 @@ captures: [decision 0035](decisions/0035-version-policy-and-capture-inheritance.
 Firefox, Safari) against an in-process capture server and writes new
 captures to `testdata/captures/`. It never overwrites; delete a
 capture to retake it. Use visible windows for captures you commit: headless
-Chrome reports `HeadlessChrome` in its user agent. moon skips this task
+Chrome reports `HeadlessChrome` in its user agent. On Linux with no
+display (a server, WSL), the tool starts Xvfb for the browsers' windows:
+they run windowed there, not headless. moon skips this task
 when `CI=true`.
 
 Each browser is sampled three times (`-samples`, or per scenario as
@@ -134,6 +136,11 @@ for the keychain on screen.
 - **The Windows machine** (Chrome and Firefox on Windows, `cmd/refresh
   -windows`): its setup is in
   [Refreshing profiles](refreshing-profiles.md#the-windows-machine).
+- **The Linux machine** (Chrome and Firefox on Linux, `cmd/refresh
+  -linux`, a WSL distribution of the Windows machine with `-wsl`): its
+  setup is in [Refreshing profiles](refreshing-profiles.md#the-linux-machine).
+  Each browser trusts the capture CA in its own throwaway profile, never the
+  system.
 - **Safari on an iPhone** (`ios-safari`): served from the Mac over the
   network; see [below](#safari-on-an-iphone).
 - **Chrome on an iPhone** (`ios-chrome`): the same, with Chrome; see

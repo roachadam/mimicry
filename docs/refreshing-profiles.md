@@ -2,8 +2,9 @@
 
 Browsers ship a new version every few weeks. `profiles.ChromeMacOS()`,
 `profiles.FirefoxMacOS()` and `profiles.SafariMacOS()` always mean the newest
-built-in macOS version, and `profiles.ChromeWindows()` and
-`profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows. The
+built-in macOS version, `profiles.ChromeWindows()` and
+`profiles.FirefoxWindows()` the newest Chrome and Firefox on Windows, and
+`profiles.ChromeLinux()` and `profiles.FirefoxLinux()` on Linux. The
 newest five versions per browser and platform are supported.
 Older ones stay in the repository, marked deprecated. Keeping up is one
 command, run in `internal/harness/`:
@@ -14,6 +15,7 @@ go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the M
 go run ./cmd/refresh -browser safari-mini -mode full -mini <alias>       # Safari 26, on the second Mac
 go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan only
 go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>   # Chrome, then Firefox, on a Windows machine
+go run ./cmd/refresh -browser chrome-linux,firefox-linux -linux <alias> -wsl Ubuntu-24.04 -wsl-user capture   # Chrome, then Firefox, in WSL on that machine
 go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 go run ./cmd/refresh -browser chrome-ios -listen <mac-ip>   # Chrome on an iPhone, served from this Mac
 go run ./cmd/refresh -browser firefox-ios -listen <mac-ip>  # Firefox on an iPhone, served from this Mac
@@ -23,7 +25,9 @@ The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
 default; chrome, firefox and safari-mini need it). Chrome and Firefox on
 Windows need a Windows machine reachable over ssh: pass your ssh alias for
-it with `-windows` (no default). Safari, Chrome and Firefox on iOS need an iPhone
+it with `-windows` (no default). Chrome and Firefox on Linux need a Linux
+machine reachable over ssh (`-linux`), or a WSL distribution on the Windows
+machine (`-linux` its alias, `-wsl` the distribution). Safari, Chrome and Firefox on iOS need an iPhone
 connected to this Mac by cable and on its Wi-Fi network: pass this Mac's
 IPv4 address on that network with `-listen`.
 
@@ -104,6 +108,8 @@ supported one.
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
 | `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
 | `firefox-windows` | the Windows machine (`-windows`) | profiles `firefox-<major>-windows`, for `profiles.FirefoxWindows()`; the first one captures the full set; after `chrome-windows` when both are named, never at once |
+| `chrome-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `chrome-<major>-linux`, for `profiles.ChromeLinux()`; Google's own build; the first one captures the full set |
+| `firefox-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `firefox-<major>-linux`, for `profiles.FirefoxLinux()`; Mozilla's own build; the first one captures the full set |
 | `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 | `chrome-ios` | the iPhone, served from this Mac (`-listen`) | profiles `chrome-<major>-ios`; the iPhone set whatever `-mode`; one after the other with `safari-ios` when both are named, never at once |
 | `firefox-ios` | the iPhone, served from this Mac (`-listen`) | profiles `firefox-<major>-ios`; as `chrome-ios` |
@@ -181,6 +187,63 @@ NEW_TOKEN tokens are 89 or 90 bytes by the loopback RTT they encode (tests
 compare whether a token is sent, not its length). The report names the
 machines by role (this Mac, the second Mac, the Windows PC), never by their
 ssh aliases.
+
+### The Linux machine
+
+A Linux profile is one per browser, not per distribution: Google's Chrome
+`.deb`/`.rpm` and Mozilla's Firefox are the same programs on every
+distribution (Ubuntu 24.04 and Fedora 45 sent identical first requests,
+[decision 0058](decisions/0058-linux-profiles.md)). Use those builds: a
+distribution's own Firefox or Chromium is another browser.
+
+The machine needs, once: Chrome from Google's package (`google-chrome-stable`)
+and Firefox from Mozilla (packages.mozilla.org's apt repository, or the
+tarball with `distribution/policies.json` turning updates off, as on
+Windows; never the snap, whose private `/tmp` the tool cannot reach); NSS's
+`certutil` (`libnss3-tools`; Fedora `nss-tools`); Xvfb (`xvfb`; Fedora
+`xorg-x11-server-Xvfb`); python3 with aioquic 1.0 or later, for QUIC
+version 2 (`python3 -m pip install --user --break-system-packages
+'aioquic>=1.0'` as that user: Ubuntu 24.04's `python3-aioquic` is
+0.9.25, too old); and a
+user that is not root, since Chrome refuses root without its sandbox
+(ssh in as another user, or in WSL pass `-wsl-user`). Go is not needed.
+The preflight finds the browsers, `certutil`, Xvfb (when the session has
+no display, and always in WSL), aioquic (when a planned scenario needs
+it), the user and the lowest port a user may bind (below); the plan
+refuses to run while one is missing. Firefox is whatever `firefox` is on
+`PATH`; the preflight cannot tell Mozilla's build from a snap or a
+distribution's.
+
+A scenario whose pages name https://'s default port (`urls`) needs the
+capture tool, running as that user, to listen on port 443, which Linux
+allows a user only from `net.ipv4.ip_unprivileged_port_start`, 1024 by
+default. On a Linux machine of its own, lower it yourself (`sudo sysctl
+-w net.ipv4.ip_unprivileged_port_start=443`, and in `/etc/sysctl.d/` to
+keep it): the plan refuses otherwise. In WSL, refresh lowers it to 443 as
+root before each capture step that needs it, only if it is higher; it
+lasts until the WSL VM restarts.
+
+The tool cross-compiles for linux/amd64 and runs each step in
+`~/mimicry-capture/refresh-<stamp>/`. `capture` opens the browser on
+Xvfb, a virtual X display it starts for the run, unless the session has a
+display that answers: an ordinary windowed browser, not headless, on no
+screen. Each browser trusts the run's capture CA in its own throwaway
+profile (Chrome's NSS database under a `HOME` that is that profile;
+Firefox's profile database, on pages across hosts), so nothing outside the
+run's directory changes but, in WSL, the port setting above, and nothing
+needs cleaning up.
+
+**In WSL on the Windows machine** (`-linux <its alias> -wsl <distribution>
+-wsl-user <user>`), each step runs through `wsl.exe -d <distribution> -u
+<user>` over ssh to that machine, its command line base64-encoded so
+neither PowerShell nor cmd quotes anything in it, and files go in and out
+as tar streams (scp cannot reach a distribution). The distribution lives
+as long as each step; nothing is configured on Windows, and in the
+distribution only the port setting. WSLg's display is
+never used: on the PC measured it accepted connections and never answered,
+or its Wayland socket, which Firefox prefers, hung; the tool uses Xvfb
+inside the distribution instead. Linux and Windows runs on one machine
+take turns.
 
 ### The iPhone
 
