@@ -429,7 +429,9 @@ const (
 	// PacketNumbersRandomInitial numbers each space from 0, except Initial,
 	// which starts at 1 + (a & 0x1f) + (max(b, 224) - 224) * 32 for random
 	// bytes a and b (neqo). 1-RTT starts at 1 after 0-RTT, sharing its
-	// space.
+	// space. Before anything in a space is acknowledged, a number goes in
+	// the fewest bytes that hold pn + 1, where RFC 9000's appendix A.2 asks
+	// for twice that range (neqo): 127 to 254 in 1 byte, not 2.
 	PacketNumbersRandomInitial = "random_initial"
 	// PacketNumbersPerSpace numbers each space from 0.
 	PacketNumbersPerSpace = "per_space"

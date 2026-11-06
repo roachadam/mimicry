@@ -95,7 +95,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 		)
 		if c.keysInitial.canWrite() && sendInitial {
 			pnum := c.clientPacketNumber(now, initialSpace)
-			pnumMaxAcked := c.loss.spaces[initialSpace].maxAcked
+			pnumMaxAcked := cc.pnMaxAcked(pnum, c.loss.spaces[initialSpace].maxAcked)
 
 			var plan *plannedPacket
 
@@ -152,7 +152,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 		// Handshake packet.
 		if c.keysHandshake.canWrite() && (coalesce || packets == 0) && !cc.closeOnly0RTT {
 			pnum := c.clientPacketNumber(now, handshakeSpace)
-			pnumMaxAcked := c.loss.spaces[handshakeSpace].maxAcked
+			pnumMaxAcked := cc.pnMaxAcked(pnum, c.loss.spaces[handshakeSpace].maxAcked)
 			p := longPacket{
 				ptype:     packetTypeHandshake,
 				version:   cc.version,
@@ -185,7 +185,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 		// 0-RTT packet: application data before the handshake completes.
 		if cc.earlyOK.Load() && !c.keysAppData.canWrite() && !ackOnly && (coalesce || packets == 0) {
 			pnum := c.clientPacketNumber(now, appDataSpace)
-			pnumMaxAcked := c.loss.spaces[appDataSpace].maxAcked
+			pnumMaxAcked := cc.pnMaxAcked(pnum, c.loss.spaces[appDataSpace].maxAcked)
 			p := longPacket{
 				ptype:     packetType0RTT,
 				version:   cc.originalVersion, // even after an upgrade (RFC 9369, section 4.1)
@@ -211,7 +211,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 		// 1-RTT packet.
 		if c.keysAppData.canWrite() && !ackOnly && (coalesce || packets == 0) {
 			pnum := c.clientPacketNumber(now, appDataSpace)
-			pnumMaxAcked := c.loss.spaces[appDataSpace].maxAcked
+			pnumMaxAcked := cc.pnMaxAcked(pnum, c.loss.spaces[appDataSpace].maxAcked)
 			c.w.start1RTTPacket(pnum, pnumMaxAcked, dstConnID)
 			c.appendFrames(now, appDataSpace, pnum, limit)
 
@@ -550,7 +550,7 @@ func (cc *clientState) planShuffle(total int64) []plannedPacket {
 		frames = deleteEmpty(frames)
 
 		pn := cc.initialPN + packetNumber(i)
-		pnLen := packetNumberLength(pn, -1)
+		pnLen := packetNumberLength(pn, cc.pnMaxAcked(pn, -1))
 		pnLen2 := i == 1 && len(cc.token) == 0
 
 		if pnLen2 {
@@ -567,6 +567,20 @@ func (cc *clientState) planShuffle(total int64) []plannedPacket {
 	}
 
 	return out
+}
+
+// pnMaxAcked is the largest acknowledged number packet pnum is encoded
+// against, given maxAcked, its space's (-1 for none). With nothing
+// acknowledged, a random_initial profile's browser (Firefox, neqo) sizes
+// the number to hold pnum + 1, where RFC 9000's appendix A.2 asks for
+// twice that range: 127 to 254 in 1 byte, not 2. Encoding against
+// pnum - (pnum+1)/2 gives that length from packetNumberLength's A.2 rule.
+func (cc *clientState) pnMaxAcked(pnum, maxAcked packetNumber) packetNumber {
+	if maxAcked >= 0 || cc.p.PacketNumbers != profile.PacketNumbersRandomInitial {
+		return maxAcked
+	}
+
+	return pnum - (pnum+1)/2
 }
 
 func deleteEmpty(frames []plannedFrame) []plannedFrame {
@@ -695,7 +709,7 @@ func (cc *clientState) planSNICut(hello []byte) []plannedPacket {
 		}
 	}
 
-	room := int64(cc.initialRoom(packetNumberLength(cc.initialPN, -1)))
+	room := int64(cc.initialRoom(packetNumberLength(cc.initialPN, cc.pnMaxAcked(cc.initialPN, -1))))
 
 	right = min(right, max(room-int64(cryptoFrameOverhead(total, total)), 0))
 

@@ -142,7 +142,7 @@ func (r *ruleCheck) packetNumbers() {
 		}
 
 		if pk.Type == quictrace.PacketInitial {
-			if want := pnLength(pk.PN); pk.PNLength != want {
+			if want := pnLength(pk.PN, r.q.PacketNumbers); pk.PNLength != want {
 				r.add("packet numbers: the first Initial's %d in %d bytes, not %d", pk.PN, pk.PNLength, want)
 			}
 		}
@@ -150,14 +150,20 @@ func (r *ruleCheck) packetNumbers() {
 }
 
 // pnLength is how many bytes encode packet number pn with nothing
-// acknowledged (RFC 9000, appendix A.2).
-func pnLength(pn uint64) int {
-	switch d := pn + 1; {
-	case d < 0x80:
+// acknowledged: what holds pn + 1 with PacketNumbersRandomInitial (neqo),
+// otherwise twice that range (RFC 9000, appendix A.2).
+func pnLength(pn uint64, rule string) int {
+	d := pn + 1
+	if rule != profile.PacketNumbersRandomInitial {
+		d *= 2
+	}
+
+	switch {
+	case d < 0x100:
 		return 1
-	case d < 0x8000:
+	case d < 0x10000:
 		return 2
-	case d < 0x800000:
+	case d < 0x1000000:
 		return 3
 	}
 

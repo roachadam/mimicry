@@ -371,7 +371,7 @@ func (c *Conn) sendPathProbe(now time.Time, add func() bool) {
 	c.w.reset(c.loss.maxSendSize())
 
 	pnum := c.clientPacketNumber(now, appDataSpace)
-	pnumMaxAcked := c.loss.spaces[appDataSpace].maxAcked
+	pnumMaxAcked := c.client.pnMaxAcked(pnum, c.loss.spaces[appDataSpace].maxAcked)
 	c.w.start1RTTPacket(pnum, pnumMaxAcked, dstConnID)
 
 	if !add() {
