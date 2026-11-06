@@ -103,7 +103,12 @@ Microsoft's package before capturing), 71 captures:
 ## Consequences
 
 - Edge on macOS has a profile of its own; Edge on Windows needs the
-  Windows PC's capture run.
+  Windows PC's capture run. A first one (2026-11-06, Edge 157.0.4341.42)
+  was discarded: the PC's Edge policies (`HKLM` and `HKCU`
+  `SOFTWARE\Policies\Microsoft\Edge`, about 35 settings from a debloat
+  tool, `ConfigureDoNotTrack` among them) made Edge add `dnt: 1` to every
+  request after its first few, which no default Edge sends. The run needs
+  those keys lifted, and restored after.
 - Edge refreshes are full captures until a second Edge version inherits
   from the first.
 - The 8 one-byte second Initials are a known gap until a capture shows

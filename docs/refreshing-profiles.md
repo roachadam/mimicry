@@ -173,6 +173,15 @@ scheduled tasks) and removes the directory (`-keep` keeps it). Each
 capture run removes the CA as it ends, so the PC's browsers take turns,
 in quick mode too.
 
+Browser policies apply to the captured browser too, throwaway profile or
+not, so the browsers must run on their defaults. Check
+`HKLM\SOFTWARE\Policies` and `HKCU\SOFTWARE\Policies` (`Google\Chrome`,
+`Microsoft\Edge`, `Mozilla\Firefox`) before a run: telemetry switches
+change nothing on the wire, but others do. Edge's `ConfigureDoNotTrack`
+made it send `dnt: 1` on every request but its first few (decision 0059),
+so lift such keys for the run (export them with `reg export` first) and
+import them again after.
+
 Firefox updates itself between launches, which splits a run (the tool then
 refuses it). Install the exact version from Mozilla's archive
 (`archive.mozilla.org/pub/firefox/releases/<version>/win64/en-US/`,
