@@ -43,6 +43,7 @@ resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 | macOS | Chrome | `profiles.ChromeMacOS()` | `Chrome156MacOS()`, `Chrome155MacOS()` |
 | | Firefox | `profiles.FirefoxMacOS()` | `Firefox159MacOS()`, `Firefox158MacOS()` |
 | | Safari | `profiles.SafariMacOS()` | `Safari27MacOS()`, `Safari26MacOS()` |
+| | Edge | `profiles.EdgeMacOS()` | `Edge157MacOS()` |
 | Windows | Chrome | `profiles.ChromeWindows()` | `Chrome156Windows()` |
 | | Firefox | `profiles.FirefoxWindows()` | `Firefox159Windows()`, `Firefox158Windows()` |
 | Linux | Chrome | `profiles.ChromeLinux()` | `Chrome157Linux()` |
@@ -105,7 +106,7 @@ mimicry sends what a browser sends around your requests (redirects, CORS preflig
 
 ## Limits
 
-- No iPad or Android profiles yet. Windows profiles are from Windows 10 x64. Linux profiles are Google's Chrome and Mozilla's Firefox on x86-64; a distribution's own build of either (Fedora's Firefox, Debian's ESR, a packaged Chromium) is a different browser.
+- No iPad or Android profiles yet, and no Edge on Windows. Windows profiles are from Windows 10 x64. Linux profiles are Google's Chrome and Mozilla's Firefox on x86-64; a distribution's own build of either (Fedora's Firefox, Debian's ESR, a packaged Chromium) is a different browser.
 - The TCP/IP fingerprint is your machine's (or your proxy's), not the browser's.
 - One `Transport` acts as one browser tab: give parallel tasks and different sites one each. They can share a cookie jar.
 - HTTP/3 ignores `Config.DialContext`; bind it with `Config.LocalAddrs`, which sets the local address of TCP and HTTP/3 alike. Proxied requests use HTTP/1.1 or HTTP/2, as in browsers. `https://` proxies aren't supported.

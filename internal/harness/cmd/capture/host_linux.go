@@ -29,7 +29,7 @@ func cleanUp(string) error {
 	return errors.New("-cleanup is for Windows, where a run trusts the capture CA and registers scheduled tasks; on Linux each browser trusts it in its own profile, removed with it")
 }
 
-// startDNSStub does nothing: Chrome and Firefox map the capture hosts
+// startDNSStub does nothing: Chrome, Edge and Firefox map the capture hosts
 // themselves, and Safari, which resolves through the system, is not here.
 func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
 	if clients.IsValid() {
@@ -51,7 +51,8 @@ func consoleUser(context.Context) (string, error) {
 }
 
 // versionNumber finds the version in a browser's --version output
-// ("Google Chrome 157.0.8103.38", "Mozilla Firefox 159.0.1").
+// ("Google Chrome 157.0.8103.38", "Microsoft Edge 156.0.4314.58",
+// "Mozilla Firefox 159.0.1").
 var versionNumber = regexp.MustCompile(`\d+(\.\d+)+`)
 
 // describeExecutable fills in what preflight reports of a browser found
@@ -99,7 +100,7 @@ func preflightPlatform(_ context.Context, r *preflightReport) error {
 	}
 
 	if len(r.Browsers) == 0 {
-		r.Missing = append(r.Missing, "Google Chrome (google-chrome-stable, Google's .deb or .rpm) or Firefox (Mozilla's build: packages.mozilla.org or the tarball, not a snap or a distribution's own build)")
+		r.Missing = append(r.Missing, "Google Chrome (google-chrome-stable, Google's .deb or .rpm), Microsoft Edge (microsoft-edge-stable, Microsoft's .deb or .rpm) or Firefox (Mozilla's build: packages.mozilla.org or the tarball, not a snap or a distribution's own build)")
 	}
 
 	return nil

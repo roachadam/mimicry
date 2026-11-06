@@ -25,8 +25,8 @@ type QUIC struct {
 	// packets.
 	Crypto QUICCrypto `json:"crypto"`
 	// PacketNumbers is how packet numbers are assigned:
-	// PacketNumbersShared, PacketNumbersRandomInitial or
-	// PacketNumbersPerSpace.
+	// PacketNumbersShared, PacketNumbersSharedSecondLong,
+	// PacketNumbersRandomInitial or PacketNumbersPerSpace.
 	PacketNumbers string `json:"packetNumbers"`
 	// DCIDLength is the length of the first Initial's random Destination
 	// Connection ID; with DCIDLengthBiased, the shortest length it picks.
@@ -424,8 +424,12 @@ const (
 const (
 	// PacketNumbersShared numbers every packet from one counter from 1
 	// across all spaces. The second Initial's number takes 2 bytes without
-	// a token, else 1.
+	// a token, else 1 (Chrome).
 	PacketNumbersShared = "shared"
+	// PacketNumbersSharedSecondLong numbers as PacketNumbersShared, but the
+	// second Initial's number always takes 2 bytes (Edge: 115 of 123
+	// connections, token or not).
+	PacketNumbersSharedSecondLong = "shared_second_long"
 	// PacketNumbersRandomInitial numbers each space from 0, except Initial,
 	// which starts at 1 + (a & 0x1f) + (max(b, 224) - 224) * 32 for random
 	// bytes a and b (neqo). 1-RTT starts at 1 after 0-RTT, sharing its
@@ -436,6 +440,12 @@ const (
 	// PacketNumbersPerSpace numbers each space from 0.
 	PacketNumbersPerSpace = "per_space"
 )
+
+// SharedPacketNumbers reports whether rule numbers every packet from one
+// counter: PacketNumbersShared or PacketNumbersSharedSecondLong.
+func SharedPacketNumbers(rule string) bool {
+	return rule == PacketNumbersShared || rule == PacketNumbersSharedSecondLong
+}
 
 // DCIDLengthBiased picks max(8, 5 + (v & (v >> 4))) for a random byte v
 // (neqo).

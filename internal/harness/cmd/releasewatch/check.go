@@ -27,9 +27,9 @@ type builtin struct {
 	browser  string
 	platform string
 	// version is the version the profile's User-Agent shows of what a
-	// release changes: the major for Chrome and Firefox (Chrome's reduced
-	// UA, and Firefox's, end in .0), Safari's full Version/ token
-	// (27.0.1).
+	// release changes: the major for Chrome, Edge and Firefox (the
+	// profile's version; Chrome's reduced UA, and Firefox's, end in .0),
+	// Safari's full Version/ token (27.0.1).
 	version string
 	// anchors are the trust anchor IDs of its trust anchors extension
 	// (0xca34), in order; nil when it sends none.
@@ -58,6 +58,7 @@ type anchorDiff struct {
 // differ from what its User-Agent shows.
 var majorOnly = map[string]bool{
 	"chrome":  true,
+	"edge":    true,
 	"firefox": true,
 }
 
@@ -201,6 +202,59 @@ func parseFirefox(data []byte) (string, error) {
 	return versions.Latest, nil
 }
 
+// parseEdge returns the parser of Microsoft's Edge update feed
+// (edgeUpdatesURL) for platform, as the feed names it ("MacOS", "Windows",
+// "Linux"): the highest version among the Stable product's releases for
+// it, whatever the architecture. The feed can keep an older release beside
+// the current one (a MacOS 152 next to 157).
+func parseEdge(platform string) func([]byte) (string, error) {
+	return func(data []byte) (string, error) {
+		var products []struct {
+			Product  string `json:"Product"` //nolint:tagliatelle // the feed's key
+			Releases []struct {
+				Platform       string `json:"Platform"`       //nolint:tagliatelle // the feed's key
+				ProductVersion string `json:"ProductVersion"` //nolint:tagliatelle // the feed's key
+			} `json:"Releases"` //nolint:tagliatelle // the feed's key
+		}
+		if err := json.Unmarshal(data, &products); err != nil {
+			return "", fmt.Errorf("edgeupdates: %w", err)
+		}
+
+		newest := ""
+
+		for _, p := range products {
+			if p.Product != "Stable" {
+				continue
+			}
+
+			for _, r := range p.Releases {
+				if r.Platform != platform {
+					continue
+				}
+
+				// It goes into the issue body: anything but numbers fails.
+				if !dottedVersion.MatchString(r.ProductVersion) {
+					return "", fmt.Errorf("edgeupdates: %s version %q is not a version", platform, r.ProductVersion)
+				}
+
+				if newest != "" {
+					if c, _ := compareVersions(r.ProductVersion, newest); c <= 0 {
+						continue
+					}
+				}
+
+				newest = r.ProductVersion
+			}
+		}
+
+		if newest == "" {
+			return "", fmt.Errorf("edgeupdates: no Stable release for %s", platform)
+		}
+
+		return newest, nil
+	}
+}
+
 // safariTitle is a released version's page in Apple's Safari release notes;
 // a beta's title says Beta, and does not match.
 var safariTitle = regexp.MustCompile(`^Safari (\d+(?:\.\d+)*) Release Notes$`)
@@ -325,6 +379,7 @@ func anchorName(id []byte) string {
 var (
 	browserNames = map[string]string{
 		"chrome":  "Chrome",
+		"edge":    "Edge",
 		"firefox": "Firefox",
 		"safari":  "Safari",
 	}

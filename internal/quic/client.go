@@ -284,7 +284,7 @@ type clientState struct {
 	earlyOK atomic.Bool
 	// keys0RTT protects 0-RTT packets.
 	keys0RTT fixedKeys
-	// nextPN is the next packet number with PacketNumbersShared.
+	// nextPN is the next packet number with profile.SharedPacketNumbers.
 	nextPN packetNumber
 	// flight is the planned first flight still to send; planned once it
 	// is laid out.
@@ -431,7 +431,7 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 	cc.scid = randomBytes(rng, p.SCIDLength)
 
 	switch p.PacketNumbers {
-	case profile.PacketNumbersShared:
+	case profile.PacketNumbersShared, profile.PacketNumbersSharedSecondLong:
 		cc.nextPN = 1
 		cc.initialPN = 1
 

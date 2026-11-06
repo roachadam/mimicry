@@ -6,7 +6,8 @@
 //
 //	go run ./cmd/releasewatch   # in internal/harness/
 //
-// It reads chromiumdash (Chrome on macOS, Windows and iOS), Mozilla's
+// It reads chromiumdash (Chrome on macOS, Windows and iOS), Microsoft's
+// Edge update feed (Edge on macOS, Windows and Linux), Mozilla's
 // product-details (Firefox on macOS and Windows; it has no Firefox for iOS
 // version), Apple's Safari release notes (Safari on macOS and iOS) and
 // Chromium's root_store.textproto at each platform's stable tag. It writes
@@ -37,7 +38,12 @@ const extTrustAnchors profile.Code = 0xca34
 // rootStoreURL is Chromium's root store at a tag, on GitHub's mirror.
 const rootStoreURL = "https://raw.githubusercontent.com/chromium/chromium/%s/net/data/ssl/chrome_root_store/root_store.textproto"
 
+// edgeUpdatesURL is Microsoft's Edge update feed: every channel's current
+// releases, per platform and architecture.
+const edgeUpdatesURL = "https://edgeupdates.microsoft.com/api/products"
+
 // feed is where one browser's stable version on some platforms is read.
+// Feeds may share a url, which is fetched once.
 type feed struct {
 	browser   string
 	platforms []string
@@ -69,6 +75,24 @@ var feeds = []feed{
 		platforms: []string{"ios"},
 		url:       "https://chromiumdash.appspot.com/fetch_releases?channel=Stable&platform=iOS&num=1",
 		parse:     parseChrome,
+	},
+	{
+		browser:   "edge",
+		platforms: []string{"macos"},
+		url:       edgeUpdatesURL,
+		parse:     parseEdge("MacOS"),
+	},
+	{
+		browser:   "edge",
+		platforms: []string{"windows"},
+		url:       edgeUpdatesURL,
+		parse:     parseEdge("Windows"),
+	},
+	{
+		browser:   "edge",
+		platforms: []string{"linux"},
+		url:       edgeUpdatesURL,
+		parse:     parseEdge("Linux"),
 	},
 	{
 		browser:   "firefox",
@@ -106,10 +130,16 @@ func run() error {
 
 	var releases []release
 
+	bodies := map[string][]byte{}
+
 	for _, f := range feeds {
-		data, err := fetch(ctx, client, f.url)
-		if err != nil {
-			return err
+		data, ok := bodies[f.url]
+		if !ok {
+			if data, err = fetch(ctx, client, f.url); err != nil {
+				return err
+			}
+
+			bodies[f.url] = data
 		}
 
 		v, err := f.parse(data)

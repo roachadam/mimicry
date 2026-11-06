@@ -1,0 +1,548 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 29,
+      "status": 407,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 407,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 200,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 34,
+      "status": 200,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 36,
+      "status": 200,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 41,
+      "status": 200,
+      "target": "static.kinds-a.test:62340",
+      "lines": [
+        "CONNECT static.kinds-a.test:62340 HTTP/1.1",
+        "Host: static.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 42,
+      "status": 200,
+      "target": "static.kinds-a.test:62340",
+      "lines": [
+        "CONNECT static.kinds-a.test:62340 HTTP/1.1",
+        "Host: static.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 44,
+      "status": 200,
+      "target": "h1.kinds-a.test:62340",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62340 HTTP/1.1",
+        "Host: h1.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 45,
+      "status": 200,
+      "target": "h1.kinds-a.test:62340",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62340 HTTP/1.1",
+        "Host: h1.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 46,
+      "status": 200,
+      "target": "h1.kinds-a.test:62340",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62340 HTTP/1.1",
+        "Host: h1.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 48,
+      "status": 200,
+      "target": "h1.kinds-a.test:62340",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62340 HTTP/1.1",
+        "Host: h1.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 47,
+      "status": 200,
+      "target": "h1.kinds-a.test:62340",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62340 HTTP/1.1",
+        "Host: h1.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 50,
+      "status": 200,
+      "target": "www.kinds-a.test:62340",
+      "lines": [
+        "CONNECT www.kinds-a.test:62340 HTTP/1.1",
+        "Host: www.kinds-a.test:62340",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 31,
+      "status": 407,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 34,
+      "status": 407,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 34,
+      "status": 200,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 36,
+      "status": 200,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 42,
+      "status": 200,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 43,
+      "status": 200,
+      "target": "static.kinds-a.test:62607",
+      "lines": [
+        "CONNECT static.kinds-a.test:62607 HTTP/1.1",
+        "Host: static.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 44,
+      "status": 200,
+      "target": "static.kinds-a.test:62607",
+      "lines": [
+        "CONNECT static.kinds-a.test:62607 HTTP/1.1",
+        "Host: static.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 46,
+      "status": 200,
+      "target": "h1.kinds-a.test:62607",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62607 HTTP/1.1",
+        "Host: h1.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 47,
+      "status": 200,
+      "target": "h1.kinds-a.test:62607",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62607 HTTP/1.1",
+        "Host: h1.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 48,
+      "status": 200,
+      "target": "h1.kinds-a.test:62607",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62607 HTTP/1.1",
+        "Host: h1.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 49,
+      "status": 200,
+      "target": "h1.kinds-a.test:62607",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62607 HTTP/1.1",
+        "Host: h1.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 50,
+      "status": 200,
+      "target": "h1.kinds-a.test:62607",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62607 HTTP/1.1",
+        "Host: h1.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 52,
+      "status": 200,
+      "target": "www.kinds-a.test:62607",
+      "lines": [
+        "CONNECT www.kinds-a.test:62607 HTTP/1.1",
+        "Host: www.kinds-a.test:62607",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 29,
+      "status": 407,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 407,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 200,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 34,
+      "status": 200,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 38,
+      "status": 200,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 41,
+      "status": 200,
+      "target": "static.kinds-a.test:62873",
+      "lines": [
+        "CONNECT static.kinds-a.test:62873 HTTP/1.1",
+        "Host: static.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 42,
+      "status": 200,
+      "target": "static.kinds-a.test:62873",
+      "lines": [
+        "CONNECT static.kinds-a.test:62873 HTTP/1.1",
+        "Host: static.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 44,
+      "status": 200,
+      "target": "h1.kinds-a.test:62873",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62873 HTTP/1.1",
+        "Host: h1.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 45,
+      "status": 200,
+      "target": "h1.kinds-a.test:62873",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62873 HTTP/1.1",
+        "Host: h1.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 46,
+      "status": 200,
+      "target": "h1.kinds-a.test:62873",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62873 HTTP/1.1",
+        "Host: h1.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 47,
+      "status": 200,
+      "target": "h1.kinds-a.test:62873",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62873 HTTP/1.1",
+        "Host: h1.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 48,
+      "status": 200,
+      "target": "h1.kinds-a.test:62873",
+      "lines": [
+        "CONNECT h1.kinds-a.test:62873 HTTP/1.1",
+        "Host: h1.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 50,
+      "status": 200,
+      "target": "www.kinds-a.test:62873",
+      "lines": [
+        "CONNECT www.kinds-a.test:62873 HTTP/1.1",
+        "Host: www.kinds-a.test:62873",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ]
+]

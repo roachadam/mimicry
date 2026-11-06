@@ -16,9 +16,9 @@ import (
 
 // Live is a browser on the public internet, driven one top-level navigation
 // at a time, for cmd/realcheck to compare against mimicry on public
-// fingerprinting services. Chrome and Firefox run on a throwaway profile with
-// their defaults; Safari runs in a new window of the user's own Safari and
-// cannot report a page's status or cookies.
+// fingerprinting services. Chrome, Edge and Firefox run on a throwaway
+// profile with their defaults; Safari runs in a new window of the user's own
+// Safari and cannot report a page's status or cookies.
 type Live struct {
 	name    string
 	session *Session
@@ -98,8 +98,8 @@ end tell`)
 
 	port := 0
 
-	switch b.Name {
-	case "chrome":
+	switch {
+	case chromium(b.Name):
 		args = []string{
 			"--user-data-dir=" + dir,
 			"--no-first-run",
@@ -112,7 +112,7 @@ end tell`)
 			"about:blank",
 		}
 
-	case "firefox":
+	case b.Name == "firefox":
 		if port, err = freePort(); err != nil {
 			_ = os.RemoveAll(dir)
 			return nil, err
@@ -159,7 +159,7 @@ end tell`)
 	return l, nil
 }
 
-// connect opens the debugging connection: Chrome's to its tab, after the
+// connect opens the debugging connection: Chromium's to its tab, after the
 // warm-up a fresh profile needs; Firefox's BiDi session.
 func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second+b.warmup)
@@ -224,7 +224,7 @@ func (l *Live) connect(ctx context.Context, b *Browser, dir string, port int) er
 		}
 	}
 
-	return errors.New("chrome has no page to drive")
+	return fmt.Errorf("%s has no page to drive", l.name)
 }
 
 // Visit navigates to url as a typed URL and returns the page once its

@@ -32,6 +32,13 @@ func ChromeWindows() profile.Profile {
 	return load("chrome-156-windows")
 }
 
+// EdgeMacOS returns the newest edge profile on macos, now edge-157-macos (edge 157 on macos).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func EdgeMacOS() profile.Profile {
+	return load("edge-157-macos")
+}
+
 // FirefoxMacOS returns the newest firefox profile on macos, now firefox-159-macos (firefox 159 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
@@ -99,6 +106,11 @@ func Chrome157Linux() profile.Profile {
 	return load("chrome-157-linux")
 }
 
+// Edge157MacOS returns the edge-157-macos profile (edge 157 on macos).
+func Edge157MacOS() profile.Profile {
+	return load("edge-157-macos")
+}
+
 // Firefox158MacOS returns the firefox-158-macos profile (firefox 158 on macos).
 func Firefox158MacOS() profile.Profile {
 	return load("firefox-158-macos")
@@ -155,6 +167,7 @@ var names = []string{
 	"chrome-156-windows",
 	"chrome-157-ios",
 	"chrome-157-linux",
+	"edge-157-macos",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"firefox-159-ios",
@@ -173,6 +186,7 @@ var supported = []string{
 	"chrome-156-windows",
 	"chrome-157-ios",
 	"chrome-157-linux",
+	"edge-157-macos",
 	"firefox-158-macos",
 	"firefox-158-windows",
 	"firefox-159-ios",

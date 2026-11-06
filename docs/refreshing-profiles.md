@@ -15,6 +15,8 @@ go run ./cmd/refresh -browser safari -mode quick           # Safari 27, on the M
 go run ./cmd/refresh -browser safari-mini -mode full -mini <alias>       # Safari 26, on the second Mac
 go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan only
 go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>   # Chrome, then Firefox, on a Windows machine
+go run ./cmd/refresh -browser edge -mini <alias>             # Edge, on the second Mac
+go run ./cmd/refresh -browser edge-windows -windows <alias>  # Edge, on the Windows machine
 go run ./cmd/refresh -browser chrome-linux,firefox-linux -linux <alias> -wsl Ubuntu-24.04 -wsl-user capture   # Chrome, then Firefox, in WSL on that machine
 go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 go run ./cmd/refresh -browser chrome-ios -listen <mac-ip>   # Chrome on an iPhone, served from this Mac
@@ -23,9 +25,9 @@ go run ./cmd/refresh -browser firefox-ios -listen <mac-ip>  # Firefox on an iPho
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
-default; chrome, firefox and safari-mini need it). Chrome and Firefox on
-Windows need a Windows machine reachable over ssh: pass your ssh alias for
-it with `-windows` (no default). Chrome and Firefox on Linux need a Linux
+default; chrome, firefox, edge and safari-mini need it). Chrome, Firefox
+and Edge on Windows need a Windows machine reachable over ssh: pass your
+ssh alias for it with `-windows` (no default). Chrome and Firefox on Linux need a Linux
 machine reachable over ssh (`-linux`), or a WSL distribution on the Windows
 machine (`-linux` its alias, `-wsl` the distribution). Safari, Chrome and Firefox on iOS need an iPhone
 connected to this Mac by cable and on its Wi-Fi network: pass this Mac's
@@ -39,6 +41,8 @@ A weekly workflow, [Release watch](../.github/workflows/release-watch.yml)
 
 - A stable release newer than the newest profile of its browser on its
   platform: Chrome on macOS, Windows and iOS (a new major; chromiumdash),
+  Edge on macOS, Windows and Linux (a new major; Microsoft's update feed,
+  `edgeupdates.microsoft.com/api/products`, its Stable releases),
   Firefox on macOS and Windows (a new major; Mozilla's product-details) and
   Safari on macOS and iOS (any newer version with release notes, so 27.2
   is newer than a profile at 27.0.1; Apple's Safari release notes). Mozilla
@@ -103,16 +107,31 @@ supported one.
 
 | `-browser` | Machine | Notes |
 |---|---|---|
-| `chrome`, `firefox` | the second Mac (`-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode |
+| `chrome`, `firefox`, `edge` | the second Mac (`-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode; a first profile alone |
 | `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
 | `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
 | `firefox-windows` | the Windows machine (`-windows`) | profiles `firefox-<major>-windows`, for `profiles.FirefoxWindows()`; the first one captures the full set; after `chrome-windows` when both are named, never at once |
+| `edge-windows` | the Windows machine (`-windows`) | profiles `edge-<major>-windows`; the first one captures the full set; Windows' browsers take turns |
 | `chrome-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `chrome-<major>-linux`, for `profiles.ChromeLinux()`; Google's own build; the first one captures the full set |
 | `firefox-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `firefox-<major>-linux`, for `profiles.FirefoxLinux()`; Mozilla's own build; the first one captures the full set |
 | `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 | `chrome-ios` | the iPhone, served from this Mac (`-listen`) | profiles `chrome-<major>-ios`; the iPhone set whatever `-mode`; one after the other with `safari-ios` when both are named, never at once |
 | `firefox-ios` | the iPhone, served from this Mac (`-listen`) | profiles `firefox-<major>-ios`; as `chrome-ios` |
+
+Edge (`edge`, `edge-windows`; profiles `edge-<major>-macos` and
+`edge-<major>-windows`) is Chromium: the capture tool launches and drives
+it as it does Chrome. Its profiles never inherit Chrome's captures
+(decision 0035): each is checked against Edge's own. The first Edge
+profile on a platform starts from Edge's macOS profile when there is one
+(as Chrome and Firefox on Windows do), else from the newest Chrome profile
+of its platform, else Chrome's on macOS: copied, renamed and given
+browser `edge`, it captures the full set whatever `-mode` and inherits
+nothing. What the generators do not redo from those captures is Chrome's
+until reviewed: the report lists it under "Hand-written, copied from the
+previous profile" (cookies, proxy, redirects, connections, websocket, the
+rest of http2, tls.resumption), and the e2e tests check it against Edge's
+captures.
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 `cmd/realcheck` for darwin/arm64, copies them over and runs them over ssh.
@@ -154,6 +173,15 @@ scheduled tasks) and removes the directory (`-keep` keeps it). Each
 capture run removes the CA as it ends, so the PC's browsers take turns,
 in quick mode too.
 
+Browser policies apply to the captured browser too, throwaway profile or
+not, so the browsers must run on their defaults. Check
+`HKLM\SOFTWARE\Policies` and `HKCU\SOFTWARE\Policies` (`Google\Chrome`,
+`Microsoft\Edge`, `Mozilla\Firefox`) before a run: telemetry switches
+change nothing on the wire, but others do. Edge's `ConfigureDoNotTrack`
+made it send `dnt: 1` on every request but its first few (decision 0059),
+so lift such keys for the run (export them with `reg export` first) and
+import them again after.
+
 Firefox updates itself between launches, which splits a run (the tool then
 refuses it). Install the exact version from Mozilla's archive
 (`archive.mozilla.org/pub/firefox/releases/<version>/win64/en-US/`,
@@ -174,9 +202,10 @@ To capture a new version, install it over the old one the same way; the
 policy stays.
 
 Profiles inherit captures only from the same browser and platform, so a
-browser's first refresh on Windows (`chrome-windows`, `firefox-windows`)
-captures every scenario and replay whatever `-mode` (unless `-scenarios`
-is given), starting from the macOS profile of the same version. Later ones
+browser's first refresh on Windows (`chrome-windows`, `firefox-windows`,
+`edge-windows`) captures every scenario and replay whatever `-mode`
+(unless `-scenarios` is given), starting from the macOS profile of the
+same version (Edge's first anywhere: from Chrome's, above). Later ones
 follow `-mode`.
 
 Two things differ in what the Windows captures record, whatever the

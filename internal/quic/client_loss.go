@@ -285,7 +285,7 @@ func (c *Conn) planOldestProbe() (plannedPacket, bool) {
 
 		pn := c.loss.nextNumber(initialSpace)
 
-		if cc.p.PacketNumbers == profile.PacketNumbersShared {
+		if profile.SharedPacketNumbers(cc.p.PacketNumbers) {
 			pn = cc.nextPN
 		}
 

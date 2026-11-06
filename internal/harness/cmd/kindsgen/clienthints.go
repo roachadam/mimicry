@@ -293,14 +293,15 @@ func hintsOf(sent []sentRequest) (*profile.ClientHints, error) {
 		}
 
 		got.Machine, got.FullVersion = m, full
+		got.ChromiumFullVersion = chromiumVersion(r, full)
 
 		switch {
 		case ch == nil:
 			ch = got
 		case !slices.Equal(ch.Hints, got.Hints):
 			errs = append(errs, fmt.Errorf("%s: hints %v, where another sample sends %v", r.at, got.Hints, ch.Hints))
-		case !machineEqual(ch.Machine, got.Machine) || ch.FullVersion != got.FullVersion:
-			errs = append(errs, fmt.Errorf("%s: machine %+v (%s), where another sample says %+v (%s)", r.at, got.Machine, got.FullVersion, ch.Machine, ch.FullVersion))
+		case !machineEqual(ch.Machine, got.Machine) || ch.FullVersion != got.FullVersion || ch.ChromiumFullVersion != got.ChromiumFullVersion:
+			errs = append(errs, fmt.Errorf("%s: machine %+v (%s, Chromium %q), where another sample says %+v (%s, Chromium %q)", r.at, got.Machine, got.FullVersion, got.ChromiumFullVersion, ch.Machine, ch.FullVersion, ch.ChromiumFullVersion))
 		}
 	}
 
@@ -424,6 +425,27 @@ func machineOf(r sentRequest) (profile.Machine, string, error) {
 	m.Downlink = 1
 
 	return m, full, errors.Join(errs...)
+}
+
+// chromiumVersion is the Chromium brand's version in r's
+// sec-ch-ua-full-version-list where it is not the browser's own full
+// version (Edge's), else "".
+func chromiumVersion(r sentRequest, full string) string {
+	i := slices.Index(r.names, "sec-ch-ua-full-version-list")
+	if i < 0 {
+		return ""
+	}
+
+	const brand = `"Chromium";v="`
+	for e := range strings.SplitSeq(r.values[i], ", ") {
+		if v, ok := strings.CutPrefix(e, brand); ok {
+			if v = strings.TrimSuffix(v, `"`); v != full {
+				return v
+			}
+		}
+	}
+
+	return ""
 }
 
 // machineEqual compares machines but their downlink, which hintsOf
