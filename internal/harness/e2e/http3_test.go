@@ -200,6 +200,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 		return server.H3DownloadSteps()
 	case server.H3Early, server.H3TooEarly:
 		return server.H3EarlySteps()
+	case server.H3ResumeTable:
+		return server.H3ResumeTableSteps()
 	case server.H3StreamsBlocked:
 		return server.H3StreamsBlockedSteps()
 	case server.Bodiless:
@@ -1826,7 +1828,8 @@ func h3Features(c *quictrace.Conn) features {
 
 // Replaying a browser's HTTP/3 requests through the profile's http3.qpack
 // encoder reproduces every field section and encoder instruction byte for
-// byte, on every connection of every h3 capture.
+// byte, on every connection of every h3 capture, a connection resumed
+// with 0-RTT as qpack.resumed says.
 func TestQPACKReproducesBrowserSections(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -1839,15 +1842,7 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 				t.Fatal("the profile has no http3 section")
 			}
 
-			// Every pin under a source this profile reads must apply to a
-			// connection, so a stale one fails.
-			sources, used := map[string]bool{}, map[string]bool{}
-
-			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page} {
-				source := capture.Source(p, sc.Name)
-
-				sources[source] = true
-
+			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page, server.H3ResumeTable} {
 				for _, cond := range []string{"", ".local-roots"} {
 					// As captured: the encoded bytes are compared.
 					path, _, _ := capturePath(t, p, sc.Name, cond+".pagetrace.json.gz")
@@ -1866,47 +1861,23 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 								continue
 							}
 
-							at := fmt.Sprintf("%s%s sample %d connection %d", sc.Name, cond, i+1, j+1)
-							key := source + "/" + at
-
-							if _, ok := qpackRepeatedCapacity[key]; ok {
-								used[key] = true
-							}
-
-							t.Run(at, func(t *testing.T) {
-								reencode(t, p.HTTP3, sc, c, qpackRepeatedCapacity[key])
+							t.Run(fmt.Sprintf("%s%s sample %d connection %d", sc.Name, cond, i+1, j+1), func(t *testing.T) {
+								reencode(t, p.HTTP3, sc, c)
 							})
 						}
 					}
-				}
-			}
-
-			for key := range qpackRepeatedCapacity {
-				source, _, _ := strings.Cut(key, "/")
-				if sources[source] && !used[key] {
-					t.Errorf("qpackRepeatedCapacity pins %q, which matches no connection: remove or fix the pin", key)
 				}
 			}
 		})
 	}
 }
 
-// qpackRepeatedCapacity pins connections whose encoder stream repeats a
-// Set Dynamic Table Capacity the browser had already sent: on a resumed
-// connection it fills the table in 0-RTT from the SETTINGS it remembers,
-// then sets the same capacity again once the server's arrive. Keys are
-// the capture's source profile (capture.Source), as the other gap maps'. mimicry
-// keeps no remembered SETTINGS (Not covered, profiles/EVIDENCE.md), so
-// the repeat is left out of the comparison, and a pin whose connection
-// has none fails.
-var qpackRepeatedCapacity = map[string]string{
-	"chrome-157-linux/h3-page.local-roots sample 3 connection 2": "Chrome left connection 1 unused and sent the page on this resumed one: set_capacity 65536 and the navigation's 14 inserts in 0-RTT, then, in 1-RTT with style-head.so's inserts, set_capacity 65536 again (4 bytes; samples 1 and 2, on fresh connections, send it once); the only resumed Chrome connection with an encoder stream in any capture",
-}
-
 // reencode encodes c's requests' field lists in stream order and checks
-// each section and the encoder stream against the browser's; repeated, a
-// qpackRepeatedCapacity reason, leaves the browser's repeated capacity out.
-func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.Conn, repeated string) {
+// each section and the encoder stream against the browser's. A connection
+// resumed with 0-RTT, under a profile with qpack.resumed, starts from the
+// SETTINGS remembered from the same server, which arrive again before the
+// first request whose HEADERS went in 1-RTT.
+func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.Conn) {
 	t.Helper()
 
 	enc := qpack.NewEncoder(h3.QPACKConfig(h))
@@ -1921,37 +1892,30 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 		}
 	}
 
-	enc.SetPeerSettings(capacity, blocked)
+	// settings applies the server's SETTINGS as they arrive.
+	settings := func() {
+		enc.SetPeerSettings(capacity, blocked)
+	}
+
+	if h.QPACK.Resumed != "" && sentIn(c, quictrace.Packet0RTT) && capacity > 0 {
+		enc.SetPeerSettings(capacity, blocked)
+
+		settings = func() {
+			enc.SetPeerSettings(capacity, blocked)
+
+			if h.QPACK.Resumed == profile.QPACKResumedRepeat {
+				enc.RepeatCapacity()
+			}
+		}
+	} else {
+		settings()
+
+		settings = nil
+	}
 
 	var want []quictrace.EncoderInstruction
 	for _, s := range c.H3.Streams {
 		want = append(want, s.Encoder...)
-	}
-
-	if repeated != "" {
-		set, first, n := false, uint64(0), len(want)
-
-		// Only a repeat of the first capacity is dropped; a different
-		// one stays in the comparison.
-		want = slices.DeleteFunc(want, func(in quictrace.EncoderInstruction) bool {
-			if in.Op != quictrace.OpSetCapacity {
-				return false
-			}
-
-			if !set {
-				set, first = true, in.Capacity
-
-				return false
-			}
-
-			return in.Capacity == first
-		})
-
-		if len(want) == n {
-			t.Fatalf("qpackRepeatedCapacity pins it, but its encoder stream sets the capacity once: remove the pin")
-		}
-
-		t.Logf("known gap: %s", repeated)
 	}
 
 	decoded := quictrace.NewTable(capacity)
@@ -1970,6 +1934,12 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 				Name:  fl.Name,
 				Value: fl.Value,
 			})
+		}
+
+		if settings != nil && streamPacket(c, r.Stream) == quictrace.Packet1RTT {
+			settings()
+
+			settings = nil
 		}
 
 		ins, block := enc.Encode(r.Stream, fields)
@@ -2007,4 +1977,33 @@ func reencode(t *testing.T, h *profile.HTTP3, sc *server.Scenario, c *quictrace.
 			t.Fatalf("encoder instruction %d:\n got %s\nwant %s", i+1, g, w)
 		}
 	}
+}
+
+// sentIn reports whether the client sent c a packet of type typ.
+func sentIn(c *quictrace.Conn, typ string) bool {
+	for _, d := range c.Datagrams {
+		for _, pk := range d.Packets {
+			if pk.Type == typ {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// streamPacket is the type of the packet that carried stream id's first
+// STREAM frame on c, or "".
+func streamPacket(c *quictrace.Conn, id uint64) string {
+	for _, d := range c.Datagrams {
+		for _, pk := range d.Packets {
+			for _, fr := range pk.Frames {
+				if fr.Type == quictrace.FrameStream && fr.Stream != nil && *fr.Stream == id {
+					return pk.Type
+				}
+			}
+		}
+	}
+
+	return ""
 }

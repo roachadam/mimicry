@@ -101,6 +101,10 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 			return nil, fmt.Errorf("h3 edge captures: %w", err)
 		}
 
+		if err := deriveResumed(dir, p); err != nil {
+			return nil, fmt.Errorf("http3.qpack.resumed: %w", err)
+		}
+
 		if err := set.unusedGaps(); err != nil {
 			return nil, err
 		}

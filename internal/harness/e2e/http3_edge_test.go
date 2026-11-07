@@ -29,13 +29,16 @@ import (
 const h3PageHost = "www.h3-a.test"
 
 // Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2 (where python3
-// has aioquic), h3-early, h3-too-early and h3-streams-blocked pages through
-// mimicry on the browser's schedule, against every sample:
+// has aioquic), h3-early, h3-too-early, h3-streams-blocked and
+// h3-resume-table pages through mimicry on the browser's schedule, against
+// every sample:
 //
 //   - per request: its connections in order, its delay, and on a 0-RTT
 //     connection how each stream went (earlyStream);
 //   - per QUIC attempt: resumption, versions, the server's answer, how it
-//     ended, path moves (checkPathMoves), give-up datagrams, its trigger;
+//     ended, path moves (checkPathMoves), give-up datagrams, its trigger,
+//     and its QPACK encoder stream's capacity instructions and the packet
+//     type they began in (encoderShape);
 //   - per host: the STREAMS_BLOCKED frames sent there, those sent alone
 //     and their limits, and those sent with a stream, their limits and
 //     place (compareStreamsBlockedWith); on h3-streams-blocked, each
@@ -130,7 +133,7 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 
 // h3EdgeScenarios are the scenarios TestHTTP3EdgeMatchesBrowser replays,
 // each in the browser's mode and the fast one.
-var h3EdgeScenarios = []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3StreamsBlocked}
+var h3EdgeScenarios = []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3ResumeTable, server.H3StreamsBlocked}
 
 // edgeRuns bounds how often TestHTTP3EdgeMatchesBrowser runs a page whose
 // race the process's stalls decided; the last run is compared as it is.
@@ -232,6 +235,58 @@ var h3EdgeGaps = func() map[string]string {
 
 	gaps["firefox-159-linux/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-windows's: Firefox on Linux's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT in 2 of 6; from 300 ms in 4, two or three Initials first; lone 40–42-B 0-RTT datagrams beside them; 14–26 datagrams in the 4 samples whose attempt ran to its 5.0 s close, mimicry's 31–37), and the profile has no resumed-probe rule; give-up time and close match"
 
+	// h3-resume-table: Chrome and Edge, on every platform, held the
+	// navigation to nav.so on its resumed connection until after the
+	// Finished (3 of 3 samples each), where the page's fetch, XHR and
+	// image GETs went in 0-RTT; http3.earlyData.methods has no rule for a
+	// navigation, so mimicry's GET goes in 0-RTT, the encoder stream it
+	// opens with too.
+	const navHeld = "Chrome held the navigation to nav.so on its resumed connection until after the Finished (3 of 3 samples; its fetch, XHR and image GETs went in 0-RTT), a rule http3.earlyData does not hold (methods only), so mimicry's navigation and the encoder stream it opens go in 0-RTT; the encoder still sets the remembered capacity, then again with the next request (qpack.resumed)"
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+		gaps[name+"/h3-resume-table edge QUIC www.h3-a.test #7 encoder stream"] = navHeld
+		gaps[name+"/h3-resume-table edge request /h3/nav.so streams"] = navHeld
+	}
+
+	gaps["firefox-159-windows/h3-resume-table edge TCP www.h3-a.test declined"] = "as firefox-158-windows's on h3-too-early: Firefox on Windows opened a TCP connection to the host and closed it before any request (1 per sample, 3 of 3); no profile field holds when Firefox opens these"
+
+	// Firefox on Linux's side connection on h3-resume-table, in every
+	// sample: 2.6 s after its first QUIC connection, a resumed one with no
+	// request, closed by Firefox 1 ms in, took the ticket, so the next
+	// connection was a full handshake; and on every connection after it
+	// the request was held until after the Finished.
+	const firefoxSideResume = "as firefox-159-linux's side connections on h3-streams-blocked (EVIDENCE.md, Not covered): in every sample (3 of 3) Firefox on Linux opened a resumed QUIC connection 2.6 s after its first, with no request, and closed it 1 ms in; it took the ticket, so resume1.so's connection was a full handshake and every connection numbers one later than mimicry's, and from then on Firefox held each request until after the Finished, as in those samples no GET went in 0-RTT; mimicry opens none and sends each GET in 0-RTT"
+	for _, k := range []string{
+		"QUIC www.h3-a.test #2 closed by",
+		"QUIC www.h3-a.test #2 trigger",
+		"QUIC www.h3-a.test #3",
+		"QUIC www.h3-a.test #3 encoder stream",
+		"QUIC www.h3-a.test #3 trigger",
+		"QUIC www.h3-a.test #4 trigger",
+		"QUIC www.h3-a.test #5 trigger",
+		"QUIC www.h3-a.test #6 trigger",
+		"QUIC www.h3-a.test #7 closed by",
+		"QUIC www.h3-a.test #7 trigger",
+		"QUIC www.h3-a.test #8",
+		"QUIC www.h3-a.test #8 encoder stream",
+		"QUIC www.h3-a.test #8 trigger",
+		"QUIC www.h3-a.test #8 after its trigger ms",
+		"request /h3/resume1.so sent",
+		"request /h3/resume1.so streams",
+		"request /h3/resume2.so sent",
+		"request /h3/resume2.so streams",
+		"request /h3/image.so sent",
+		"request /h3/image.so streams",
+		"request /h3/pair-a.so sent",
+		"request /h3/pair-a.so streams",
+		"request /h3/pair-b.so sent",
+		"request /h3/xhr.so sent",
+		"request /h3/xhr.so streams",
+		"request /h3/nav.so sent",
+		"request /h3/nav.so streams",
+	} {
+		gaps["firefox-159-linux/h3-resume-table edge "+k] = firefoxSideResume
+	}
+
 	// Firefox on Linux's side connections on the h3-streams-blocked page,
 	// in every sample: each one's start, close and trigger time, and its
 	// trigger where the samples agree (the 3rd to 6th's differ, as does
@@ -250,6 +305,7 @@ var h3EdgeGaps = func() map[string]string {
 
 	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #2 trigger"] = firefoxSide
 	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #7 trigger"] = firefoxSide
+	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test #2 encoder stream"] = firefoxSide
 
 	// Safari's OPTIONS fetch: the h3-early pages make one, its kinds
 	// captures none.
@@ -334,6 +390,27 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	}
 
 	gaps["chrome-157-linux/h3-too-early edge QUIC www.h3-a.test #6 trigger"] = "as chrome-156-windows's: Chrome on Linux made the pair's POST 4–5 ms after its GET, whose resumed connection started 0–1 ms after it, so the GET is the trigger (3 of 3 samples; in h3-early the samples differ), and the POST went in 1-RTT in 1 sample and held for the Finished in 2. mimicry's replay makes both in the same millisecond, so its POST is held for the handshake (http3.earlyData) and is the later trigger as this process schedules the two"
+
+	// h3-resume-table's pair: the page made pair-b once pair-a's fetch()
+	// returned to it, 2–4 ms later on macOS and Windows, when the resumed
+	// connection's handshake (on loopback) had finished, so pair-b went
+	// in 1-RTT and the encoder's next instructions carried Chrome's
+	// repeated capacity (qpack.resumed remembered_repeat). The replay
+	// makes the two in the same millisecond, so mimicry's pair-b goes in
+	// 0-RTT, before the server's SETTINGS, with no repeat yet.
+	const resumedPair = "the replay makes pair-a and pair-b in the same millisecond, so mimicry's pair-b goes in 0-RTT before the server's SETTINGS, where Chrome's page made it 2–4 ms later, after the loopback handshake: in 1-RTT, its encoder setting the capacity a second time (qpack.resumed remembered_repeat; TestQPACKReproducesBrowserSections checks the repeat itself)"
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+		gaps[name+"/h3-resume-table edge QUIC www.h3-a.test #5 encoder stream"] = resumedPair
+		gaps[name+"/h3-resume-table edge request /h3/pair-b.so streams"] = resumedPair
+	}
+
+	// Which of h3-resume-table's pair starts its resumed connection: the
+	// browser made pair-b 0–5 ms after pair-a (Chrome's connection after
+	// pair-a, Firefox's after both); the replay makes the two in the same
+	// millisecond.
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "firefox-159-macos", "firefox-159-windows", "firefox-159-linux"} {
+		gaps[name+"/h3-resume-table edge QUIC www.h3-a.test #5 trigger"] = "the browser made pair-b 0–5 ms after pair-a and started their resumed connection after the first (Chrome, Edge) or both (Firefox on macOS); mimicry's replay makes both in the same millisecond, so which counts as the trigger is this process's scheduling"
+	}
 
 	for _, name := range []string{"safari-26-macos", "safari-27-macos"} {
 		for _, sc := range []string{"h3-early", "h3-too-early"} {
@@ -1011,6 +1088,10 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 				f.cat[k+" closed by"] = c.Close.By
 			}
 
+			if e := encoderShape(c); e != "" {
+				f.cat[k+" encoder stream"] = e
+			}
+
 			if tr := v.trigger(c.Millis); tr != nil {
 				quicTrigger[c] = tr
 				f.cat[k+" trigger"] = tr.label
@@ -1211,6 +1292,33 @@ func initialSteps(c *quictrace.Conn) string {
 	}
 
 	return strings.Join(steps, " ")
+}
+
+// encoderShape is c's QPACK encoder stream as far as a resumed
+// connection's remembered SETTINGS show (qpack.resumed): how many Set
+// Dynamic Table Capacity it sent and the packet type its first bytes went
+// in; "" without one.
+func encoderShape(c *quictrace.Conn) string {
+	if c.H3 == nil {
+		return ""
+	}
+
+	for _, s := range c.H3.Streams {
+		if s.Type != quictrace.StreamQPACKEncoder {
+			continue
+		}
+
+		capacities := 0
+		for _, in := range s.Encoder {
+			if in.Op == quictrace.OpSetCapacity {
+				capacities++
+			}
+		}
+
+		return fmt.Sprintf("set its capacity %d times, opened in %s", capacities, streamPacket(c, s.ID))
+	}
+
+	return ""
 }
 
 // movePath is c's move to a new path; false if it never moved, or moved

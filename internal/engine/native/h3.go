@@ -1181,6 +1181,9 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	dc := quic.DialConfig{
 		Profile:   e.quicProfile,
 		CachedRTT: rtt,
+		// The server's SETTINGS go with each 0-RTT ticket where the
+		// profile's encoder uses them on resumption.
+		RememberApplication: e.profile.HTTP3.QPACK.Resumed != "",
 		OnToken: func(t []byte) {
 			q.mu.Lock()
 			defer q.mu.Unlock()

@@ -269,6 +269,7 @@ var Scenarios = []*Scenario{
 	H3Download,
 	H3Early,
 	H3TooEarly,
+	H3ResumeTable,
 	H3StreamsBlocked,
 	Bodiless,
 	HRR,

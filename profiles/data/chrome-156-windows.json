@@ -10328,7 +10328,8 @@
     "qpack": {
       "encoder": "index_all",
       "insertsFirst": true,
-      "huffman": "shorter"
+      "huffman": "shorter",
+      "resumed": "remembered_repeat"
     },
     "priorityUpdate": true,
     "discovery": {
