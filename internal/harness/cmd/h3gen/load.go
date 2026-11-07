@@ -475,6 +475,14 @@ var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not c
 	"edge-157-macos.h3-discovery.local-roots: sample 2, QUIC connection 4: tokens":              "as sample 1, QUIC connection 5",
 	"edge-157-macos.h3-discovery.local-roots: sample 2, QUIC connection 5: tokens":              "as sample 1, QUIC connection 5",
 	"edge-157-macos.h3-discovery.local-roots: sample 3, QUIC connection 3: tokens":              "as sample 1, QUIC connection 5",
+	// Edge 157 on Windows (2026-11-06, the PC's Edge policies lifted for the run).
+	"edge-157-windows.h3-discovery.local-roots: sample 2, QUIC connection 5: secondInitialLength": "as edge-157-macos's: Edge on Windows sent this resumed connection's second Initial (with the NEW_TOKEN token) with its packet number in 1 byte; it used 2 bytes in 114 of 123 connections, token or not (all 9 one-byte ones with a token; macOS 115 and 8), so quic.packetNumbers is shared_second_long",
+	"edge-157-windows.h3-discovery.local-roots: sample 1, QUIC connection 3: tokens":              "as edge-157-macos's: Edge on Windows, like Chrome, presented its NEW_TOKEN token on only some reconnections whose host had given it one, which ones varying between samples (Chromium's token cache, not modelled)",
+	"edge-157-windows.h3-discovery.local-roots: sample 2, QUIC connection 3: tokens":              "as sample 1, QUIC connection 3",
+	"edge-157-windows.h3-discovery.local-roots: sample 3, QUIC connection 3: tokens":              "as sample 1, QUIC connection 3",
+	"edge-157-windows.h3-blackhole: sample 3, QUIC connection 1: probes":                          "Edge sent its first flight's two Initials 2.1 ms apart (1.9 ms in sample 1; the recorder on Windows steps about 0.5 ms), past the 2 ms that groups datagrams into one flight, so the second read as a probe; its real probes, 308, 920 and 2125 ms in, follow the others' (the gap stays 2 ms: Firefox's resumed probes from a cached RTT come about 3 ms apart)",
+	"edge-157-windows.h3-download.local-roots: sample 1: credit":                                  "as chrome-157-linux's: one MAX_STREAM_DATA raised the limit by 3,211,264 bytes, 2.08% above 3 MiB, the others within 2%: when Edge's reader drained the stream, not captured",
+	"edge-157-windows.h3-download.local-roots: sample 3: credit":                                  "as sample 1: 3,211,094 bytes, 2.08% above 3 MiB",
 }
 
 // conn is one captured QUIC connection.

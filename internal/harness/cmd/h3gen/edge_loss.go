@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
 	"github.com/roachadam/mimicry/profile"
@@ -186,8 +187,21 @@ func abandonClose(fresh, resumed []unanswered, e *collector) string {
 
 // probes derives the probe timeout, the probes' contents and packet
 // number skips from the fresh attempts, and the cached RTT from the
-// resumed ones.
+// resumed ones. A fresh attempt sampleGaps pins under "probes" (one whose
+// first flight the recorder split, say) is left out, its pin used only
+// where it disagrees with the rule.
 func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *collector) {
+	var pinned []unanswered
+
+	fresh = slices.DeleteFunc(slices.Clone(fresh), func(u unanswered) bool {
+		_, ok := sampleGaps[u.at()+": probes"]
+		if ok {
+			pinned = append(pinned, u)
+		}
+
+		return ok
+	})
+
 	first := math.Inf(1)
 	for _, u := range fresh {
 		if p := u.a.probes(); len(p) > 0 {
@@ -206,24 +220,14 @@ func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *
 	out.SkipPacketNumber = skips(fresh[0].a)
 
 	for _, u := range fresh {
-		prev := float64(u.a.start)
-		for k, f := range u.a.probes() {
-			t := u.a.millis(f[0].Micros)
-			want := float64(out.InitialPTOMillis) * math.Pow(2, float64(k))
-
-			if got := t - prev; got < want-2 || got > want*ptoSlack+10 {
-				edgeErr(e, u.at(), "probe %d %.1f ms after the last, want %.0f (up to %.0f%% later)", k+1, got, want, (ptoSlack-1)*100)
-			}
-
-			prev = t
+		if bad := probeDiffs(out, u); bad != "" {
+			edgeErr(e, u.at(), "%s", bad)
 		}
+	}
 
-		if got := probeKind(u.a); got != out.Probe {
-			edgeErr(e, u.at(), "probes are %q, others' %q", got, out.Probe)
-		}
-
-		if got := skips(u.a); got != out.SkipPacketNumber {
-			edgeErr(e, u.at(), "skipPacketNumber %v, others' %v", got, out.SkipPacketNumber)
+	for _, u := range pinned {
+		if probeDiffs(out, u) != "" {
+			s.gap(u.at(), "probes")
 		}
 	}
 
@@ -278,6 +282,34 @@ func (s *edgeSet) probes(out *profile.QUICLoss, fresh, resumed []unanswered, e *
 	if !out.CachedRTT {
 		out.PTOAckDelay = false
 	}
+}
+
+// probeDiffs is how u's probes differ from out's rule: their times,
+// contents or packet number skips; "" when they follow it.
+func probeDiffs(out *profile.QUICLoss, u unanswered) string {
+	var diffs []string
+
+	prev := float64(u.a.start)
+	for k, f := range u.a.probes() {
+		t := u.a.millis(f[0].Micros)
+		want := float64(out.InitialPTOMillis) * math.Pow(2, float64(k))
+
+		if got := t - prev; got < want-2 || got > want*ptoSlack+10 {
+			diffs = append(diffs, fmt.Sprintf("probe %d %.1f ms after the last, want %.0f (up to %.0f%% later)", k+1, got, want, (ptoSlack-1)*100))
+		}
+
+		prev = t
+	}
+
+	if got := probeKind(u.a); got != out.Probe {
+		diffs = append(diffs, fmt.Sprintf("probes are %q, others' %q", got, out.Probe))
+	}
+
+	if got := skips(u.a); got != out.SkipPacketNumber {
+		diffs = append(diffs, fmt.Sprintf("skipPacketNumber %v, others' %v", got, out.SkipPacketNumber))
+	}
+
+	return strings.Join(diffs, "; ")
 }
 
 // probeKind is how a's probes repeat its first flight: ProbeFlight (every
