@@ -13,18 +13,29 @@ import (
 )
 
 // deriveResumed derives http3.qpack.resumed from the h3-resume-table
-// captures (server.H3ResumeTableCaptures): what a connection resumed with
-// 0-RTT does with the server's SETTINGS remembered with its ticket. Its
-// encoder stream must open with Set Dynamic Table Capacity to the server's
-// capacity, in 0-RTT on at least one connection (the capacity is the
-// remembered one), and every connection whose encoder wrote again in
-// 1-RTT, once the server's SETTINGS had arrived, must agree on whether the
-// capacity was set a second time there (QPACKResumedRepeat) or not
-// (QPACKResumedRemembered). Without the capture it stays empty.
+// captures (server.H3ResumeTableCaptures), or, without one, the
+// testing-build capture (capture.TestingPages: QPACK is the network
+// stack's): what a connection resumed with 0-RTT does with the server's
+// SETTINGS remembered with its ticket. Its encoder stream must open with
+// Set Dynamic Table Capacity to the server's capacity, in 0-RTT on at
+// least one connection (the capacity is the remembered one), and every
+// connection whose encoder wrote again in 1-RTT, once the server's
+// SETTINGS had arrived, must agree on whether the capacity was set a
+// second time there (QPACKResumedRepeat) or not (QPACKResumedRemembered).
+// Without a capture it stays empty.
 func deriveResumed(dir string, p *profile.Spec) error {
 	files, err := server.H3ResumeTableCaptures(dir, p)
-	if err != nil || len(files) == 0 {
+	if err != nil {
 		return err
+	}
+
+	if len(files) == 0 {
+		path, err := capture.TestingPages(dir, p, server.H3ResumeTable.Name, ".local-roots")
+		if err != nil || path == "" {
+			return err
+		}
+
+		files = []capture.File{{Path: path, Scenario: server.H3ResumeTable.Name}}
 	}
 
 	var capacity uint64

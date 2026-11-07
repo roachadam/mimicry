@@ -14,13 +14,24 @@ import (
 )
 
 // trailingDotSNI derives tls.trailingDotSni from p's urls captures
-// (server.URLsCaptures): the server_name its browser sent for the "h-dot"
-// case's host, which ends in a dot, in every sample, fetched and
-// navigated to. Empty without a capture.
+// (server.URLsCaptures), or, without one, its testing-build capture
+// (capture.TestingPages: the server_name is the network stack's, which a
+// testing build shares with the brand): the server_name its browser sent
+// for the "h-dot" case's host, which ends in a dot, in every sample,
+// fetched and navigated to. Empty without a capture.
 func trailingDotSNI(dir string, p *profile.Spec) (string, error) {
 	files, err := server.URLsCaptures(dir, p)
 	if err != nil {
 		return "", err
+	}
+
+	if len(files) == 0 {
+		path, err := capture.TestingPages(dir, p, server.URLs.Name, "")
+		if err != nil || path == "" {
+			return "", err
+		}
+
+		files = []capture.File{{Path: path, Scenario: server.URLs.Name}}
 	}
 
 	var got, from string

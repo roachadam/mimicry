@@ -133,10 +133,23 @@ var H3ResumeTable = &Scenario{
 // idled out, resumed connections carrying a fetch, another, an image, two
 // fetches made together (whether the second uses the first's inserts), an
 // XHR and a navigation. Every method is one the browsers send in 0-RTT.
+// Two of them (resume1.so's, image.so's) carry a fetch 500 ms later too,
+// after the server's SETTINGS, with a header no request had (x-late, not
+// in QPACK's static table): each encoder writes again there, Firefox's,
+// which inserts only new names, included, so every browser shows whether
+// it sets the capacity again (http3.qpack.resumed).
 func H3ResumeTableSteps() []H3Step {
 	goAway := h3Fetch(h3Host, "goaway.so", 1000)
 
 	goAway.GoAwayTCP = true
+
+	late := func(label string) H3Step {
+		s := h3Fetch(h3Host, label, h3ResumeLate)
+
+		s.Headers = map[string]string{"x-late": "1"}
+
+		return s
+	}
 
 	image := h3Fetch(h3Host, "image.so", h3EarlyGap)
 
@@ -155,14 +168,21 @@ func H3ResumeTableSteps() []H3Step {
 		goAway,
 		h3Fetch(h3Host, "fetch1.so", 1500),
 		h3Fetch(h3Host, "resume1.so", h3EarlyGap),
+		late("late1.so"),
 		h3Fetch(h3Host, "resume2.so", h3EarlyGap),
 		image,
+		late("late2.so"),
 		h3Fetch(h3Host, "pair-a.so", h3EarlyGap),
 		h3Fetch(h3Host, "pair-b.so", 0),
 		xhr,
 		nav,
 	}
 }
+
+// h3ResumeLate is how long after a resumed connection's request
+// h3-resume-table's late fetch comes: past the handshake and the server's
+// SETTINGS on loopback, well within h3EarlyIdle.
+const h3ResumeLate = 500
 
 // earlyKey keys a QUIC connection's earlyStreams in its context.
 type earlyKey struct{}

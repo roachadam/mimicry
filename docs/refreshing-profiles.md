@@ -367,7 +367,11 @@ redirects", even restarted): take them again as single-sample runs and join the 
 
 `-capture-only` stops after step 2 and `-derive-only` after step 3. Nothing
 in the repository changes before step 4. `-scenarios name:samples,...`
-replaces the mode's scenario set, to try the tool on one scenario.
+replaces the mode's scenario set, to try the tool on one scenario, or, with
+`-capture-only`, to add one scenario to existing profiles.
+`-chrome-app` and `-firefox-app` run another build on every machine of the
+run (Chrome for Testing, an older Firefox; [capturing](capturing.md)), and
+the preflight reads that build's version, so the plan picks its profile.
 
 ## What stays manual
 

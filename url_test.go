@@ -317,7 +317,12 @@ func TestURLParserEdges(t *testing.T) {
 		{profiles.FirefoxMacOS(), "a.test/a|b", "refused", "a.test./"},
 		{profiles.SafariMacOS(), "a.test/a|b", "xn--a.test/", "a.test./"},
 		{profiles.Safari26MacOS(), "a.test/a|b", "refused", "a.test./"},
-		{profiles.Chrome155MacOS(), "not measured", "not measured", "not measured"},
+		{profiles.Chrome155MacOS(), "not measured", "not measured", "a.test./"},
+		// A profile whose trailing-dot SNI is not measured (tls.trailingDotSni
+		// empty; every built-in one has it) refuses such a host over TLS.
+		{profiles.ChromeMacOS().With(func(s *profile.Spec) {
+			s.TLS.TrailingDotSNI = ""
+		}), "a.test/a%7Cb", "xn--a.test/", "not measured"},
 	} {
 		name := tc.p.Spec().Name
 

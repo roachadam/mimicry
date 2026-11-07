@@ -122,6 +122,26 @@ func UploadFiles(dir string, p *profile.Spec) ([]string, error) {
 	return out, nil
 }
 
+// TestingPages is the path of p's testing-build page capture of scenario
+// under cond ("" or ".local-roots"), taken from the profile p takes the
+// scenario from (Source): <name>.<scenario><cond>.chrome-for-testing
+// .pagetrace.json.gz, "" when there is none. Only the network stack's
+// fields may come from it (forTesting).
+func TestingPages(dir string, p *profile.Spec, scenario, cond string) (string, error) {
+	path := filepath.Join(dir, Source(p, scenario)+"."+scenario+cond+forTesting+".pagetrace.json.gz")
+
+	_, err := os.Stat(path)
+
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "", nil
+	case err != nil:
+		return "", err
+	}
+
+	return path, nil
+}
+
 // UploadRecords is how p's browser cuts an HTTP/1.1 request with a body
 // into TLS records (profile http1.uploadRecords), from every request of
 // p's upload captures (UploadFiles): the head apart or one stream, as

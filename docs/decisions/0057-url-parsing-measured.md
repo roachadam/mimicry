@@ -1,6 +1,6 @@
 # 0057: URL parsing as the browsers measure it
 
-- Status: Accepted; amended 2026-11-06 (trailing-dot SNI, [#88](https://github.com/roachadam/mimicry/issues/88))
+- Status: Accepted; amended 2026-11-06 (trailing-dot SNI, [#88](https://github.com/roachadam/mimicry/issues/88)); amended 2026-11-07 (Chrome 155 and Firefox 158 measured)
 - Date: 2026-11-04
 - Commits: the one that closes [#71](https://github.com/roachadam/mimicry/issues/71)
 
@@ -136,8 +136,8 @@ parser's.
 
 The rule applies over QUIC too: each browser builds its QUIC hello from
 the same host, though no capture has a trailing-dot host over HTTP/3. A
-profile without the field (`chrome-155-macos`, `firefox-158-*`, no `urls`
-capture) refuses a trailing-dot host over TLS (`ErrNotMeasured`).
+profile without the field refuses a trailing-dot host over TLS
+(`ErrNotMeasured`); since the next amendment, none built in.
 
 `h-dotpool` stays pinned for Chrome, Edge and Firefox: each pools
 `www.urls.test.` onto its `www.urls.test` connection in one of fetch()
@@ -145,3 +145,16 @@ capture) refuses a trailing-dot host over TLS (`ErrNotMeasured`).
 Chrome's split would be top-level-site partitioning, measured but deferred
 ([0011](0011-connection-partitioning.md), [0029](0029-scope-what-gets-modelled.md));
 Firefox's is its connection grouping, a known gap (0011).
+
+## Amendment 2026-11-07: Chrome 155 and Firefox 158
+
+The versions thought no longer installable were measured: Firefox
+158.0.1, the brand, from Mozilla's archive, on macOS and Windows, beside
+the installed Firefox (its updates off), and Chrome 155 as Chrome for
+Testing 155.0.8059.84 (`cmd/capture -firefox-app`, `-chrome-app`; refresh
+passes both). Firefox 158's `urls` capture gives its whole `urls` section,
+as Firefox 159's (`checkPunycode`), and `tls.trailingDotSni` `keep`, its
+`h-dotpool` as 159's. Chrome 155's testing build gives
+`tls.trailingDotSni` `keep` alone (decision 0042's testing-build rule: the
+server_name is the network stack's); its `urls` section stays unset, so a
+`|` in a path or an invalid `xn--` label still refuses for it.

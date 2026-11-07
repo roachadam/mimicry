@@ -167,6 +167,12 @@ const chromeWarmup = 5 * time.Second
 // -chrome-app points it at another build (Chrome for Testing).
 var ChromeApp = "/Applications/Google Chrome.app"
 
+// FirefoxApp is the Firefox Find uses instead of the installed one, ""
+// for that one: an application on macOS, firefox.exe on Windows.
+// cmd/capture's -firefox-app points it at an older release kept beside the
+// installed one (Mozilla's archive keeps every release).
+var FirefoxApp string
+
 // DataDir is where the browsers' throwaway profile directories are made;
 // "" is the system's temporary directory. On Windows the browser runs in the
 // console user's session and the capture tool reads the profile from an

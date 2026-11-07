@@ -73,11 +73,19 @@ the profile's request.
 longer installable as the brand. Name such a capture
 `<name>.<scenario>.chrome-for-testing.<suffix>`
 (`.pagetrace.json.gz`, `.h1trace.json.gz`). The tools that list a
-profile's captures skip it; only hellogen's `http2.openingRecords` and
-`http1.uploadRecords` read it, since the testing build shares the brand's
-network stack but not its headers
+profile's captures skip it; only the network stack's fields read it
+(`http2.openingRecords`, `http1.uploadRecords`, `tls.trailingDotSni`,
+`http3.qpack.resumed`; `capture.TestingPages`), since the testing build
+shares the brand's network stack but not its headers
 ([decision 0042](decisions/0042-http2-opening-records.md),
-[0052](decisions/0052-http1-upload-records.md)). Every Chrome launch gets
+[0052](decisions/0052-http1-upload-records.md)). `-firefox-app PATH`
+captures another Firefox than the installed one, an application on macOS
+or `firefox.exe` on Windows: an older release from Mozilla's archive, kept
+beside the installed one with its updates off (a read-only bundle on
+macOS, `distribution\policies.json` with `DisableAppUpdate` on Windows).
+It is the brand, so its captures are named and read as any other.
+`cmd/refresh` passes both flags to every machine of its run, so give it one
+machine's browsers at a time. Every Chrome launch gets
 `--use-mock-keychain` and `--password-store=basic`: they change only how
 Chrome encrypts its stored cookies and passwords, never the wire, and keep
 a testing build (which has no login-keychain item of its own) from asking
@@ -510,7 +518,9 @@ Failure, version, transfer, early-data and stream-limit scenarios:
   request a GET (fetches, a pair made together, an image, an XHR, a
   navigation), against a server allowing `h3-page`'s 64 KiB QPACK table:
   what the browser's encoder does in 0-RTT with the SETTINGS it remembers,
-  and once the server's arrive (issue #90).
+  and once the server's arrive (issue #90). Two connections carry a late
+  fetch 500 ms in with a header no request had (`x-late`), so every
+  encoder, Firefox's too, writes after the server's SETTINGS.
 - `h3-streams-blocked`: quic-go allowing 2 concurrent bidirectional
   streams (`initial_max_streams_bidi` 2, raised by MAX_STREAMS as each
   stream ends; unidirectional left at 100), and two bursts of 6 fetches

@@ -137,6 +137,9 @@ type machine struct {
 	// one there.
 	iphone    bool
 	iosDevice string
+	// chromeApp and firefoxApp are refreshRun's ChromeApp and FirefoxApp.
+	chromeApp  string
+	firefoxApp string
 }
 
 func (m *machine) String() string {

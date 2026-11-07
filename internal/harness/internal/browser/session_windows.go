@@ -75,8 +75,12 @@ func Supported(names []string) error {
 
 // Locations are where Find looks for the named browser's executable, in
 // order: the machine-wide installations (64-bit, then 32-bit, where Edge
-// is) and the per-user one.
+// is) and the per-user one; for Firefox, FirefoxApp alone when it is set.
 func Locations(name string) []string {
+	if name == "firefox" && FirefoxApp != "" {
+		return []string{FirefoxApp}
+	}
+
 	var paths []string
 
 	for _, b := range windowsBrowsers {

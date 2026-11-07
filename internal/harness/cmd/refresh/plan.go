@@ -56,6 +56,11 @@ type refreshRun struct {
 	// "" for the distribution's default user).
 	WSL     string `json:"wsl,omitempty"`
 	WSLUser string `json:"wslUser,omitempty"`
+	// ChromeApp and FirefoxApp are another build for the capture tool to
+	// run on every machine of the run (-chrome-app, -firefox-app: Chrome
+	// for Testing, an older Firefox), "" for the installed browser.
+	ChromeApp  string `json:"chromeApp,omitempty"`
+	FirefoxApp string `json:"firefoxApp,omitempty"`
 }
 
 // plan is what the run does for one browser.
@@ -167,7 +172,9 @@ type preflightReport struct {
 func (r *refreshRun) machine(p *plan) *machine {
 	if p.Host == "" {
 		m := &machine{
-			dir: r.Dir,
+			dir:        r.Dir,
+			chromeApp:  r.ChromeApp,
+			firefoxApp: r.FirefoxApp,
 		}
 		if p.Platform == platformIOS {
 			m.iphone = true
@@ -178,9 +185,11 @@ func (r *refreshRun) machine(p *plan) *machine {
 	}
 
 	m := &machine{
-		host:    p.Host,
-		dir:     "mimicry-capture/refresh-" + r.Stamp,
-		windows: p.Platform == platformWindows,
+		host:       p.Host,
+		dir:        "mimicry-capture/refresh-" + r.Stamp,
+		windows:    p.Platform == platformWindows,
+		chromeApp:  r.ChromeApp,
+		firefoxApp: r.FirefoxApp,
 	}
 	if p.Platform == platformLinux {
 		m.linux, m.wsl, m.wslUser = true, r.WSL, r.WSLUser
@@ -196,7 +205,9 @@ func (m *machine) windowsDir() string {
 
 // captureArgs are the capture tool's arguments every run of it on m
 // takes: on Windows and Linux, the capture CA in the working directory, so
-// nothing stays in the user's profile; for the iPhone, its UDID when given.
+// nothing stays in the user's profile; for the iPhone, its UDID when given;
+// and the builds to run instead of the installed browsers, so the
+// preflight reads their versions too.
 func (m *machine) captureArgs(args ...string) []string {
 	if m.windows || m.linux {
 		args = append(args, "-ca-dir", "ca")
@@ -204,6 +215,14 @@ func (m *machine) captureArgs(args ...string) []string {
 
 	if m.iosDevice != "" {
 		args = append(args, "-ios-device", m.iosDevice)
+	}
+
+	if m.chromeApp != "" {
+		args = append(args, "-chrome-app", m.chromeApp)
+	}
+
+	if m.firefoxApp != "" {
+		args = append(args, "-firefox-app", m.firefoxApp)
 	}
 
 	return args

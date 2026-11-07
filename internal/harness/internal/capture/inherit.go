@@ -60,8 +60,10 @@ const localRoots = ".local-roots"
 
 // forTesting marks a capture taken with a browser's testing build, not the
 // branded browser (<name>.<scenario>.chrome-for-testing<suffix>): no
-// scenario's capture, it feeds http2.openingRecords alone (OpeningRecords,
-// decision 0042), for a version no longer installable as the brand.
+// scenario's capture, it feeds only the network stack's fields, which the
+// testing build shares with the brand (http2.openingRecords,
+// http1.uploadRecords, tls.trailingDotSni, http3.qpack.resumed; decisions
+// 0042, 0052), for a version no longer installable as the brand.
 const forTesting = ".chrome-for-testing"
 
 // ScenarioOf returns the scenario of a capture file of the profile name

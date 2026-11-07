@@ -1844,10 +1844,22 @@ func TestQPACKReproducesBrowserSections(t *testing.T) {
 
 			for _, sc := range []*server.Scenario{server.H3Discovery, server.H3Page, server.H3ResumeTable} {
 				for _, cond := range []string{"", ".local-roots"} {
-					// As captured: the encoded bytes are compared.
+					// As captured: the encoded bytes are compared. A
+					// version no longer installable as the brand has its
+					// testing build's capture instead: QPACK is the
+					// network stack's (capture.TestingPages).
 					path, _, _ := capturePath(t, p, sc.Name, cond+".pagetrace.json.gz")
 					if !exists(path) {
-						continue
+						tp, err := capture.TestingPages(captureDir, p, sc.Name, cond)
+						if err != nil {
+							t.Fatal(err)
+						}
+
+						if tp == "" {
+							continue
+						}
+
+						path = tp
 					}
 
 					pages, err := capture.LoadPages(path)
