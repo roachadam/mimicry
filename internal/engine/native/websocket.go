@@ -241,6 +241,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 
 	cfg := handshake.Config{
 		ServerName:       req.URL.Hostname(),
+		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}

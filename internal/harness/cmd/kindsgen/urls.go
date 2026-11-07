@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
@@ -56,8 +58,9 @@ func deriveURLs(p *profile.Spec, dir string) error {
 }
 
 // urlsOf reads one urls sample: the characters its browser encodes in a
-// path beyond weburl.InPathSet (the "p-" cases), and whether it refused the
-// malformed punycode host ("h-badpuny"). Its fetches and navigations must
+// path beyond weburl.InPathSet (the "p-" cases), whether it refused the
+// malformed punycode host ("h-badpuny"), and the server_name it sent for
+// a host ending in a dot ("h-dot"). Its fetches and navigations must
 // agree, and a character the set encodes must be encoded.
 func urlsOf(page *capture.Page) (*profile.URLs, error) {
 	targets := urlsTargets(page)
@@ -112,7 +115,102 @@ func urlsOf(page *capture.Page) (*profile.URLs, error) {
 
 	u.CheckPunycode = !fetched
 
+	sni, err := trailingDotSNI(page)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	u.TrailingDotSNI = sni
+
 	return &u, errors.Join(errs...)
+}
+
+// trailingDotSNI reads the "h-dot" case, fetched and navigated to:
+// profile.TrailingDotKeep when the capture server refused a ClientHello
+// naming the host with its dot (Go's crypto/tls refuses one), or
+// TrailingDotOmit when the request came on a TLS connection with no
+// server_name. Anything else (the dot stripped, nothing sent) is an error:
+// no rule describes it.
+func trailingDotSNI(page *capture.Page) (string, error) {
+	const id = "h-dot"
+
+	i := slices.IndexFunc(server.URLCases(), func(c server.URLCase) bool {
+		return c.ID == id
+	})
+	if i < 0 {
+		return "", fmt.Errorf("%s: no such urls case", id)
+	}
+
+	u, err := url.Parse(server.URLCases()[i].On("f", "1", "2"))
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", id, err)
+	}
+
+	host := strings.ToLower(u.Hostname())
+	refused := slices.ContainsFunc(page.Connections, func(c capture.Connection) bool {
+		return c.Refused != "" && c.Host == host
+	})
+	snis := urlsServerNames(page)
+
+	var got []string
+
+	for _, kind := range []string{"f", "n"} {
+		sni, arrived := snis[server.URLCasePrefix(kind, id)]
+
+		switch {
+		case arrived && sni == "":
+			got = append(got, profile.TrailingDotOmit)
+		case arrived:
+			return "", fmt.Errorf("%s: %s sent server_name %q for %s", id, kind, sni, host)
+		case refused:
+			got = append(got, profile.TrailingDotKeep)
+		default:
+			return "", fmt.Errorf("%s: %s sent nothing, and no ClientHello naming %s was refused", id, kind, host)
+		}
+	}
+
+	if got[0] != got[1] {
+		return "", fmt.Errorf("%s: fetched %s, navigated to %s", id, got[0], got[1])
+	}
+
+	return got[0], nil
+}
+
+// urlsServerNames maps each case prefix the page's TLS requests start with
+// to the server_name of the connection its first request came on ("" for
+// none).
+func urlsServerNames(page *capture.Page) map[string]string {
+	out := map[string]string{}
+	add := func(path, sni string) {
+		rest, ok := strings.CutPrefix(path, "/c/")
+		if !ok {
+			return
+		}
+
+		key, _, ok := strings.Cut(rest, "/")
+		if !ok {
+			return
+		}
+
+		if _, seen := out["/c/"+key+"/"]; !seen {
+			out["/c/"+key+"/"] = sni
+		}
+	}
+
+	for _, tr := range page.H2 {
+		for _, r := range tr.Requests {
+			add(r.Path, tr.Host)
+		}
+	}
+
+	for _, r := range page.H1 {
+		_, rest, _ := strings.Cut(r.Line, " ")
+		target, _, _ := strings.Cut(rest, " ")
+
+		add(target, r.Host)
+	}
+
+	return out
 }
 
 // urlsTargets maps each case prefix ("/c/f-p-bar/") the page's requests

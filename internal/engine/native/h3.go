@@ -1163,6 +1163,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 
 	cfg := handshake.Config{
 		ServerName:       r.host,
+		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(r.host),
 	}

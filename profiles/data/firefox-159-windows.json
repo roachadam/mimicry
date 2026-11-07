@@ -9757,7 +9757,8 @@
     "preflightCache": "merge"
   },
   "urls": {
-    "checkPunycode": true
+    "checkPunycode": true,
+    "trailingDotSni": "keep"
   },
   "cookies": {
     "unsetSamesite": "none",

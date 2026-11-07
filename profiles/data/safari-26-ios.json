@@ -10537,7 +10537,8 @@
     }
   },
   "urls": {
-    "checkPunycode": true
+    "checkPunycode": true,
+    "trailingDotSni": "omit"
   },
   "cookies": {
     "unsetSamesite": "none",

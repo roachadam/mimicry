@@ -737,10 +737,13 @@ kindsgen's captures, and what each gives the profile:
   lists was sent (Firefox, Safari), it stays unset.
 - `<name>.urls.pagetrace.json.gz`: `urls` (`deriveURLs`): the characters
   the browser encodes in a path beyond the set every browser does
-  (`pathEncodes`), and whether it refuses the malformed punycode host
-  (`checkPunycode`). Samples, and each case's fetch and navigation, must
-  agree, and a character the shared set encodes may not go as written.
-  Without the capture it stays unset.
+  (`pathEncodes`), whether it refuses the malformed punycode host
+  (`checkPunycode`), and the SNI of a host ending in a dot
+  (`trailingDotSni`: `keep` when the server refused a ClientHello naming
+  it with its dot, `omit` when the request came with no SNI). Samples, and
+  each case's fetch and navigation, must agree, and a character the
+  shared set encodes may not go as written. Without the capture it stays
+  unset.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a

@@ -11728,7 +11728,9 @@
       ]
     }
   },
-  "urls": {},
+  "urls": {
+    "trailingDotSni": "omit"
+  },
   "cookies": {
     "unsetSamesite": "none",
     "thirdParty": "partitioned_only",

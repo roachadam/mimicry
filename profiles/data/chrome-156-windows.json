@@ -10051,7 +10051,8 @@
     }
   },
   "urls": {
-    "pathEncodes": "|"
+    "pathEncodes": "|",
+    "trailingDotSni": "keep"
   },
   "cookies": {
     "unsetSamesite": "lax",

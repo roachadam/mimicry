@@ -83,7 +83,10 @@ target, so it is a deviation the caller asks for.
 Everything after this sees that form: the dial, SNI, the connection pool
 and its tickets, `Host` and `:authority`, cookies, `Origin` and
 `Referer`. Your `req` is left as it is; `resp.Request.URL` is the URL
-sent, as a browser's `response.url` is.
+sent, as a browser's `response.url` is. A host ending in a dot keeps it
+everywhere but SNI, which follows the profile's `urls.trailingDotSni`:
+Chrome, Edge and Firefox send the name with its dot, Safari sends none
+(and gives such a host a connection of its own).
 
 1. **Add `Config.Header`.** Each one the request does not set itself is
    added. From here on it counts as a header the page set. Once a redirect
@@ -280,9 +283,11 @@ changes what goes out. See `ExampleTransport_Plan` for a full example.
 - **A lone `%` in a path** cannot be written in a URL: Go's `url.Parse`
   refuses it inside `http.NewRequest`, where browsers send it as written.
   Send it with `req.URL.Opaque` (above).
-- **A host ending in a dot** keeps the dot in `Host`, as browsers do, but
-  not in SNI, where Chrome and Firefox keep it and Safari sends none
-  ([#88](https://github.com/roachadam/mimicry/issues/88)).
+- **A host ending in a dot** goes on the connection a browser would pick
+  only for Safari: Chrome and Firefox reuse another host's connection for
+  it in one of fetch() and navigation, which mimicry does not model
+  ([0057](../decisions/0057-url-parsing-measured.md#amendment-2026-11-06-trailing-dot-sni)).
+  A profile without `urls` refuses such a host over TLS.
 - **No kind** for `FontFace().load()` or `crossorigin` stylesheets.
 - **`Config.Header`'s `Authorization` and `Cookie`** stop once a redirect
   chain has left their origin, as the Fetch standard says; so does a
