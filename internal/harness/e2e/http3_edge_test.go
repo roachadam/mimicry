@@ -29,13 +29,16 @@ import (
 const h3PageHost = "www.h3-a.test"
 
 // Every request of the h3-blackhole, h3-broken, h3-vn, h3-v2 (where python3
-// has aioquic), h3-early, h3-too-early and h3-streams-blocked pages through
-// mimicry on the browser's schedule, against every sample:
+// has aioquic), h3-early, h3-too-early, h3-streams-blocked and
+// h3-resume-table pages through mimicry on the browser's schedule, against
+// every sample:
 //
 //   - per request: its connections in order, its delay, and on a 0-RTT
 //     connection how each stream went (earlyStream);
 //   - per QUIC attempt: resumption, versions, the server's answer, how it
-//     ended, path moves (checkPathMoves), give-up datagrams, its trigger;
+//     ended, path moves (checkPathMoves), give-up datagrams, its trigger,
+//     and its QPACK encoder stream's capacity instructions and the packet
+//     type they began in (encoderShape);
 //   - per host: the STREAMS_BLOCKED frames sent there, those sent alone
 //     and their limits, and those sent with a stream, their limits and
 //     place (compareStreamsBlockedWith); on h3-streams-blocked, each

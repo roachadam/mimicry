@@ -92,9 +92,12 @@ was fixed and the page recaptured before deriving.
   sends it, which `http3.earlyData` does not describe; and the replay
   makes a pair's two requests together, where the page made the second
   after the loopback handshake.
-- A server that accepts 0-RTT and then sends smaller SETTINGS is broken
-  (RFC 9114, section 7.2.4.2); mimicry applies the smaller ones as they
-  come and does not close the connection.
+- A server that accepts 0-RTT and then sends a smaller table capacity or
+  fewer blocked streams than remembered is broken (RFC 9114, section
+  7.2.4.2): the 0-RTT inserts and sections may not fit them. mimicry
+  closes the connection with H3_SETTINGS_ERROR, as QUICHE closes with its
+  ZERO_RTT settings mismatch errors; the encoder itself ignores a lower
+  capacity once it has inserted.
 
 ## Revisit when
 

@@ -157,9 +157,18 @@ func NewEncoder(cfg Config) *Encoder {
 // smallest of the peer's, the configured maximum and none for
 // StrategyStatic (unless AnnounceCapacity), set by the encoder stream's
 // next instruction when it changes. A connection resumed with 0-RTT calls
-// it first with the SETTINGS remembered with its ticket.
+// it first with the SETTINGS remembered with its ticket; a lower capacity
+// after it has inserted is ignored, since its entries and the sections
+// referring to them were sized for the higher one (the caller closes such
+// a connection, RFC 9114, section 7.2.4.2).
 func (e *Encoder) SetPeerSettings(maxCapacity, blockedStreams uint64) {
-	e.peerMax, e.maxBlocked = maxCapacity, blockedStreams
+	e.maxBlocked = blockedStreams
+
+	if maxCapacity < e.peerMax && e.t.inserted() > 0 {
+		return
+	}
+
+	e.peerMax = maxCapacity
 
 	capacity := min(maxCapacity, e.cfg.MaxCapacity)
 
@@ -750,7 +759,7 @@ func (e *Encoder) appendPrefix(dst []byte, ric, base uint64) []byte {
 		return append(dst, 0, 0)
 	}
 
-	maxEntries := e.peerMax / 32
+	maxEntries := max(e.peerMax/32, 1)
 
 	dst = appendInt(dst, 0x00, 8, ric%(2*maxEntries)+1)
 

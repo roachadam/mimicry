@@ -105,8 +105,11 @@ type Conn struct {
 	enc   *qpack.Encoder
 	// remembered: the connection resumed with 0-RTT and its encoder
 	// started from the SETTINGS remembered with the ticket
-	// (profile.QPACK.Resumed).
-	remembered bool
+	// (profile.QPACK.Resumed), whose table capacity and blocked streams
+	// are rememberedCapacity and rememberedBlocked.
+	remembered         bool
+	rememberedCapacity uint64
+	rememberedBlocked  uint64
 
 	// decMu guards dec; decCond wakes sections blocked on its inserts.
 	decMu   sync.Mutex
@@ -172,9 +175,7 @@ func New(qc *quic.Conn, p *profile.Spec, opts Options) (*Conn, error) {
 	// serve can read the server's own.
 	if h.QPACK.Resumed != "" && qc.EarlyData() {
 		if capacity, blocked, err := parseSettings(qc.RememberedApplicationState()); err == nil && capacity > 0 {
-			c.enc.SetPeerSettings(capacity, blocked)
-
-			c.remembered = true
+			c.remember(capacity, blocked)
 		}
 	}
 
@@ -691,19 +692,11 @@ func (c *Conn) applySettings(b []byte) error {
 		return err
 	}
 
-	c.encMu.Lock()
-	c.enc.SetPeerSettings(capacity, blocked)
-
-	if c.remembered && c.h3.QPACK.Resumed == profile.QPACKResumedRepeat {
-		c.enc.RepeatCapacity()
+	announce, err := c.peerSettings(capacity, blocked)
+	if err != nil {
+		return err
 	}
 
-	var announce []byte
-	if capacity > 0 && encoderOnSettings(c.h3) {
-		announce = c.enc.TakeCapacity()
-	}
-
-	c.encMu.Unlock()
 	c.settingsOnce.Do(func() {
 		close(c.settings)
 	})
@@ -725,6 +718,46 @@ func (c *Conn) applySettings(b []byte) error {
 	}
 
 	return nil
+}
+
+// remember starts the encoder of a connection resumed with 0-RTT from the
+// table capacity and blocked streams remembered with its ticket.
+func (c *Conn) remember(capacity, blocked uint64) {
+	c.enc.SetPeerSettings(capacity, blocked)
+
+	c.remembered = true
+	c.rememberedCapacity = capacity
+	c.rememberedBlocked = blocked
+}
+
+// peerSettings gives the server's QPACK table capacity and blocked streams
+// to the encoder, and returns the instructions to open the encoder stream
+// with as they arrive, if any. On a connection whose encoder started from
+// remembered SETTINGS, lower ones are a connection error (RFC 9114,
+// section 7.2.4.2): the 0-RTT inserts may not fit them.
+func (c *Conn) peerSettings(capacity, blocked uint64) ([]byte, error) {
+	if c.remembered && (capacity < c.rememberedCapacity || blocked < c.rememberedBlocked) {
+		return nil, &connError{
+			code: codeSettingsError,
+			msg: fmt.Sprintf("SETTINGS lower the remembered QPACK table capacity %d or blocked streams %d to %d and %d",
+				c.rememberedCapacity, c.rememberedBlocked, capacity, blocked),
+		}
+	}
+
+	c.encMu.Lock()
+	defer c.encMu.Unlock()
+
+	c.enc.SetPeerSettings(capacity, blocked)
+
+	if c.remembered && c.h3.QPACK.Resumed == profile.QPACKResumedRepeat {
+		c.enc.RepeatCapacity()
+	}
+
+	if capacity > 0 && encoderOnSettings(c.h3) {
+		return c.enc.TakeCapacity(), nil
+	}
+
+	return nil, nil
 }
 
 // parseSettings reads a SETTINGS frame's payload: its QPACK table capacity
