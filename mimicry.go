@@ -256,8 +256,10 @@ type Config struct {
 	// FetchPins lists a site's pins.
 	Pins []Pin
 	// VerifyConnection, when set, checks each connection after certificate
-	// verification and Pins, as crypto/tls's VerifyConnection does. An
-	// error fails the request before anything is sent. Default: none.
+	// verification and Pins, as crypto/tls's VerifyConnection does. The
+	// state's ServerName is the request's host, also when the profile
+	// sends no SNI for it (tls.trailingDotSni omit). An error fails the
+	// request before anything is sent. Default: none.
 	VerifyConnection func(tls.ConnectionState) error
 
 	// engine replaces the pure-Go engine (tests only).

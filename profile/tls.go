@@ -48,7 +48,24 @@ type TLS struct {
 	// not measured, and the cookie goes at a random position among the
 	// extensions that are not pinned.
 	HelloRetry *HelloRetry `json:"helloRetry,omitempty"`
+	// TrailingDotSNI is the server_name sent for a host ending in a dot
+	// ("www.example.com."): TrailingDotKeep or TrailingDotOmit. hellogen
+	// derives it from the urls capture's hellos. Empty: not measured, and
+	// such a host over TLS is ErrNotMeasured. Host and :authority keep the
+	// dot either way.
+	TrailingDotSNI string `json:"trailingDotSni,omitempty"`
 }
+
+// TLS.TrailingDotSNI values.
+const (
+	// TrailingDotKeep sends the name with its dot (desktop Chrome, Edge,
+	// Firefox), though RFC 6066 asks for none.
+	TrailingDotKeep = "keep"
+	// TrailingDotOmit sends no server_name at all (Safari and every
+	// iPhone profile, WebKit); the certificate is still verified against
+	// the host.
+	TrailingDotOmit = "omit"
+)
 
 // Resumption describes how a browser resumes sessions. A TLS 1.3 resumed
 // ClientHello is the full one minus Drop, with pre_shared_key last; each

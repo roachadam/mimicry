@@ -33,7 +33,8 @@ type DialConfig struct {
 	// cache holds the ticket it resumes. A spec serves one connection.
 	Hello *tls.ClientHelloSpec
 	// TLS has the server name, the roots and the session cache
-	// (handshake.QUICConfig). Required, with ServerName set.
+	// (handshake.QUICConfig). Required, with ServerName set, or
+	// InsecureServerNameToVerify when no server_name is sent.
 	TLS *tls.Config
 	// Token is the token of the last NEW_TOKEN frame the server sent on an
 	// earlier connection, sent in this one's Initial packets when the
@@ -364,7 +365,8 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		return nil, nil, errors.New("quic: no QUIC profile")
 	case cfg.Hello == nil:
 		return nil, nil, errors.New("quic: no ClientHello")
-	case cfg.TLS == nil || cfg.TLS.ServerName == "":
+	case cfg.TLS == nil || cfg.TLS.ServerName == "" && cfg.TLS.InsecureServerNameToVerify == "":
+		// No server_name is sent only with a name to verify (OmitSNI).
 		return nil, nil, errors.New("quic: TLS config without a server name")
 	case p.Version != quicVersion1:
 		return nil, nil, fmt.Errorf("quic: version %#x; only version 1 is supported", p.Version)

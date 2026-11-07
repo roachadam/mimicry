@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -158,6 +159,9 @@ func TestPins(t *testing.T) {
 		proxy    bool
 		resolver bool
 		pins     func(chain []mimicry.CertPin) []mimicry.Pin
+		// safari sends the steps as Safari, which omits SNI for a
+		// trailing-dot host (tls.trailingDotSni omit).
+		safari bool
 		// verify, when set, is Config.VerifyConnection; verifyCalls is
 		// how often it must have run.
 		verify      func(cs tls.ConnectionState) error
@@ -380,6 +384,28 @@ func TestPins(t *testing.T) {
 			},
 		},
 		{
+			name:   "VerifyConnection given the host when SNI is omitted",
+			shop:   h2,
+			safari: true,
+			pins: func(c []mimicry.CertPin) []mimicry.Pin {
+				return pin("www.shop.test", c[1].SPKI)
+			},
+			verify: func(cs tls.ConnectionState) error {
+				if cs.ServerName != "www.shop.test." {
+					return fmt.Errorf("ServerName %q, want the host", cs.ServerName)
+				}
+
+				return nil
+			},
+			verifyCalls: 1,
+			steps: []pinStep{
+				{
+					url:       "https://www.shop.test./",
+					wantProto: "h2",
+				},
+			},
+		},
+		{
 			name:  "through a CONNECT proxy, the intermediate's key",
 			shop:  h2,
 			proxy: true,
@@ -512,6 +538,10 @@ func TestPins(t *testing.T) {
 				// The shop speaks no HTTP/3; keep the steps on TCP.
 				DisableHTTP3: true,
 			}
+			if tc.safari {
+				cfg.Profile = profiles.SafariMacOS()
+			}
+
 			if tc.proxy {
 				// Through the proxy that tunnels to the row's shop.
 				via := proxy

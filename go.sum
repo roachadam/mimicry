@@ -4,8 +4,8 @@ github.com/klauspost/compress v1.20.2 h1:v5tiZvm1KGLyg5d5oXdXe3lsSPrbEUiKoXGia//
 github.com/klauspost/compress v1.20.2/go.mod h1:LUdAzn7YLVvxLpc7y3V1m40wESHTgc1422pwwBSKYuI=
 github.com/molecule-man/go-brrr v1.2.0 h1:dOJU45BC3Gc2WXoxAW0rgCAgVuu2gruAOGncfieA0Jw=
 github.com/molecule-man/go-brrr v1.2.0/go.mod h1:7ybW6/7gA3oKY45jOfVNjSJDtrr6ea4tzbsTkjmQDC4=
-github.com/roachadam/utls v0.0.0-20261103184840-a9135f0643b8 h1:7cbeGnyirKDfeIRUsfF/BJBfpQWqFvT/yIE4LiPpy8U=
-github.com/roachadam/utls v0.0.0-20261103184840-a9135f0643b8/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
+github.com/roachadam/utls v0.0.0-20261107020059-5e9089fc4824 h1:YeElZxTxOMd37iqS2YSsaTFzmIgq8C8+w7SbUbZI0+8=
+github.com/roachadam/utls v0.0.0-20261107020059-5e9089fc4824/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
 golang.org/x/crypto v0.58.0 h1:COkYLr4k7nDI4r6QtMML2AfzeIswWHAJthLS6K/M/54=
 golang.org/x/crypto v0.58.0/go.mod h1:Xh+kl5A+M0gMiWDytH2Hhr5Z7WbNCpv/eB/EFgfSk+w=
 golang.org/x/net v0.61.0 h1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=

@@ -180,7 +180,8 @@
       ],
       "transportParametersBefore": "0x001b",
       "earlyDataBefore": "0x002b"
-    }
+    },
+    "trailingDotSni": "omit"
   },
   "http2": {
     "settings": [

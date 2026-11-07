@@ -31,25 +31,23 @@
 # weights when they run apart.
 #
 # seconds  tier      package          test[/subtests]
-# The generators' times are from main's run of 2026-11-03 (after the hrr
-# captures): hellogen takes about 200 s per desktop profile, so a slice per
-# platform; the iPhone profiles (about 35 s together) are the rest unit.
-190        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-macos
-205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-windows
-200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-macos
-205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-windows
-200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-.*-macos
-# The Linux profiles (2026-11-05) are estimated as the Windows ones, not
-# yet from a runner's log.
-205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-linux
-205        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-linux
-# Edge (2026-11-06) is estimated as Chrome on macOS, not yet from a
-# runner's log.
-190        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-
+# The generators' times are from a pull request's run of 2026-11-07
+# (#98, every profile's captures): hellogen takes about 115-280 s per
+# desktop profile, so a slice per platform, Edge's per profile; the iPhone
+# profiles (about 30 s together) are the rest unit.
+140        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-macos
+210        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-windows
+115        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-macos
+200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-windows
+155        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-.*-macos
+280        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-linux
+170        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-linux
+270        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-.*-macos
+265        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-.*-windows
 175        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
-190        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
+150        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
 22         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
-36         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
+55         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
 5          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures
 # 48 subtests of about 50 s, 12 per profile: a profile's take about 300 s
 # on a 4-CPU Linux box, about 1200 s whole, so a slice per profile (the
@@ -63,10 +61,12 @@
 290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,
-# nearly all of their time): apart, each decodes them.
-210        -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
-200        protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces
-200        core      ./e2e            TestHPACKReproducesBrowserBlocks
+# nearly all of their time): apart, each decodes them. Together they took
+# 389 s, 503 s and 575 s on the runner (pull requests #96 and #98,
+# 2026-11-06 and 07), with the Linux and Edge profiles' captures.
+580        -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
+560        protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces
+560        core      ./e2e            TestHPACKReproducesBrowserBlocks
 250        protocol  ./e2e            TestConnectionMatchesBrowserTrace
 135        protocol  ./e2e            TestHTTP3DownloadMatchesBrowser
 125        protocol  ./e2e            TestHTTP3MatchesBrowser
