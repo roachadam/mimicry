@@ -319,7 +319,8 @@
     },
     "helloRetry": {
       "cookieAfter": "0x000d"
-    }
+    },
+    "trailingDotSni": "keep"
   },
   "http2": {
     "settings": [

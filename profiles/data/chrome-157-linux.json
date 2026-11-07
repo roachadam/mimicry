@@ -256,7 +256,8 @@
     },
     "helloRetry": {
       "cookieShuffled": true
-    }
+    },
+    "trailingDotSni": "keep"
   },
   "http2": {
     "settings": [

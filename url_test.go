@@ -257,9 +257,9 @@ func TestURLsGoOutCanonical(t *testing.T) {
 
 // The URL standard's path and host parsing at the edges the urls capture
 // does not reach: dot segments at the root and at the end, IPv4 forms past
-// their limits, and the two rules browsers differ on ('|' in a path, an
-// invalid "xn--" label), each as its profile has it, or ErrNotMeasured for a
-// profile without URL rules.
+// their limits, and the rules browsers differ on ('|' in a path, an
+// invalid "xn--" label, a trailing-dot host's SNI), each as its profile has
+// it, or ErrNotMeasured for a profile without them.
 func TestURLParserEdges(t *testing.T) {
 	plan := func(t *testing.T, p profile.Profile, rawURL string) (string, error) {
 		t.Helper()
@@ -310,20 +310,21 @@ func TestURLParserEdges(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		p         profile.Profile
-		bar, puny string
+		p              profile.Profile
+		bar, puny, dot string
 	}{
-		{profiles.ChromeMacOS(), "a.test/a%7Cb", "xn--a.test/"},
-		{profiles.FirefoxMacOS(), "a.test/a|b", "refused"},
-		{profiles.SafariMacOS(), "a.test/a|b", "xn--a.test/"},
-		{profiles.Safari26MacOS(), "a.test/a|b", "refused"},
-		{profiles.Chrome155MacOS(), "not measured", "not measured"},
+		{profiles.ChromeMacOS(), "a.test/a%7Cb", "xn--a.test/", "a.test./"},
+		{profiles.FirefoxMacOS(), "a.test/a|b", "refused", "a.test./"},
+		{profiles.SafariMacOS(), "a.test/a|b", "xn--a.test/", "a.test./"},
+		{profiles.Safari26MacOS(), "a.test/a|b", "refused", "a.test./"},
+		{profiles.Chrome155MacOS(), "not measured", "not measured", "not measured"},
 	} {
 		name := tc.p.Spec().Name
 
 		for _, c := range []struct{ url, want string }{
 			{"https://a.test/a|b", tc.bar},
 			{"https://xn--a.test/", tc.puny},
+			{"https://a.test./", tc.dot},
 		} {
 			got, err := plan(t, tc.p, c.url)
 
