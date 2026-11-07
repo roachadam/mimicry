@@ -48,8 +48,11 @@ func Find() []*Browser {
 		}
 
 		app := macOSApps[name]
-		if name == "chrome" {
+		switch {
+		case name == "chrome":
 			app = ChromeApp
+		case name == "firefox" && FirefoxApp != "":
+			app = FirefoxApp
 		}
 
 		if app != "" {

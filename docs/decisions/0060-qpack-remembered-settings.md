@@ -1,6 +1,6 @@
 # 0060: QPACK on a resumed connection uses the remembered SETTINGS
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-07 (a late fetch on the page; Chrome 155 and Firefox 158 measured)
 - Date: 2026-11-06
 - Commits: the one that closes [#90](https://github.com/roachadam/mimicry/issues/90)
 
@@ -104,3 +104,34 @@ was fixed and the page recaptured before deriving.
 A browser stops remembering the SETTINGS or repeats differently, a
 capture holds a server whose SETTINGS change between connections, or
 navigations' 0-RTT gets a rule.
+
+## Amendment 2026-11-07: a late fetch, and the older versions
+
+Firefox 158 on macOS put every encoder write in 0-RTT (18 of 18), so
+whether it sets the capacity again was not shown (Firefox 159 on macOS:
+1 of 18). The page now carries a late fetch 500 ms after two of its
+resumed requests, on the same connection and after the server's SETTINGS,
+with a header no request had (`x-late`, not in QPACK's static table), so
+every encoder writes again there, Firefox's, which inserts only new names,
+included. Every browser was captured again with it (2026-11-07), and the
+older versions with it: Firefox 158.0.1 from Mozilla's archive (the
+brand), and Chrome 155 as Chrome for Testing 155.0.8059.84, whose capture
+feeds `qpack.resumed` alone (decision 0042's testing-build rule: QPACK is
+the network stack's). Of the resumed connections with an encoder stream:
+
+| Profile | resumed | opened in 0-RTT | wrote again in 1-RTT | capacity set again there |
+|---|---|---|---|---|
+| `chrome-155-macos` (Chrome for Testing) | 18 | 15 | 12 | 12 |
+| `chrome-156-macos`, `edge-157-macos` | 18 | 15 | 11 | 11 |
+| `chrome-156-windows`, `edge-157-windows` | 18 | 15 | 12 | 12 |
+| `chrome-157-linux` | 19 | 16 | 12 | 12 |
+| `firefox-158-macos`, `firefox-158-windows` | 18 | 18 | 9 | 0 |
+| `firefox-159-macos` | 17 | 17 | 12 | 0 |
+| `firefox-159-windows` | 18 | 18 | 9 | 0 |
+| `firefox-159-linux` | 18 | 18 | 12 | 0 |
+
+So every Chrome, Edge and Firefox profile now fills its table in 0-RTT.
+The navigations Chrome and Edge held (3 per profile) opened their encoder
+in 1-RTT. Firefox's short-lived side connections showed up in some samples
+on every platform this time, so the replay only logs the connections they
+renumber.

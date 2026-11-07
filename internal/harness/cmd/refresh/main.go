@@ -62,6 +62,8 @@ type config struct {
 	keep        bool
 	listen      string
 	iosDevice   string
+	chromeApp   string
+	firefoxApp  string
 	scenarios   string
 	yes         bool
 	dryRun      bool
@@ -86,6 +88,8 @@ func run() error {
 	flag.StringVar(&cfg.wslUser, "wsl-user", "", "the user in -wsl's distribution the browsers run as (default: the distribution's default user; Chrome refuses root)")
 	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios, firefox-ios; required for them)")
 	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios, chrome-ios, firefox-ios; default: the paired iPhone connected to this Mac)")
+	flag.StringVar(&cfg.chromeApp, "chrome-app", "", "a Chrome build to capture on every machine of the run instead of the installed Chrome, as that machine names it (Chrome for Testing, for a version no longer installable as the brand; docs/capturing.md)")
+	flag.StringVar(&cfg.firefoxApp, "firefox-app", "", "a Firefox to capture on every machine of the run instead of the installed one, as that machine names it (an older release beside it: an application on macOS, firefox.exe on Windows)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
@@ -173,17 +177,19 @@ func run() error {
 	}
 
 	r := &refreshRun{
-		Dir:       dir,
-		Mode:      cfg.mode,
-		Mini:      cfg.mini,
-		Stamp:     filepath.Base(dir),
-		Serial:    cfg.serial,
-		Scenarios: cfg.scenarios,
-		Keep:      cfg.keep,
-		Listen:    cfg.listen,
-		IOSDevice: cfg.iosDevice,
-		WSL:       cfg.wsl,
-		WSLUser:   cfg.wslUser,
+		Dir:        dir,
+		Mode:       cfg.mode,
+		Mini:       cfg.mini,
+		Stamp:      filepath.Base(dir),
+		Serial:     cfg.serial,
+		Scenarios:  cfg.scenarios,
+		Keep:       cfg.keep,
+		Listen:     cfg.listen,
+		IOSDevice:  cfg.iosDevice,
+		WSL:        cfg.wsl,
+		WSLUser:    cfg.wslUser,
+		ChromeApp:  cfg.chromeApp,
+		FirefoxApp: cfg.firefoxApp,
 	}
 	// The Windows PCs' working directories go, and the capture CA with
 	// them, however the run ends.

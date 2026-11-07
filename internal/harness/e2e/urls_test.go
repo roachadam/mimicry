@@ -27,7 +27,7 @@ var urlsKnown = func() map[string]string {
 	}
 
 	const firefoxPool = "Firefox sent the navigation to www.urls.test. on its www.urls.test connection and opened a new one for the credential-less fetch() (its hello, keeping the dot, refused); mimicry runs the case once and opens a new connection as the fetch. Which requests Firefox groups on a connection is a known gap (decision 0011)"
-	for _, name := range []string{"firefox-159-macos", "firefox-159-windows", "firefox-159-linux"} {
+	for _, name := range []string{"firefox-158-macos", "firefox-158-windows", "firefox-159-macos", "firefox-159-windows", "firefox-159-linux"} {
 		known[name+"/h-dotpool"] = firefoxPool
 	}
 

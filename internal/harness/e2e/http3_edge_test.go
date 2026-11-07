@@ -240,52 +240,15 @@ var h3EdgeGaps = func() map[string]string {
 	// Finished (3 of 3 samples each), where the page's fetch, XHR and
 	// image GETs went in 0-RTT; http3.earlyData.methods has no rule for a
 	// navigation, so mimicry's GET goes in 0-RTT, the encoder stream it
-	// opens with too.
+	// opens with too. Chrome on Linux's samples number their connections
+	// apart (an extra one in sample 1), so its are only logged.
 	const navHeld = "Chrome held the navigation to nav.so on its resumed connection until after the Finished (3 of 3 samples; its fetch, XHR and image GETs went in 0-RTT), a rule http3.earlyData does not hold (methods only), so mimicry's navigation and the encoder stream it opens go in 0-RTT; the encoder still sets the remembered capacity, then again with the next request (qpack.resumed)"
-	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "edge-157-macos", "edge-157-windows"} {
 		gaps[name+"/h3-resume-table edge QUIC www.h3-a.test #7 encoder stream"] = navHeld
 		gaps[name+"/h3-resume-table edge request /h3/nav.so streams"] = navHeld
 	}
 
 	gaps["firefox-159-windows/h3-resume-table edge TCP www.h3-a.test declined"] = "as firefox-158-windows's on h3-too-early: Firefox on Windows opened a TCP connection to the host and closed it before any request (1 per sample, 3 of 3); no profile field holds when Firefox opens these"
-
-	// Firefox on Linux's side connection on h3-resume-table, in every
-	// sample: 2.6 s after its first QUIC connection, a resumed one with no
-	// request, closed by Firefox 1 ms in, took the ticket, so the next
-	// connection was a full handshake; and on every connection after it
-	// the request was held until after the Finished.
-	const firefoxSideResume = "as firefox-159-linux's side connections on h3-streams-blocked (EVIDENCE.md, Not covered): in every sample (3 of 3) Firefox on Linux opened a resumed QUIC connection 2.6 s after its first, with no request, and closed it 1 ms in; it took the ticket, so resume1.so's connection was a full handshake and every connection numbers one later than mimicry's, and from then on Firefox held each request until after the Finished, as in those samples no GET went in 0-RTT; mimicry opens none and sends each GET in 0-RTT"
-	for _, k := range []string{
-		"QUIC www.h3-a.test #2 closed by",
-		"QUIC www.h3-a.test #2 trigger",
-		"QUIC www.h3-a.test #3",
-		"QUIC www.h3-a.test #3 encoder stream",
-		"QUIC www.h3-a.test #3 trigger",
-		"QUIC www.h3-a.test #4 trigger",
-		"QUIC www.h3-a.test #5 trigger",
-		"QUIC www.h3-a.test #6 trigger",
-		"QUIC www.h3-a.test #7 closed by",
-		"QUIC www.h3-a.test #7 trigger",
-		"QUIC www.h3-a.test #8",
-		"QUIC www.h3-a.test #8 encoder stream",
-		"QUIC www.h3-a.test #8 trigger",
-		"QUIC www.h3-a.test #8 after its trigger ms",
-		"request /h3/resume1.so sent",
-		"request /h3/resume1.so streams",
-		"request /h3/resume2.so sent",
-		"request /h3/resume2.so streams",
-		"request /h3/image.so sent",
-		"request /h3/image.so streams",
-		"request /h3/pair-a.so sent",
-		"request /h3/pair-a.so streams",
-		"request /h3/pair-b.so sent",
-		"request /h3/xhr.so sent",
-		"request /h3/xhr.so streams",
-		"request /h3/nav.so sent",
-		"request /h3/nav.so streams",
-	} {
-		gaps["firefox-159-linux/h3-resume-table edge "+k] = firefoxSideResume
-	}
 
 	// Firefox on Linux's side connections on the h3-streams-blocked page,
 	// in every sample: each one's start, close and trigger time, and its

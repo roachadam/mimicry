@@ -1,6 +1,6 @@
 # 0042: The HTTP/2 opening is cut into TLS records as the browser cuts it
 
-- Status: Accepted; amended 2026-10-30 (preconnected connections); amended 2026-11-04 (counted, kept not planned)
+- Status: Accepted; amended 2026-10-30 (preconnected connections); amended 2026-11-04 (counted, kept not planned); amended 2026-11-07 (the testing build's other network-stack fields)
 - Date: 2026-10-28
 - Commits: `fc62d65`
 
@@ -154,3 +154,13 @@ until the server's SETTINGS are read, up to one round trip. The
 maintainer kept it not planned (2026-11-04): a frame-order detail no
 vendor is known to check, recorded as an intentional, known difference in
 EVIDENCE.md. Reopen on evidence of a vendor checking it.
+
+## Amendment 2026-11-07: the testing build's other network-stack fields
+
+The testing-build rule covers every field that is the network stack's
+alone, not this one only: `http1.uploadRecords` (0052),
+`tls.trailingDotSni` (0057) and `http3.qpack.resumed` (0060) take a
+version's testing-build capture where the brand cannot be installed
+(`capture.TestingPages`). Fields of the page's or the URL parser's, and
+every header, never come from it: Chrome 155's `urls` rules stay
+unmeasured though its testing build loaded the `urls` page.

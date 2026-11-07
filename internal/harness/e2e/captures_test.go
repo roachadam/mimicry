@@ -324,14 +324,19 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	"firefox-159-windows.client-hints.pagetrace.json.gz":            "client-hints was captured with Firefox 159 on macOS only (2026-11-03); not yet on the Windows PC",
 	"safari-26-macos.client-hints.pagetrace.json.gz":                "client-hints was captured with Safari 27 only (2026-11-03); not yet on the macOS 26 Mac",
 	// h3-resume-table (2026-11-06) was captured from Chrome, Edge and
-	// Firefox on every platform (decision 0060); Safari never uses a
-	// QPACK table, so it shows nothing for it.
-	"chrome-155-macos.h3-resume-table.pagetrace.json.gz":               "h3-resume-table came after Chrome 155, no longer installable as branded Chrome",
+	// Firefox on every platform, Firefox 158 from Mozilla's archive
+	// (decision 0060); Safari never uses a QPACK table, so it shows
+	// nothing for it. Chrome 155's is its testing build's, which only
+	// http3.qpack.resumed reads (capture.TestingPages).
+	"chrome-155-macos.h3-resume-table.pagetrace.json.gz":               "h3-resume-table came after Chrome 155, no longer installable as branded Chrome; Chrome for Testing 155's capture feeds http3.qpack.resumed alone",
 	testprofiles.InheritingName + ".h3-resume-table.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
-	"firefox-158-macos.h3-resume-table.pagetrace.json.gz":              "h3-resume-table came after Firefox 158, no longer installable",
-	"firefox-158-windows.h3-resume-table.pagetrace.json.gz":            "h3-resume-table came after Firefox 158, no longer installable",
 	"safari-26-macos.h3-resume-table.pagetrace.json.gz":                "h3-resume-table measures QPACK's table on resumption, which Safari never uses",
 	"safari-27-macos.h3-resume-table.pagetrace.json.gz":                "h3-resume-table measures QPACK's table on resumption, which Safari never uses",
+	// urls (2026-11-04) came after Chrome 155; Chrome for Testing 155's
+	// capture feeds tls.trailingDotSni alone (the network stack's), so
+	// chrome-155-macos has no urls rules.
+	"chrome-155-macos.urls.pagetrace.json.gz":               "urls came after Chrome 155, no longer installable as branded Chrome; Chrome for Testing 155's capture feeds tls.trailingDotSni alone",
+	testprofiles.InheritingName + ".urls.pagetrace.json.gz": "chrome-155-macos, whose captures it inherits, has none",
 }, map[string]string{
 	// The cookie twins (server.CookieTwins) came after Chrome 155, which
 	// is no longer installable as branded Chrome; capturesFrom names only
