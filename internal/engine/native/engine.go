@@ -492,8 +492,9 @@ type route struct {
 	addr string
 	host string
 	// group is what another host's HTTP/2 connection must share for
-	// coalescing. Zero when the request never coalesces: plain HTTP or
-	// through a proxy.
+	// coalescing. Zero when the request never coalesces: plain HTTP,
+	// through a proxy, or a host ending in a dot whose browser sends no
+	// SNI for it (tls.trailingDotSni omit).
 	group group
 	// proxy is nil for a direct connection; via is its URL as the key
 	// names it.
@@ -771,13 +772,17 @@ func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 }
 
 // verifyFor is the handshake's VerifyConnection for a connection to host,
-// or nil.
+// or nil. The state's ServerName is host, as in verifyShared: a handshake
+// that omits SNI (tls.trailingDotSni omit) reports none, and a callback
+// checking the certificate against ServerName would check nothing.
 func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 	if e.verify == nil {
 		return nil
 	}
 
 	return func(cs tls.ConnectionState) error {
+		cs.ServerName = host
+
 		return e.verify(host, cs)
 	}
 }

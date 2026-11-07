@@ -99,8 +99,10 @@ dot in `Host` everywhere; its SNI keeps it in Chrome and Firefox
   protocol.
 - `TestURLsMatchBrowser` fails when a case starts matching, so a pin
   cannot outlive its cause.
-- A profile without `urls` errors on two inputs it could not know; the
-  older profiles keep that until retired.
+- A profile without `urls` errors on a `|` in a path and an invalid
+  `xn--` label, and one without `tls.trailingDotSni` on a trailing-dot
+  host over TLS: inputs it could not know. The older profiles keep that
+  until retired.
 - IPv6 literal forms (`[0:0::1]`) are not captured and stay as written.
 
 ## Revisit when
@@ -116,18 +118,21 @@ hellos in every sample, fetched and navigated to. It sits with the
 ClientHello rather than in `urls`: it is the network stack's, not the URL
 parser's.
 
-- `keep` (Chrome, Edge and Firefox on every platform): the name goes out
+- `keep` (desktop Chrome, Edge and Firefox): the name goes out
   with its dot, as the capture server's refused ClientHellos show. uTLS
   strips it, as crypto/tls does (RFC 6066), so the fork's `SNIExtension`
   gained `KeepTrailingDot` (roachadam/utls#18, `5e9089f`, pinned as
   `v0.0.0-20261107020059-5e9089fc4824`), which mimicry always sets: only
   a name ending in a dot is affected.
-- `omit` (Safari 26 and 27; the iPhone profiles, through the WebKit
-  `urls` capture they inherit): no `server_name` at all. The certificate
-  is still verified against the host (uTLS's
-  `InsecureServerNameToVerify`), and such a request never coalesces onto
-  another host's connection: Safari opened one of its own for
-  `www.urls.test.` beside its `www.urls.test` one, every sample.
+- `omit` (Safari 26 and 27, and every iPhone profile, Chrome and Firefox
+  included: iOS browsers are WebKit, and they inherit its `urls` capture):
+  no `server_name` at all. The certificate is still verified against the
+  host (uTLS's `InsecureServerNameToVerify`), and `Config.VerifyConnection`
+  gets the host as the state's `ServerName`, as crypto/tls would report
+  it, so a callback checking the certificate against it still checks. Such
+  a request never coalesces onto another host's connection: Safari opened
+  one of its own for `www.urls.test.` beside its `www.urls.test` one,
+  every sample.
 
 The rule applies over QUIC too: each browser builds its QUIC hello from
 the same host, though no capture has a trailing-dot host over HTTP/3. A

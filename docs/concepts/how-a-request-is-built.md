@@ -85,8 +85,9 @@ and its tickets, `Host` and `:authority`, cookies, `Origin` and
 `Referer`. Your `req` is left as it is; `resp.Request.URL` is the URL
 sent, as a browser's `response.url` is. A host ending in a dot keeps it
 everywhere but SNI, which follows the profile's `tls.trailingDotSni`:
-Chrome, Edge and Firefox send the name with its dot, Safari sends none
-(and gives such a host a connection of its own).
+desktop Chrome, Edge and Firefox send the name with its dot; Safari and
+every iPhone profile (WebKit) send none (and give such a host a
+connection of its own).
 
 1. **Add `Config.Header`.** Each one the request does not set itself is
    added. From here on it counts as a header the page set. Once a redirect

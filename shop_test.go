@@ -95,15 +95,15 @@ func startShopHTTP1(handler http.HandlerFunc) *shop {
 	}
 }
 
-// DialContext dials the shop for every *.test name, and anything else as
-// net.Dialer does.
+// DialContext dials the shop for every *.test name, trailing dot or not,
+// and anything else as net.Dialer does.
 func (s *shop) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.HasSuffix(host, ".test") {
+	if strings.HasSuffix(strings.TrimSuffix(host, "."), ".test") {
 		addr = s.addr
 	}
 

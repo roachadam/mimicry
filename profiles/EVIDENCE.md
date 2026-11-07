@@ -902,7 +902,7 @@ sample's fetch and navigation.
 | Hosts: lowercase; non-ASCII through UTS #46 ToASCII; an explicit default port, `:0443` too, dropped; IPv4 in short, hex, octal, integer and trailing-dot forms as dotted decimal | W (`h-upper`, `h-idn`, `h-port443`, `h-port0`, `ip-*`, every browser) | `ip-*` from a plain `http://` page: Safari blocks even loopback `http://` from an `https://` page |
 | `urls.checkPunycode`: an ASCII host's `xn--` label that is not valid punycode refused by Firefox and Safari 26, sent as written by Chrome and Safari 27 | W (`h-badpuny`) | A valid `xn--` label goes out as written in every browser |
 | A host ending in a dot keeps it in `Host` and `:authority` | W (`h-dot`, `h-dotpool`; Safari's requests, the others' pooled ones) | |
-| A host ending in a dot keeps it in SNI (Chrome, Edge, Firefox) or sends none (Safari), and Safari gives it a connection of its own (`tls.trailingDotSni`, hellogen) | W (`h-dot`, every sample, fetched and navigated to; `h-dotpool` for Safari) | Over QUIC by inference: no capture has such a host on HTTP/3 |
+| A host ending in a dot keeps it in SNI (desktop Chrome, Edge, Firefox) or sends none (Safari and every iPhone profile, WebKit), and Safari gives it a connection of its own (`tls.trailingDotSni`, hellogen) | W (`h-dot`, every sample, fetched and navigated to; `h-dotpool` for Safari) | Over QUIC by inference: no capture has such a host on HTTP/3 |
 
 ## CORS preflights
 

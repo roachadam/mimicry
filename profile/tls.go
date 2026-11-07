@@ -58,11 +58,12 @@ type TLS struct {
 
 // TLS.TrailingDotSNI values.
 const (
-	// TrailingDotKeep sends the name with its dot (Chrome, Edge,
+	// TrailingDotKeep sends the name with its dot (desktop Chrome, Edge,
 	// Firefox), though RFC 6066 asks for none.
 	TrailingDotKeep = "keep"
-	// TrailingDotOmit sends no server_name at all (Safari); the
-	// certificate is still verified against the host.
+	// TrailingDotOmit sends no server_name at all (Safari and every
+	// iPhone profile, WebKit); the certificate is still verified against
+	// the host.
 	TrailingDotOmit = "omit"
 )
 
