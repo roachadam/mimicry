@@ -274,6 +274,12 @@ func (c *checker) checkTLS(t *TLS) {
 		c.add("tls.extensions", "is required")
 	}
 
+	switch t.TrailingDotSNI {
+	case "", TrailingDotKeep, TrailingDotOmit:
+	default:
+		c.add("tls.trailingDotSni", "%q is not %q or %q", t.TrailingDotSNI, TrailingDotKeep, TrailingDotOmit)
+	}
+
 	seen := map[Code]int{}
 	grease := 0
 

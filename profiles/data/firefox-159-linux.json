@@ -261,7 +261,8 @@
     },
     "helloRetry": {
       "cookieAfter": "0x000d"
-    }
+    },
+    "trailingDotSni": "keep"
   },
   "http2": {
     "settings": [
@@ -9713,8 +9714,7 @@
     "preflightCache": "merge"
   },
   "urls": {
-    "checkPunycode": true,
-    "trailingDotSni": "keep"
+    "checkPunycode": true
   },
   "cookies": {
     "unsetSamesite": "none",

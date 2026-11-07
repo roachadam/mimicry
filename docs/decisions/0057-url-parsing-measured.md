@@ -9,8 +9,8 @@ awkward URLs, by fetch() and by navigation, and mimicry now sends what
 they agree on: `'` in a query as `%27`, a path's `\` as `/` and its dot
 segments resolved, IPv4 hosts in any form as dotted decimal. Where they
 differ, a kindsgen-derived profile section `urls` says what each does (`|`
-in a path; an invalid `xn--` label; as amended, a trailing-dot host's
-SNI).
+in a path; an invalid `xn--` label); as amended, `tls.trailingDotSni` does
+for a trailing-dot host's SNI.
 
 ## Problem
 
@@ -110,9 +110,11 @@ it, and kindsgen refuses a character it cannot model).
 
 ## Amendment 2026-11-06: trailing-dot SNI
 
-The `h-dot` case's SNI is now the browser's, from a new `urls` field,
-`trailingDotSni`, which kindsgen derives from every sample, fetched and
-navigated to:
+The `h-dot` case's SNI is now the browser's, from a new field,
+`tls.trailingDotSni`, which hellogen derives from the `urls` capture's
+hellos in every sample, fetched and navigated to. It sits with the
+ClientHello rather than in `urls`: it is the network stack's, not the URL
+parser's.
 
 - `keep` (Chrome, Edge and Firefox on every platform): the name goes out
   with its dot, as the capture server's refused ClientHellos show. uTLS

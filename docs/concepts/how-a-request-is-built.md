@@ -84,7 +84,7 @@ Everything after this sees that form: the dial, SNI, the connection pool
 and its tickets, `Host` and `:authority`, cookies, `Origin` and
 `Referer`. Your `req` is left as it is; `resp.Request.URL` is the URL
 sent, as a browser's `response.url` is. A host ending in a dot keeps it
-everywhere but SNI, which follows the profile's `urls.trailingDotSni`:
+everywhere but SNI, which follows the profile's `tls.trailingDotSni`:
 Chrome, Edge and Firefox send the name with its dot, Safari sends none
 (and gives such a host a connection of its own).
 

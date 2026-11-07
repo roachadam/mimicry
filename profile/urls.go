@@ -21,22 +21,7 @@ type URLs struct {
 	// it an ASCII host is only lowercased: such a label is sent as
 	// written (Chrome, Safari).
 	CheckPunycode bool `json:"checkPunycode,omitempty"`
-	// TrailingDotSNI is the server_name the browser sends for a host
-	// ending in a dot ("www.example.com."): TrailingDotKeep or
-	// TrailingDotOmit. Empty: not measured, and such a host over TLS is
-	// ErrNotMeasured. Host and :authority keep the dot either way.
-	TrailingDotSNI string `json:"trailingDotSni,omitempty"`
 }
-
-// URLs.TrailingDotSNI values.
-const (
-	// TrailingDotKeep sends the name with its dot (Chrome, Edge,
-	// Firefox), though RFC 6066 asks for none.
-	TrailingDotKeep = "keep"
-	// TrailingDotOmit sends no server_name at all (Safari); the
-	// certificate is still verified against the host.
-	TrailingDotOmit = "omit"
-)
 
 func (c *checker) checkURLs(u *URLs) {
 	if u == nil {
@@ -56,11 +41,5 @@ func (c *checker) checkURLs(u *URLs) {
 		case strings.IndexByte(u.PathEncodes[:i], ch) >= 0:
 			c.add("urls.pathEncodes", "%q appears twice", string(ch))
 		}
-	}
-
-	switch u.TrailingDotSNI {
-	case "", TrailingDotKeep, TrailingDotOmit:
-	default:
-		c.add("urls.trailingDotSni", "%q is not %q or %q", u.TrailingDotSNI, TrailingDotKeep, TrailingDotOmit)
 	}
 }

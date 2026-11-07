@@ -183,7 +183,8 @@
       ],
       "transportParametersBefore": "0x001b",
       "earlyDataBefore": "0x002b"
-    }
+    },
+    "trailingDotSni": "omit"
   },
   "http2": {
     "settings": [
@@ -10597,9 +10598,7 @@
       ]
     }
   },
-  "urls": {
-    "trailingDotSni": "omit"
-  },
+  "urls": {},
   "cookies": {
     "unsetSamesite": "none",
     "thirdParty": "partitioned_only",

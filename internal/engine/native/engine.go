@@ -506,7 +506,7 @@ type route struct {
 	// goes again on TCP whatever HTTP/3 says (Fallback.PendingTCP).
 	tcpOnly bool
 	// omitSNI: the host ends in a dot and the profile's browser sends no
-	// server_name for it (urls.trailingDotSni omit); otherwise the name
+	// server_name for it (tls.trailingDotSni omit); otherwise the name
 	// goes out with its dot.
 	omitSNI bool
 }
@@ -545,12 +545,13 @@ func (e *Engine) route(req *http.Request) (route, error) {
 		}
 
 		if strings.HasSuffix(host, ".") {
-			u := e.profile.URLs
-			if u == nil || u.TrailingDotSNI == "" {
-				return r, fmt.Errorf("%w: profile %s does not describe the server_name its browser sends for a host ending in a dot (urls.trailingDotSni): %s", headerorder.ErrNotMeasured, e.profile.Name, host)
+			switch e.profile.TLS.TrailingDotSNI {
+			case "":
+				return r, fmt.Errorf("%w: profile %s does not describe the server_name its browser sends for a host ending in a dot (tls.trailingDotSni): %s", headerorder.ErrNotMeasured, e.profile.Name, host)
+			case profile.TrailingDotOmit:
+				r.omitSNI = true
 			}
 
-			r.omitSNI = u.TrailingDotSNI == profile.TrailingDotOmit
 			if r.omitSNI {
 				// Safari opened a connection of its own with no
 				// server_name for www.urls.test., fetched and

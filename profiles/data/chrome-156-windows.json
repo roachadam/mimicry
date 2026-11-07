@@ -253,7 +253,8 @@
         208,
         240
       ]
-    }
+    },
+    "trailingDotSni": "keep"
   },
   "http2": {
     "settings": [
@@ -10051,8 +10052,7 @@
     }
   },
   "urls": {
-    "pathEncodes": "|",
-    "trailingDotSni": "keep"
+    "pathEncodes": "|"
   },
   "cookies": {
     "unsetSamesite": "lax",

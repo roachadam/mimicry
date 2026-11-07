@@ -632,10 +632,13 @@ does not describe:
    `websocket` capture, `tls.helloRetry`, where the hello sent again after
    a HelloRetryRequest puts the cookie, from every retried connection of
    the `hrr` capture (left out, not measured, for a profile without one),
-   and `http1.uploadRecords`, how the browser cuts
+   `http1.uploadRecords`, how the browser cuts
    an HTTP/1.1 request with a body into TLS records, from every request
    of the `http1-upload` capture (testing-build captures included;
-   decision 0052).
+   decision 0052), and `tls.trailingDotSni`, the server_name of a host
+   ending in a dot, from the `urls` capture's `h-dot` case, fetched and
+   navigated to (`keep` when the server refused a ClientHello naming it
+   with its dot, `omit` when the request came with no SNI; decision 0057).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.
@@ -737,13 +740,11 @@ kindsgen's captures, and what each gives the profile:
   lists was sent (Firefox, Safari), it stays unset.
 - `<name>.urls.pagetrace.json.gz`: `urls` (`deriveURLs`): the characters
   the browser encodes in a path beyond the set every browser does
-  (`pathEncodes`), whether it refuses the malformed punycode host
-  (`checkPunycode`), and the SNI of a host ending in a dot
-  (`trailingDotSni`: `keep` when the server refused a ClientHello naming
-  it with its dot, `omit` when the request came with no SNI). Samples, and
-  each case's fetch and navigation, must agree, and a character the
-  shared set encodes may not go as written. Without the capture it stays
-  unset.
+  (`pathEncodes`) and whether it refuses the malformed punycode host
+  (`checkPunycode`). Samples, and each case's fetch and navigation, must
+  agree, and a character the shared set encodes may not go as written.
+  Without the capture it stays unset. hellogen reads the same capture for
+  `tls.trailingDotSni`.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a
