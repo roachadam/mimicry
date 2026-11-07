@@ -1,6 +1,6 @@
-// Package browser launches real release builds of Chrome, Firefox and Safari
-// against the capture server, and sends Safari, Chrome or Firefox on an
-// iPhone to it.
+// Package browser launches real release builds of Chrome, Edge, Firefox and
+// Safari against the capture server, and sends Safari, Chrome or Firefox on
+// an iPhone to it.
 package browser
 
 import (
@@ -19,8 +19,8 @@ import (
 // Target is the capture server browsers connect to.
 type Target struct {
 	// Host is the capture hostname, under .test, so browsers send
-	// server_name. Chrome and Firefox map it to Addr themselves; Safari
-	// resolves it through the capture tool's DNS stub.
+	// server_name. Chrome, Edge and Firefox map it to Addr themselves;
+	// Safari resolves it through the capture tool's DNS stub.
 	Host string
 	// Addr is the address the capture hosts resolve to and the server
 	// listens on: 127.0.0.1, or this machine's address on the network for
@@ -55,7 +55,7 @@ type Target struct {
 	// ProxyAuth, when set, are the credentials the browser answers proxy
 	// challenges with, as a user typing them into the login dialog.
 	ProxyAuth *url.Userinfo
-	// H3LocalRoots lets Chrome and Firefox use QUIC with a certificate
+	// H3LocalRoots lets Chromium and Firefox use QUIC with a certificate
 	// from a root not built in, as the capture CA's. It is a capture
 	// condition; see decision 0026.
 	H3LocalRoots bool
@@ -71,7 +71,7 @@ type Target struct {
 // Loopback is Target.Addr unless the capture tool serves the network.
 const Loopback = "127.0.0.1"
 
-// h3UnusedPort is the port of the origins Chrome forces QUIC on: one the
+// h3UnusedPort is the port of the origins Chromium forces QUIC on: one the
 // page never uses, so nothing is forced but the hosts may use a local root.
 const h3UnusedPort = 1
 
@@ -82,13 +82,13 @@ func (b *Browser) Conditions(t Target) []string {
 		return nil
 	}
 
-	switch b.Name {
-	case "chrome":
+	switch {
+	case chromium(b.Name):
 		return []string{
 			"--origin-to-force-quic-on=" + chromeQUICOrigins(t) + ": Chrome refuses a QUIC certificate not issued by a known root (ERR_QUIC_CERT_ROOT_NOT_KNOWN, net/quic/crypto/proof_verifier_chromium.cc) unless its host is among these origins' hosts; it forces QUIC only on these origins, whose port the page never uses, so HTTP/3 is still discovered through Alt-Svc",
 		}
 
-	case "firefox":
+	case b.Name == "firefox":
 		return []string{
 			`network.http.http3.disable_when_third_party_roots_found=false: Firefox abandons an HTTP/3 connection whose certificate chain ends at a root that is not built in (Http3Session::Authenticated), as the capture CA's, trusted through security.enterprise_roots.enabled`,
 		}
@@ -149,6 +149,14 @@ type Browser struct {
 	ios *iosBrowser
 }
 
+// chromium reports whether the browser named name is Chrome or Edge, which
+// share Chromium's launch flags, CDP driving and network stack: the same
+// test as capture.Chromium, kept here so this package imports nothing of
+// the module's (its depguard rule).
+func chromium(name string) bool {
+	return name == "chrome" || name == "edge"
+}
+
 // chromeWarmup is how long a fresh Chrome profile settles before the capture
 // page. In its first seconds it rebuilds its certificate verifiers and marks
 // every open connection as going away (net log: CERT_VERIFY_PROC_CREATED),
@@ -158,6 +166,12 @@ const chromeWarmup = 5 * time.Second
 // ChromeApp is the Chrome application Find looks for on macOS; cmd/capture's
 // -chrome-app points it at another build (Chrome for Testing).
 var ChromeApp = "/Applications/Google Chrome.app"
+
+// FirefoxApp is the Firefox Find uses instead of the installed one, ""
+// for that one: an application on macOS, firefox.exe on Windows.
+// cmd/capture's -firefox-app points it at an older release kept beside the
+// installed one (Mozilla's archive keeps every release).
+var FirefoxApp string
 
 // DataDir is where the browsers' throwaway profile directories are made;
 // "" is the system's temporary directory. On Windows the browser runs in the
@@ -202,9 +216,9 @@ type Session struct {
 	remote io.Closer
 }
 
-// Open launches b on t. Chrome and Firefox get a new profile directory and
-// their own instance; headless hides their windows. Safari opens a tab in the
-// user's own window, ignores headless, and must trust the server's
+// Open launches b on t. Chrome, Edge and Firefox get a new profile directory
+// and their own instance; headless hides their windows. Safari opens a tab
+// in the user's own window, ignores headless, and must trust the server's
 // certificate. A browser on an iPhone is sent to t by its driver.
 func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, error) {
 	// Safari takes its proxy from the system PAC script and asks for proxy
@@ -280,7 +294,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		switch {
 		case bidi:
 			s.devtools, err = firefoxAuth(ctx, t.debugPort, b.URL(t), t.ProxyAuth)
-		case b.Name == "chrome":
+		case chromium(b.Name):
 			s.devtools, err = chromeAuth(ctx, dir, t.ProxyAuth)
 		default:
 			err = fmt.Errorf("%s cannot be given proxy credentials", b.Name)
@@ -300,10 +314,10 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	}
 
 	if t.ClickTitle != "" {
-		switch b.Name {
-		case "chrome":
+		switch {
+		case chromium(b.Name):
 			s.clicker, err = chromeClicker(ctx, dir, t.Host, t.ClickTitle)
-		case "firefox":
+		case b.Name == "firefox":
 			s.clicker, err = firefoxClicker(ctx, t.debugPort, t.ClickTitle)
 		default:
 			err = fmt.Errorf("%s cannot be clicked", b.Name)

@@ -33,7 +33,8 @@ type DialConfig struct {
 	// cache holds the ticket it resumes. A spec serves one connection.
 	Hello *tls.ClientHelloSpec
 	// TLS has the server name, the roots and the session cache
-	// (handshake.QUICConfig). Required, with ServerName set.
+	// (handshake.QUICConfig). Required, with ServerName set, or
+	// InsecureServerNameToVerify when no server_name is sent.
 	TLS *tls.Config
 	// Token is the token of the last NEW_TOKEN frame the server sent on an
 	// earlier connection, sent in this one's Initial packets when the
@@ -65,6 +66,13 @@ type DialConfig struct {
 	// (QUICPathDegrading's PathMigrate: Chrome). Required for such a
 	// profile; the socket is the connection's from then on.
 	NewPath func(ctx context.Context) (net.PacketConn, error)
+	// RememberApplication keeps each ticket the server sends until
+	// Conn.SetApplicationState gives the application's state for it (the
+	// server's HTTP/3 SETTINGS, which a client remembers for 0-RTT: RFC
+	// 9114, section 7.2.4.2), then stores both, as QUICHE does; a
+	// connection resuming the ticket finds that state in
+	// Conn.RememberedApplicationState.
+	RememberApplication bool
 }
 
 // ErrIdleTimeout is the error of a connection closed by its idle timeout
@@ -284,7 +292,7 @@ type clientState struct {
 	earlyOK atomic.Bool
 	// keys0RTT protects 0-RTT packets.
 	keys0RTT fixedKeys
-	// nextPN is the next packet number with PacketNumbersShared.
+	// nextPN is the next packet number with profile.SharedPacketNumbers.
 	nextPN packetNumber
 	// flight is the planned first flight still to send; planned once it
 	// is laid out.
@@ -312,6 +320,14 @@ type clientState struct {
 	// peerParams is the server's quic_transport_parameters body, stored
 	// with its tickets for 0-RTT.
 	peerParams []byte
+	// rememberApp is DialConfig.RememberApplication. appState is the
+	// application's state, once SetApplicationState gave it, stored with
+	// every ticket from then on; pending the tickets waiting for it.
+	// recalled is the state the resumed ticket carried, for 0-RTT.
+	rememberApp bool
+	appState    []byte
+	pending     []*tls.SessionState
+	recalled    []byte
 	// version is the QUIC version in use: 1, or 2 once the server's
 	// Initial switched to it (clientUpgrade). sentVersionInfo: the
 	// profile sends version_information; available is its Available
@@ -364,7 +380,8 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 		return nil, nil, errors.New("quic: no QUIC profile")
 	case cfg.Hello == nil:
 		return nil, nil, errors.New("quic: no ClientHello")
-	case cfg.TLS == nil || cfg.TLS.ServerName == "":
+	case cfg.TLS == nil || cfg.TLS.ServerName == "" && cfg.TLS.InsecureServerNameToVerify == "":
+		// No server_name is sent only with a name to verify (OmitSNI).
 		return nil, nil, errors.New("quic: TLS config without a server name")
 	case p.Version != quicVersion1:
 		return nil, nil, fmt.Errorf("quic: version %#x; only version 1 is supported", p.Version)
@@ -409,6 +426,7 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 
 	cc.originalVersion = cc.version
 	cc.afterVN = cfg.AfterVersionNegotiation
+	cc.rememberApp = cfg.RememberApplication
 
 	if p.Tokens && len(cfg.Token) > 0 {
 		cc.token = cloneBytes(cfg.Token)
@@ -431,7 +449,7 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 	cc.scid = randomBytes(rng, p.SCIDLength)
 
 	switch p.PacketNumbers {
-	case profile.PacketNumbersShared:
+	case profile.PacketNumbersShared, profile.PacketNumbersSharedSecondLong:
 		cc.nextPN = 1
 		cc.initialPN = 1
 

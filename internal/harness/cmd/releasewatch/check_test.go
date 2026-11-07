@@ -10,10 +10,10 @@ import (
 )
 
 // The fixtures in testdata are the feeds' responses recorded on
-// 2026-11-03, and an unmodified copy of Chromium's
-// net/data/ssl/chrome_root_store/root_store.textproto at 152.0.7977.85
-// (BSD-3-Clause, testdata/LICENSE-chromium): Chrome 152's 32 trust
-// anchors.
+// 2026-11-03 (edgeupdates-products.json on 2026-11-06), and an unmodified
+// copy of Chromium's net/data/ssl/chrome_root_store/root_store.textproto
+// at 152.0.7977.85 (BSD-3-Clause, testdata/LICENSE-chromium): Chrome 152's
+// 32 trust anchors.
 
 // chrome156Anchors is the trust anchors extension of chrome-156-macos and
 // chrome-156-windows, as captured: Chrome 153's 28 IDs.
@@ -31,7 +31,7 @@ func readFixture(t *testing.T, name string) []byte {
 }
 
 // TestReleasesBehind reads the recorded feeds and reports the releases
-// newer than a profile: a new major for Chrome and Firefox, any newer
+// newer than a profile: a new major for Chrome, Edge and Firefox, any newer
 // version for Safari, never a release at or below the profile's.
 func TestReleasesBehind(t *testing.T) {
 	parse := func(name string, parse func([]byte) (string, error)) string {
@@ -47,6 +47,10 @@ func TestReleasesBehind(t *testing.T) {
 	chromeWindows := parse("chromiumdash-windows.json", parseChrome)
 	firefox := parse("firefox_versions.json", parseFirefox)
 	safari := parse("safari-release-notes.json", parseSafari)
+	// The feed lists an older MacOS release (152) before the current one.
+	edgeMac := parse("edgeupdates-products.json", parseEdge("MacOS"))
+	edgeWindows := parse("edgeupdates-products.json", parseEdge("Windows"))
+	edgeLinux := parse("edgeupdates-products.json", parseEdge("Linux"))
 
 	for _, c := range []struct {
 		got, want string
@@ -67,6 +71,18 @@ func TestReleasesBehind(t *testing.T) {
 			got:  safari,
 			want: "27.2",
 		},
+		{
+			got:  edgeMac,
+			want: "157.0.4341.42",
+		},
+		{
+			got:  edgeWindows,
+			want: "157.0.4341.42",
+		},
+		{
+			got:  edgeLinux,
+			want: "157.0.4341.42",
+		},
 	} {
 		if c.got != c.want {
 			t.Errorf("feed version %q, want %q", c.got, c.want)
@@ -80,7 +96,8 @@ func TestReleasesBehind(t *testing.T) {
 	}
 
 	// A version that is not one fails: Chrome's goes into the root store's
-	// URL, every one into the issue body.
+	// URL, every one into the issue body. So does a feed with no stable
+	// release for the platform (Edge's Beta is not one).
 	for _, c := range []struct {
 		parse func([]byte) (string, error)
 		data  string
@@ -104,6 +121,15 @@ func TestReleasesBehind(t *testing.T) {
 		{
 			parse: parseFirefox,
 			data:  `{"LATEST_FIREFOX_VERSION":"159.0.1 | x |"}`,
+		},
+		{
+			parse: parseEdge("MacOS"),
+			data:  `[{"Product":"Stable","Releases":[{"Platform":"MacOS","ProductVersion":"157.0.4341.42 | x |"}]}]`,
+		},
+		{
+			// Only Beta has a MacOS release.
+			parse: parseEdge("MacOS"),
+			data:  `[{"Product":"Beta","Releases":[{"Platform":"MacOS","ProductVersion":"158.0.4370.10"}]},{"Product":"Stable","Releases":[{"Platform":"Windows","ProductVersion":"157.0.4341.42"}]}]`,
 		},
 	} {
 		if v, err := c.parse([]byte(c.data)); err == nil {
@@ -166,6 +192,16 @@ func TestReleasesBehind(t *testing.T) {
 			platform: "linux",
 			version:  firefox,
 		},
+		{
+			browser:  "edge",
+			platform: "macos",
+			version:  edgeMac,
+		},
+		{
+			browser:  "edge",
+			platform: "windows",
+			version:  edgeWindows,
+		},
 	}
 
 	for _, c := range []struct {
@@ -212,11 +248,24 @@ func TestReleasesBehind(t *testing.T) {
 					platform: "ios",
 					version:  "27.2",
 				},
+				{
+					name:     "edge-156-macos",
+					browser:  "edge",
+					platform: "macos",
+					version:  "156",
+				},
+				{
+					name:     "edge-157-windows",
+					browser:  "edge",
+					platform: "windows",
+					version:  "157",
+				},
 			},
 			want: []string{
 				"chrome 156.0.8078.80 windows chrome-155-windows",
 				"firefox 159.0.1 macos firefox-158-macos",
 				"safari 27.2 macos safari-27-macos",
+				"edge 157.0.4341.42 macos edge-156-macos",
 			},
 		},
 		{

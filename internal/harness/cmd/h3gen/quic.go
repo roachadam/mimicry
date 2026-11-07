@@ -397,18 +397,25 @@ func span(vs []int) *profile.Range {
 	}
 }
 
-// packetNumbers tries each numbering rule against every connection.
+// packetNumbers tries each numbering rule against every connection. A
+// connection's second Initial may break PacketNumbersSharedSecondLong's
+// length where sampleGaps pins "secondInitialLength".
 func packetNumbers(s *captureSet, e *collector) string {
 	rules := []struct {
 		name  string
 		check func(*conn) error
 	}{
-		{profile.PacketNumbersShared, sharedNumbers},
+		{profile.PacketNumbersShared, func(c *conn) error {
+			return sharedNumbers(c, false, nil)
+		}},
 		{profile.PacketNumbersPerSpace, func(c *conn) error {
 			return perSpace(c, false)
 		}},
 		{profile.PacketNumbersRandomInitial, func(c *conn) error {
 			return perSpace(c, true)
+		}},
+		{profile.PacketNumbersSharedSecondLong, func(c *conn) error {
+			return sharedNumbers(c, true, s)
 		}},
 	}
 
@@ -435,8 +442,9 @@ func packetNumbers(s *captureSet, e *collector) string {
 }
 
 // sharedNumbers: one counter from 1 across every space, the second
-// Initial's number in 2 bytes without a token, else 1.
-func sharedNumbers(c *conn) error {
+// Initial's number in 2 bytes without a token, else 1; with alwaysLong, in
+// 2 bytes always, unless s pins the connection's "secondInitialLength".
+func sharedNumbers(c *conn, alwaysLong bool, s *captureSet) error {
 	next := uint64(1)
 	initials := 0
 
@@ -457,11 +465,11 @@ func sharedNumbers(c *conn) error {
 
 		if initials == 2 {
 			want := 1
-			if pk.p.TokenLength == nil || *pk.p.TokenLength == 0 {
+			if pk.p.TokenLength == nil || *pk.p.TokenLength == 0 || alwaysLong {
 				want = 2
 			}
 
-			if pk.p.PNLength != want {
+			if pk.p.PNLength != want && (s == nil || !s.gap(c, "secondInitialLength")) {
 				return fmt.Errorf("second Initial's packet number in %d bytes, not %d", pk.p.PNLength, want)
 			}
 		}

@@ -22,8 +22,12 @@ import (
 
 // Config is what a handshake needs besides the ClientHello.
 type Config struct {
-	// ServerName is sent in server_name and verified against the certificate.
+	// ServerName is sent in server_name, a trailing dot kept, and verified
+	// against the certificate.
 	ServerName string
+	// OmitSNI sends no server_name; the certificate is still verified
+	// against ServerName (Safari, for a host ending in a dot).
+	OmitSNI bool
 	// RootCAs verifies the server certificate; nil uses the system roots.
 	RootCAs *x509.CertPool
 	// Tickets, when set, keeps the server's TLS 1.3 tickets under
@@ -109,6 +113,11 @@ func TLSConfig(cfg Config) *utls.Config {
 		// browser starts small and grows, over HTTP/1.1 or HTTP/2
 		// (decision 0052). QUIC ignores it.
 		DynamicRecordSizingDisabled: true,
+	}
+
+	if cfg.OmitSNI {
+		config.ServerName = ""
+		config.InsecureServerNameToVerify = cfg.ServerName
 	}
 
 	var cache *connCache
@@ -237,7 +246,9 @@ func extension(e *profile.Extension) (utls.TLSExtension, error) {
 		// uTLS gives the second GREASE extension its one-byte body itself.
 		return &utls.UtlsGREASEExtension{}, nil
 	case profile.ExtServerName:
-		return &utls.SNIExtension{}, nil
+		// A name ending in a dot keeps it (Chrome, Edge, Firefox):
+		// crypto/tls would strip it.
+		return &utls.SNIExtension{KeepTrailingDot: true}, nil
 	case profile.ExtPadding:
 		return &utls.UtlsPaddingExtension{
 			GetPaddingLen: utls.BoringPaddingStyle,

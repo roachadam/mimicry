@@ -464,6 +464,25 @@ var sampleGaps = map[string]string{ //nolint:gosec // pinned capture gaps, not c
 	"firefox-159-linux.h3-download.local-roots: sample 3: credit":                                       "one MAX_STREAM_DATA raised the limit by 3,218,323 bytes, 2.3% above 3 MiB: as firefox-158-windows's sample 3 (2.4%)",
 	"firefox-159-linux.h3-streams-blocked.local-roots: sample 1: streamsBlocked":                        "in the second burst streams 11 and 12 opened in one packet, behind one STREAMS_BLOCKED 13 and none for 12; in sample 3 they opened 4 ms apart, each in its own packet behind its own STREAMS_BLOCKED (12, then 13), the rule firefox-159-macos and firefox-159-windows show: the two openings packed together, timing",
 	"firefox-159-linux.h3-streams-blocked.local-roots: sample 2: streamsBlocked":                        "as sample 1",
+	// Edge 157 on macOS (2026-11-06).
+	"edge-157-macos.h3-discovery.local-roots: sample 1, QUIC connection 3: secondInitialLength": "Edge sent this resumed connection's second Initial (with the NEW_TOKEN token) with its packet number in 1 byte, as Chrome does with a token; Edge put it in 2 bytes in 115 of 123 connections, token or not (38 of 46 with a token), so quic.packetNumbers is shared_second_long; what decides is not on the wire (not the scenario, timing, initial_rtt or hello size)",
+	"edge-157-macos.h3-discovery.local-roots: sample 1, QUIC connection 2: ackInitial":          "as chrome-156-macos's sample 2, connection 1: Edge acknowledged the server's Initial in 4 of its 12 completed full handshakes (Chrome 157 on Linux 2 of 12): quiche acknowledges an Initial only if one arrives before it drops its Initial keys (timing)",
+	"edge-157-macos.h3-page.local-roots: sample 1, QUIC connection 2: ackInitial":               "as h3-discovery.local-roots: sample 1, QUIC connection 2",
+	"edge-157-macos.h3-page.local-roots: sample 2, QUIC connection 2: ackInitial":               "as h3-discovery.local-roots: sample 1, QUIC connection 2",
+	"edge-157-macos.h3-page.local-roots: sample 3, QUIC connection 2: ackInitial":               "as h3-discovery.local-roots: sample 1, QUIC connection 2",
+	"edge-157-macos.h3-discovery.local-roots: sample 1, QUIC connection 5: tokens":              "as chrome-156-macos's and chrome-156-windows's: Edge, like Chrome, presented its NEW_TOKEN token on only some reconnections whose host had given it one, which ones varying between samples (Chromium's token cache, not modelled)",
+	"edge-157-macos.h3-discovery.local-roots: sample 2, QUIC connection 3: tokens":              "as sample 1, QUIC connection 5",
+	"edge-157-macos.h3-discovery.local-roots: sample 2, QUIC connection 4: tokens":              "as sample 1, QUIC connection 5",
+	"edge-157-macos.h3-discovery.local-roots: sample 2, QUIC connection 5: tokens":              "as sample 1, QUIC connection 5",
+	"edge-157-macos.h3-discovery.local-roots: sample 3, QUIC connection 3: tokens":              "as sample 1, QUIC connection 5",
+	// Edge 157 on Windows (2026-11-06, the PC's Edge policies lifted for the run).
+	"edge-157-windows.h3-discovery.local-roots: sample 2, QUIC connection 5: secondInitialLength": "as edge-157-macos's: Edge on Windows sent this resumed connection's second Initial (with the NEW_TOKEN token) with its packet number in 1 byte; it used 2 bytes in 114 of 123 connections, token or not (all 9 one-byte ones with a token; macOS 115 and 8), so quic.packetNumbers is shared_second_long",
+	"edge-157-windows.h3-discovery.local-roots: sample 1, QUIC connection 3: tokens":              "as edge-157-macos's: Edge on Windows, like Chrome, presented its NEW_TOKEN token on only some reconnections whose host had given it one, which ones varying between samples (Chromium's token cache, not modelled)",
+	"edge-157-windows.h3-discovery.local-roots: sample 2, QUIC connection 3: tokens":              "as sample 1, QUIC connection 3",
+	"edge-157-windows.h3-discovery.local-roots: sample 3, QUIC connection 3: tokens":              "as sample 1, QUIC connection 3",
+	"edge-157-windows.h3-blackhole: sample 3, QUIC connection 1: probes":                          "Edge sent its first flight's two Initials 2.1 ms apart (1.9 ms in sample 1; the recorder on Windows steps about 0.5 ms), past the 2 ms that groups datagrams into one flight, so the second read as a probe; its real probes, 308, 920 and 2125 ms in, follow the others' (the gap stays 2 ms: Firefox's resumed probes from a cached RTT come about 3 ms apart)",
+	"edge-157-windows.h3-download.local-roots: sample 1: credit":                                  "as chrome-157-linux's: one MAX_STREAM_DATA raised the limit by 3,211,264 bytes, 2.08% above 3 MiB, the others within 2%: when Edge's reader drained the stream, not captured",
+	"edge-157-windows.h3-download.local-roots: sample 3: credit":                                  "as sample 1: 3,211,094 bytes, 2.08% above 3 MiB",
 }
 
 // conn is one captured QUIC connection.

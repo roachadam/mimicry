@@ -67,13 +67,14 @@ func (r *ruleCheck) packets() []*quictrace.Packet {
 	return out
 }
 
-// packetNumbers: PacketNumbersShared is one rising counter from 1 (the
-// second Initial's number 2 bytes long without a token); otherwise each space
-// starts at 0, 1-RTT after 0-RTT's, the Initial at 1 to 1024 with
+// packetNumbers: profile.SharedPacketNumbers is one rising counter from 1
+// (the second Initial's number 2 bytes long without a token, or always
+// with PacketNumbersSharedSecondLong); otherwise each space starts at 0,
+// 1-RTT after 0-RTT's, the Initial at 1 to 1024 with
 // PacketNumbersRandomInitial; the first Initial's number is minimal length.
 func (r *ruleCheck) packetNumbers() {
 	pkts := r.packets()
-	if r.q.PacketNumbers == profile.PacketNumbersShared {
+	if profile.SharedPacketNumbers(r.q.PacketNumbers) {
 		next := uint64(1)
 		initials := 0
 
@@ -98,7 +99,7 @@ func (r *ruleCheck) packetNumbers() {
 
 			case 2:
 				want := 1
-				if pk.TokenLength == nil || *pk.TokenLength == 0 {
+				if pk.TokenLength == nil || *pk.TokenLength == 0 || r.q.PacketNumbers == profile.PacketNumbersSharedSecondLong {
 					want = 2
 				}
 

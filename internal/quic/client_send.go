@@ -17,7 +17,7 @@ import (
 type plannedPacket struct {
 	frames []plannedFrame
 	// pnLen2 encodes the packet number in 2 bytes (Chrome's second
-	// Initial without a token).
+	// Initial without a token; Edge's always).
 	pnLen2 bool
 }
 
@@ -341,14 +341,14 @@ func (c *Conn) clientPacketNumber(now time.Time, space numberSpace) packetNumber
 	if cc.skipNext {
 		// A PTO probe follows: one number left out first (Chrome).
 		cc.skipNext = false
-		if cc.p.PacketNumbers == profile.PacketNumbersShared {
+		if profile.SharedPacketNumbers(cc.p.PacketNumbers) {
 			cc.nextPN++
 		} else {
 			c.loss.skipNumber(now, space)
 		}
 	}
 
-	if cc.p.PacketNumbers == profile.PacketNumbersShared {
+	if profile.SharedPacketNumbers(cc.p.PacketNumbers) {
 		c.loss.alignNumber(now, space, cc.nextPN)
 	}
 
@@ -551,7 +551,7 @@ func (cc *clientState) planShuffle(total int64) []plannedPacket {
 
 		pn := cc.initialPN + packetNumber(i)
 		pnLen := packetNumberLength(pn, cc.pnMaxAcked(pn, -1))
-		pnLen2 := i == 1 && len(cc.token) == 0
+		pnLen2 := i == 1 && (len(cc.token) == 0 || cc.p.PacketNumbers == profile.PacketNumbersSharedSecondLong)
 
 		if pnLen2 {
 			pnLen = 2

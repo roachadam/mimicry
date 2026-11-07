@@ -58,6 +58,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0051](decisions/0051-ios-safari-over-the-network.md) | Safari on an iPhone: the fingerprint captured on the iPhone, from the Mac; inherited from macOS Safari only where no difference shows | Amended by 0053 (the iPhone's header order is Safari's, not the platform's) |
 | [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Amended (Firefox on an iPhone; `abandonOnTcp` derived) |
 | [0058](decisions/0058-linux-profiles.md) | Linux profiles: Google's Chrome and Mozilla's Firefox, one profile each for every distribution, captured in WSL2 on Xvfb | Accepted |
+| [0059](decisions/0059-edge-profiles.md) | Edge profiles: captured on their own, seeded from Chrome's, nothing inherited; `chromiumFullVersion` and `shared_second_long` for where Edge differs | Accepted |
 
 ### Requests and headers
 
@@ -75,7 +76,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0048](decisions/0048-cookie-twins.md) | Cookie twins of the redirect scenarios measure each hop's `cookie` slot | Accepted |
 | [0054](decisions/0054-empty-request-bodies.md) | Requests without a body: `content-length: 0` and the stream's end from a measured `emptyBody`, as before where none is measured | Accepted |
 | [0055](decisions/0055-client-hints-opt-in.md) | Chrome's client hints opt-in: `Accept-CH` stored per origin, the `Critical-CH` restart, `Clear-Site-Data`, captured machines' values, delegation stated per request | Accepted |
-| [0057](decisions/0057-url-parsing-measured.md) | URLs take the form the `urls` capture measures (`'` in a query, paths, IPv4 forms); browser differences in the profile's `urls` | Accepted |
+| [0057](decisions/0057-url-parsing-measured.md) | URLs take the form the `urls` capture measures (`'` in a query, paths, IPv4 forms); browser differences in the profile's `urls` | Amended |
 
 ### Cookies
 
@@ -122,3 +123,4 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
 | [0049](decisions/0049-streams-blocked.md) | STREAMS_BLOCKED as each browser sends it | Accepted |
 | [0050](decisions/0050-quic-resumption-and-dial-delays.md) | QUIC resumption by `quic.zeroRtt` alone; dial delays per kind; close on GOAWAY | Accepted |
+| [0060](decisions/0060-qpack-remembered-settings.md) | QPACK on a resumed connection uses the SETTINGS remembered with its ticket; `http3.qpack.resumed` | Accepted |

@@ -1,12 +1,17 @@
 // Command refresh brings a browser's built-in profile up to the version
-// installed where that browser is captured (chrome, firefox and safari-mini
-// on the second Mac via -mini, safari here, chrome-windows and
-// firefox-windows on a Windows PC via -windows, safari-ios, chrome-ios and
-// firefox-ios on an iPhone this Mac serves via -listen):
+// installed where that browser is captured (chrome, firefox, edge and
+// safari-mini on the second Mac via -mini, safari here, chrome-windows,
+// firefox-windows and edge-windows on a Windows PC via -windows,
+// chrome-linux and firefox-linux on a Linux machine via -linux, safari-ios,
+// chrome-ios and firefox-ios on an iPhone this Mac serves via -listen):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
 //	go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>
 //	go run ./cmd/refresh -browser safari-ios,chrome-ios,firefox-ios -listen <this Mac's IPv4>
+//
+// The first profile of a browser (edge) starts from the newest Chrome
+// profile of its platform, whose engine it shares, and captures every
+// scenario, inheriting nothing (decision 0035).
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
@@ -57,6 +62,8 @@ type config struct {
 	keep        bool
 	listen      string
 	iosDevice   string
+	chromeApp   string
+	firefoxApp  string
 	scenarios   string
 	yes         bool
 	dryRun      bool
@@ -71,16 +78,18 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows (on -windows), chrome-linux, firefox-linux (on -linux), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox, edge (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows, edge-windows (on -windows), chrome-linux, firefox-linux (on -linux), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
-	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, safari-mini)")
-	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows; required for them)")
+	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, edge, safari-mini)")
+	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows, edge-windows; required for them)")
 	flag.StringVar(&cfg.linux, "linux", "", "your ssh alias for the Linux machine, or with -wsl for the Windows PC whose WSL distribution it is (chrome-linux, firefox-linux; required for them)")
 	flag.StringVar(&cfg.wsl, "wsl", "", "the WSL distribution on -linux's Windows PC the Linux browsers run in (wsl -l), instead of a Linux machine of its own")
 	flag.StringVar(&cfg.wslUser, "wsl-user", "", "the user in -wsl's distribution the browsers run as (default: the distribution's default user; Chrome refuses root)")
 	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios, firefox-ios; required for them)")
 	flag.StringVar(&cfg.iosDevice, "ios-device", "", "the iPhone's UDID (safari-ios, chrome-ios, firefox-ios; default: the paired iPhone connected to this Mac)")
+	flag.StringVar(&cfg.chromeApp, "chrome-app", "", "a Chrome build to capture on every machine of the run instead of the installed Chrome, as that machine names it (Chrome for Testing, for a version no longer installable as the brand; docs/capturing.md)")
+	flag.StringVar(&cfg.firefoxApp, "firefox-app", "", "a Firefox to capture on every machine of the run instead of the installed one, as that machine names it (an older release beside it: an application on macOS, firefox.exe on Windows)")
 	flag.BoolVar(&cfg.keep, "keep", false, "leave the run's working directory on the Windows PC (the capture CA is removed regardless)")
 	flag.StringVar(&cfg.staging, "staging", ".refresh", "directory for staged builds, captures, profiles and logs (a new subdirectory per run)")
 	flag.StringVar(&cfg.scenarios, "scenarios", "", "capture these name:samples instead of the mode's set (with -capture-only, to try the tool)")
@@ -121,13 +130,13 @@ func run() error {
 
 		switch {
 		case mini && cfg.mini == "":
-			return errors.New("-browser chrome, firefox and safari-mini need -mini <your ssh alias for the second Mac>")
+			return errors.New("-browser chrome, firefox, edge and safari-mini need -mini <your ssh alias for the second Mac>")
 		case iphone && cfg.listen == "":
 			return errors.New("-browser safari-ios, chrome-ios and firefox-ios need -listen <this Mac's IPv4 address on the iPhone's Wi-Fi network> (ipconfig getifaddr en0)")
 		case iphone && !lanIPv4(cfg.listen):
 			return fmt.Errorf("-listen %q: want this Mac's IPv4 address on the iPhone's network", cfg.listen)
 		case windows && cfg.windows == "":
-			return errors.New("-browser chrome-windows and firefox-windows need -windows <your ssh alias for the Windows PC>")
+			return errors.New("-browser chrome-windows, firefox-windows and edge-windows need -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
 			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the second Mac are two machines", cfg.mini)
 		case linux && cfg.linux == "":
@@ -168,17 +177,19 @@ func run() error {
 	}
 
 	r := &refreshRun{
-		Dir:       dir,
-		Mode:      cfg.mode,
-		Mini:      cfg.mini,
-		Stamp:     filepath.Base(dir),
-		Serial:    cfg.serial,
-		Scenarios: cfg.scenarios,
-		Keep:      cfg.keep,
-		Listen:    cfg.listen,
-		IOSDevice: cfg.iosDevice,
-		WSL:       cfg.wsl,
-		WSLUser:   cfg.wslUser,
+		Dir:        dir,
+		Mode:       cfg.mode,
+		Mini:       cfg.mini,
+		Stamp:      filepath.Base(dir),
+		Serial:     cfg.serial,
+		Scenarios:  cfg.scenarios,
+		Keep:       cfg.keep,
+		Listen:     cfg.listen,
+		IOSDevice:  cfg.iosDevice,
+		WSL:        cfg.wsl,
+		WSLUser:    cfg.wslUser,
+		ChromeApp:  cfg.chromeApp,
+		FirefoxApp: cfg.firefoxApp,
 	}
 	// The Windows PCs' working directories go, and the capture CA with
 	// them, however the run ends.

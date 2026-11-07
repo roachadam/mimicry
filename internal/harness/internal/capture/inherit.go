@@ -60,8 +60,10 @@ const localRoots = ".local-roots"
 
 // forTesting marks a capture taken with a browser's testing build, not the
 // branded browser (<name>.<scenario>.chrome-for-testing<suffix>): no
-// scenario's capture, it feeds http2.openingRecords alone (OpeningRecords,
-// decision 0042), for a version no longer installable as the brand.
+// scenario's capture, it feeds only the network stack's fields, which the
+// testing build shares with the brand (http2.openingRecords,
+// http1.uploadRecords, tls.trailingDotSni, http3.qpack.resumed; decisions
+// 0042, 0052), for a version no longer installable as the brand.
 const forTesting = ".chrome-for-testing"
 
 // ScenarioOf returns the scenario of a capture file of the profile name
@@ -161,8 +163,9 @@ func Files(dir string, p *profile.Spec, suffix string) ([]File, error) {
 // changing only the version tokens in header values, and accept-encoding,
 // which a version may extend, so any other difference still shows; from
 // another platform (Safari on macOS for Safari, Chrome or Firefox on
-// iOS, internal/platform) it also changes the user agent whole. A nil
-// Rewriter changes nothing.
+// iOS, internal/platform) or another browser (Safari for Chrome or Firefox
+// on iOS; Chrome for Edge's first profile, in cmd/refresh's report) it
+// also changes the user agent whole. A nil Rewriter changes nothing.
 type Rewriter struct {
 	tokens   *regexp.Regexp
 	replace  map[string]string
@@ -177,9 +180,11 @@ type Rewriter struct {
 }
 
 // versionTokens are the parts of each browser's user agent that carry its
-// version: Chrome/155.0.0.0, rv:158.0 and Firefox/158.0, Version/27.0.1.
+// version: Chrome/155.0.0.0, rv:158.0 and Firefox/158.0, Version/27.0.1,
+// and Edge's Chrome/156.0.0.0 and Edg/156.0.0.0.
 var versionTokens = map[string][]string{
 	"chrome":  {`Chrome/[0-9][0-9.]*`},
+	"edge":    {`Chrome/[0-9][0-9.]*`, `Edg/[0-9][0-9.]*`},
 	"firefox": {`rv:[0-9][0-9.]*`, `Firefox/[0-9][0-9.]*`},
 	"safari":  {`Version/[0-9][0-9.]*`},
 }
@@ -188,9 +193,10 @@ var versionTokens = map[string][]string{
 // version, nil if from is nil or the same profile. Tokens come from each
 // profile's user-agent; sec-ch-ua, whose brand order also changes with the
 // major version, is mapped whole, and so is user-agent when from is on
-// another platform. accept-encoding is mapped where it is the whole value
-// of the navigation's (Safari 26.6.2 on the iPhone adds zstd to macOS
-// Safari 26.2's), not the other lists' (plain HTTP's has no br).
+// another platform or another browser. accept-encoding is mapped where it
+// is the whole value of the navigation's (Safari 26.6.2 on the iPhone adds
+// zstd to macOS Safari 26.2's), not the other lists' (plain HTTP's has no
+// br).
 func NewRewriter(from, to *profile.Spec) *Rewriter {
 	if from == nil || from.Name == to.Name {
 		return nil
@@ -207,7 +213,7 @@ func NewRewriter(from, to *profile.Spec) *Rewriter {
 	}
 	fromUA, toUA := headerValue(from, "user-agent"), headerValue(to, "user-agent")
 
-	if from.Platform != to.Platform {
+	if from.Platform != to.Platform || from.Browser != to.Browser {
 		r.uaFrom, r.uaTo = fromUA, toUA
 	}
 

@@ -78,8 +78,8 @@ func (c *checker) checkQUIC(q *QUIC) {
 
 	c.checkQUICCrypto(&q.Crypto)
 
-	if !slices.Contains([]string{PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace}, q.PacketNumbers) {
-		c.add(path+".packetNumbers", "%q must be %q, %q or %q", q.PacketNumbers, PacketNumbersShared, PacketNumbersRandomInitial, PacketNumbersPerSpace)
+	if rules := []string{PacketNumbersShared, PacketNumbersSharedSecondLong, PacketNumbersRandomInitial, PacketNumbersPerSpace}; !slices.Contains(rules, q.PacketNumbers) {
+		c.add(path+".packetNumbers", "%q must be one of %q", q.PacketNumbers, rules)
 	}
 
 	if q.DCIDLength < 8 || q.DCIDLength > maxCIDLength {
@@ -568,6 +568,17 @@ func (c *checker) checkHTTP3(p *Spec) {
 
 	if h.QPACK.Encoder == "" && h.QPACK.InsertsFirst {
 		c.add(path+".qpack.insertsFirst", "needs an encoder")
+	}
+
+	switch h.QPACK.Resumed {
+	case "":
+	case QPACKResumedRemembered, QPACKResumedRepeat:
+		if h.QPACK.Encoder == "" {
+			c.add(path+".qpack.resumed", "needs an encoder")
+		}
+
+	default:
+		c.add(path+".qpack.resumed", "%q must be empty, %q or %q", h.QPACK.Resumed, QPACKResumedRemembered, QPACKResumedRepeat)
 	}
 
 	if h.QPACK.Huffman != HuffmanShorter && h.QPACK.Huffman != HuffmanAlways {

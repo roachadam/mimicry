@@ -151,7 +151,12 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   leaves `sec-ch-ua`, the TLS hello and HTTP/2 settings the profile's.
   Pick the profile whose browser you want to be instead
   (`profiles.ChromeWindows()` for Chrome on Windows, `profiles.FirefoxLinux()`
-  for Firefox on Linux).
+  for Firefox on Linux). This matters for Edge: tls-client has no Edge
+  profile, and a Chrome profile with Edge's user agent sends Chrome's
+  Trust Anchor IDs, which Edge never does (its JA4 has 16 extensions to
+  Chrome's 17); Chrome's `accept`, if copied, also carries `image/jxl`,
+  which Edge's lacks. `profiles.EdgeMacOS()` is Edge's own (decision
+  0059).
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.
@@ -289,11 +294,13 @@ Speed and memory compared with tls-client are in
 
 ## Where mimicry is weaker
 
-- **Few profiles.** Eleven desktop profiles (Chrome, Firefox and Safari on
-  macOS, Chrome and Firefox on Windows and Linux) and four on iPhone, whose
-  HTTP/3 failure timing and challenge-answering proxy credentials are not
-  measured. No Android, iPad or Edge, and no Linux distribution's own
-  build of a browser. Making a new one needs a real browser capture; see
+- **Few profiles.** Thirteen desktop profiles (Chrome, Edge, Firefox and
+  Safari on macOS, Chrome, Edge and Firefox on Windows, Chrome and Firefox
+  on Linux) and four on iPhone, whose HTTP/3 failure timing and
+  challenge-answering proxy credentials are not measured. No Android or
+  iPad, and no Linux distribution's own build of a browser. Making a new
+  one needs a
+  real browser capture; see
   [refreshing profiles](../refreshing-profiles.md).
 - **Proxy limits.** No `https://` proxies; see [proxies](proxies.md).
 - **Cookie strings need a domain.** `SetString` needs the domain the

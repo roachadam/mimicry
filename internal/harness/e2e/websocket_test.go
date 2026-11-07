@@ -536,12 +536,13 @@ func checkSocket(t *testing.T, p *profile.Spec, st server.WebSocketStep, steps [
 
 	checkMasks(t, g)
 
-	// Chrome splits a large message into a frame and a continuation in some
-	// samples, by chance (profiles/EVIDENCE.md, Not covered: Chrome's fragmented large message); mimicry
-	// sends it whole, which each sample also offers with its split messages
-	// joined, so one sample is enough.
+	// Chrome (and Edge, on its network stack) splits a large message into a
+	// frame and a continuation in some samples, by chance
+	// (profiles/EVIDENCE.md, Not covered: Chrome's fragmented large
+	// message); mimicry sends it whole, which each sample also offers with
+	// its split messages joined, so one sample is enough.
 	forms := len(want)
-	if p.Browser == "chrome" {
+	if capture.Chromium(p.Browser) {
 		forms *= 2
 	}
 

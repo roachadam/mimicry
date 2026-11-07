@@ -188,3 +188,48 @@ func decodes(t *testing.T, d *Decoder, i int, block []byte, want []Field) uint64
 
 	return ric
 }
+
+// A server that accepts 0-RTT and then sends a lower table capacity
+// (RFC 9114, section 7.2.4.2) leaves the encoder on the capacity its
+// inserts were made for: its later sections still decode, and it does not
+// panic.
+func TestEncoderKeepsCapacityAfterInserts(t *testing.T) {
+	for _, strategy := range []Strategy{StrategyIndexAll, StrategyNewNames} {
+		for _, lower := range []uint64{0, 64, 220} {
+			t.Run(fmt.Sprintf("strategy %d capacity %d", strategy, lower), func(t *testing.T) {
+				e := NewEncoder(Config{
+					Strategy:    strategy,
+					MaxCapacity: 1 << 16,
+				})
+				e.SetPeerSettings(4096, 100)
+
+				d := NewDecoder(4096)
+
+				for i := range 8 {
+					if i == 3 {
+						e.SetPeerSettings(lower, 100)
+					}
+
+					fields := []Field{
+						{Name: ":authority", Value: "www.example.test"},
+						{Name: fmt.Sprintf("x-name-%d", i), Value: fmt.Sprintf("value-%d", i)},
+						{Name: "user-agent", Value: strings.Repeat("u", 60)},
+					}
+
+					stream := uint64(4 * i)
+					ins, block := e.Encode(stream, fields)
+
+					if err := d.OnEncoderStream(ins); err != nil {
+						t.Fatalf("request %d: encoder stream: %v", i, err)
+					}
+
+					if decodes(t, d, i, block, fields) > 0 {
+						if err := e.OnDecoderStream(AppendSectionAck(nil, stream)); err != nil {
+							t.Fatal(err)
+						}
+					}
+				}
+			})
+		}
+	}
+}

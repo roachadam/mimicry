@@ -157,6 +157,14 @@ func (c *Capture) Identify() {
 	c.Profile.Name = browser + "-" + version + "-" + platform
 }
 
+// Chromium reports whether browser (ParseUserAgent's name) is Chrome or
+// Edge, which share Chromium's launch flags, DevTools driving and network
+// stack. A Chromium profile still never inherits another browser's
+// captures (decision 0035).
+func Chromium(browser string) bool {
+	return browser == "chrome" || browser == "edge"
+}
+
 // ParseUserAgent extracts the browser, its major version and the platform from
 // a user agent string. Chrome and Firefox on iOS say CriOS/ and FxiOS/,
 // and no Chrome/ or Firefox/; their user agents also hold Safari/, so they

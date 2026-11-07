@@ -492,8 +492,9 @@ type route struct {
 	addr string
 	host string
 	// group is what another host's HTTP/2 connection must share for
-	// coalescing. Zero when the request never coalesces: plain HTTP or
-	// through a proxy.
+	// coalescing. Zero when the request never coalesces: plain HTTP,
+	// through a proxy, or a host ending in a dot whose browser sends no
+	// SNI for it (tls.trailingDotSni omit).
 	group group
 	// proxy is nil for a direct connection; via is its URL as the key
 	// names it.
@@ -505,6 +506,10 @@ type route struct {
 	// tcpOnly: the request's QUIC connection died with it pending, and it
 	// goes again on TCP whatever HTTP/3 says (Fallback.PendingTCP).
 	tcpOnly bool
+	// omitSNI: the host ends in a dot and the profile's browser sends no
+	// server_name for it (tls.trailingDotSni omit); otherwise the name
+	// goes out with its dot.
+	omitSNI bool
 }
 
 // group is what an https request shares with the HTTP/2 connections it
@@ -538,6 +543,23 @@ func (e *Engine) route(req *http.Request) (route, error) {
 		r.group = group{
 			port:      port,
 			partition: partition,
+		}
+
+		if strings.HasSuffix(host, ".") {
+			switch e.profile.TLS.TrailingDotSNI {
+			case "":
+				return r, fmt.Errorf("%w: profile %s does not describe the server_name its browser sends for a host ending in a dot (tls.trailingDotSni): %s", headerorder.ErrNotMeasured, e.profile.Name, host)
+			case profile.TrailingDotOmit:
+				r.omitSNI = true
+			}
+
+			if r.omitSNI {
+				// Safari opened a connection of its own with no
+				// server_name for www.urls.test., fetched and
+				// navigated to, beside its www.urls.test one (urls
+				// capture, h-dotpool): it never coalesces.
+				r.group = group{}
+			}
 		}
 	}
 
@@ -750,13 +772,17 @@ func (e *Engine) newH1(conn net.Conn, r route) *h1.Conn {
 }
 
 // verifyFor is the handshake's VerifyConnection for a connection to host,
-// or nil.
+// or nil. The state's ServerName is host, as in verifyShared: a handshake
+// that omits SNI (tls.trailingDotSni omit) reports none, and a callback
+// checking the certificate against ServerName would check nothing.
 func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 	if e.verify == nil {
 		return nil
 	}
 
 	return func(cs tls.ConnectionState) error {
+		cs.ServerName = host
+
 		return e.verify(host, cs)
 	}
 }
@@ -789,6 +815,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 
 	cfg := handshake.Config{
 		ServerName:       req.URL.Hostname(),
+		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
 	}

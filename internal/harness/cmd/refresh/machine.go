@@ -76,6 +76,14 @@ var targets = map[string]target{
 		browser: "firefox",
 		remote:  remoteWindows,
 	},
+	"edge": {
+		browser: "edge",
+		remote:  remoteMini,
+	},
+	"edge-windows": {
+		browser: "edge",
+		remote:  remoteWindows,
+	},
 	"chrome-linux": {
 		browser: "chrome",
 		remote:  remoteLinux,
@@ -129,6 +137,9 @@ type machine struct {
 	// one there.
 	iphone    bool
 	iosDevice string
+	// chromeApp and firefoxApp are refreshRun's ChromeApp and FirefoxApp.
+	chromeApp  string
+	firefoxApp string
 }
 
 func (m *machine) String() string {

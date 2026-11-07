@@ -85,6 +85,12 @@ func H3EdgeCaptures(dir string, p *profile.Spec) ([]capture.File, error) {
 	return existingCaptures(dir, p, H3Blackhole, H3Broken, H3VN, H3Download, H3Early, H3TooEarly, H3StreamsBlocked)
 }
 
+// H3ResumeTableCaptures is H3ProfileCaptures for h3-resume-table, which h3gen
+// reads for http3.qpack.resumed alone.
+func H3ResumeTableCaptures(dir string, p *profile.Spec) ([]capture.File, error) {
+	return existingCaptures(dir, p, H3ResumeTable)
+}
+
 // existingCaptures returns p's existing captures of scenarios in dir,
 // sorted by scenario, the -h3-local-roots one first.
 func existingCaptures(dir string, p *profile.Spec, scenarios ...*Scenario) ([]capture.File, error) {
@@ -396,7 +402,7 @@ for (const s of steps) {
     }
     document.body.appendChild(f); f.submit(); return;
   }
-  if (s.kind === 'navigate') { location.href = s.url; return; }
+  if (s.kind === 'navigate') { location.href = url; return; }
   if (s.nowait) { run({...s, url}); continue; }
   await run(s);
 }

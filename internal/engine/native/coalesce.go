@@ -16,7 +16,8 @@ import (
 type shared struct {
 	*h2.Conn
 	// group is the route group of the request that opened it; zero for
-	// one no other host's request may take (through a proxy).
+	// one no other host's request may take (through a proxy, or a host
+	// ending in a dot its browser sends no SNI for).
 	group group
 	// addr is the server's address, invalid when the connection's remote
 	// address is not an IP address.

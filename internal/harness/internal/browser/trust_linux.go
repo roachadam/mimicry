@@ -13,11 +13,11 @@ import (
 const caNickname = "mimicry capture CA"
 
 // trustInProfile has b trust the capture CA (t.CAFile) through dir, its
-// profile for this run, so nothing outside the run is changed: Chrome
-// reads its roots from $HOME/.pki/nssdb and runs with HOME set to dir
+// profile for this run, so nothing outside the run is changed: Chrome and
+// Edge read their roots from $HOME/.pki/nssdb and run with HOME set to dir
 // (browserEnv); Firefox from its profile's own database, only when the
-// server gives each host its own certificate (HostCerts), as elsewhere
-// it reads the system roots only then (firefoxProfile). Both need NSS's
+// server gives each host its own certificate (HostCerts), as elsewhere it
+// reads the system roots only then (firefoxProfile). Both need NSS's
 // certutil (libnss3-tools).
 func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error {
 	if t.CAFile == "" {
@@ -27,7 +27,7 @@ func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error
 	var db string
 
 	switch {
-	case b.Name == "chrome":
+	case chromium(b.Name):
 		db = filepath.Join(dir, ".pki", "nssdb")
 	case b.Name == "firefox" && t.HostCerts:
 		db = dir
@@ -52,12 +52,12 @@ func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error
 }
 
 // browserEnv is the environment b runs in on profile directory dir:
-// Chrome's HOME is dir, so its certificate database is the run's own
+// Chromium's HOME is dir, so its certificate database is the run's own
 // (trustInProfile), and its XAUTHORITY the real home's .Xauthority unless
 // set, so a display that wants its cookie (ssh -X, a desktop session)
-// still lets Chrome in; nil keeps the tool's.
+// still lets it in; nil keeps the tool's.
 func browserEnv(b *Browser, dir string) []string {
-	if b.Name != "chrome" {
+	if !chromium(b.Name) {
 		return nil
 	}
 

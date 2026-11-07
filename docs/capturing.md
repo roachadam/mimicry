@@ -73,11 +73,19 @@ the profile's request.
 longer installable as the brand. Name such a capture
 `<name>.<scenario>.chrome-for-testing.<suffix>`
 (`.pagetrace.json.gz`, `.h1trace.json.gz`). The tools that list a
-profile's captures skip it; only hellogen's `http2.openingRecords` and
-`http1.uploadRecords` read it, since the testing build shares the brand's
-network stack but not its headers
+profile's captures skip it; only the network stack's fields read it
+(`http2.openingRecords`, `http1.uploadRecords`, `tls.trailingDotSni`,
+`http3.qpack.resumed`; `capture.TestingPages`), since the testing build
+shares the brand's network stack but not its headers
 ([decision 0042](decisions/0042-http2-opening-records.md),
-[0052](decisions/0052-http1-upload-records.md)). Every Chrome launch gets
+[0052](decisions/0052-http1-upload-records.md)). `-firefox-app PATH`
+captures another Firefox than the installed one, an application on macOS
+or `firefox.exe` on Windows: an older release from Mozilla's archive, kept
+beside the installed one with its updates off (a read-only bundle on
+macOS, `distribution\policies.json` with `DisableAppUpdate` on Windows).
+It is the brand, so its captures are named and read as any other.
+`cmd/refresh` passes both flags to every machine of its run, so give it one
+machine's browsers at a time. Every Chrome launch gets
 `--use-mock-keychain` and `--password-store=basic`: they change only how
 Chrome encrypts its stored cookies and passwords, never the wire, and keep
 a testing build (which has no login-keychain item of its own) from asking
@@ -85,9 +93,10 @@ for the keychain on screen.
 
 ## Browser setup
 
-- **Chrome and Firefox** run with throwaway profiles (no extensions,
-  default settings) and resolve the capture hosts to 127.0.0.1 themselves;
-  Chrome ignores certificate errors and Firefox gets a certificate
+- **Chrome, Edge and Firefox** run with throwaway profiles (no
+  extensions, default settings) and resolve the capture hosts to
+  127.0.0.1 themselves; Chrome and Edge (both Chromium, launched with the
+  same flags) ignore certificate errors and Firefox gets a certificate
   exception (or, for pages across several hosts, trusts the system's
   roots). Nothing on the system changes.
 - **Safari** cannot be isolated: it opens a tab in the user's own window
@@ -109,7 +118,7 @@ for the keychain on screen.
   `*.localhost` host as a site of its own, which turns same-site requests
   cross-site.
 - **The capture CA.** Safari must trust it, and so must the system for
-  Chrome's HTTP/3 (see below). The CA lives in
+  Chrome's and Edge's HTTP/3 (see below). The CA lives in
   `<user config dir>/mimicry/capture-ca/`, outside the repo, and is
   name-constrained to `test` and `localhost` with IP addresses excluded, so
   it cannot vouch for any real site. Trust it once; the capture command
@@ -402,7 +411,7 @@ does, so each navigation has user activation (`Sec-Fetch-User`; a script's
 `click()` has none): a page waiting for a click takes the title
 `mimicry-click` and fills its window with its link or submit button, and
 the tool clicks its middle once per URL (again after 6 s if it is still
-there). Chrome is clicked over the DevTools protocol
+there). Chrome and Edge are clicked over the DevTools protocol
 (`Input.dispatchMouseEvent`) and Firefox over WebDriver BiDi
 (`input.performActions`, with `remote.prefs.recommended` off), both on
 their throwaway profiles. Safari is clicked through the system's mouse
@@ -505,6 +514,13 @@ Failure, version, transfer, early-data and stream-limit scenarios:
   request whose stream started in a 0-RTT packet, read from quic-go's
   per-packet trace (`earlyStreams`), as its HTTP/3 layer only exposes a racy
   `HandshakeComplete`.
+- `h3-resume-table`: the `h3-early` schedule's resumed connections, every
+  request a GET (fetches, a pair made together, an image, an XHR, a
+  navigation), against a server allowing `h3-page`'s 64 KiB QPACK table:
+  what the browser's encoder does in 0-RTT with the SETTINGS it remembers,
+  and once the server's arrive (issue #90). Two connections carry a late
+  fetch 500 ms in with a header no request had (`x-late`), so every
+  encoder, Firefox's too, writes after the server's SETTINGS.
 - `h3-streams-blocked`: quic-go allowing 2 concurrent bidirectional
   streams (`initial_max_streams_bidi` 2, raised by MAX_STREAMS as each
   stream ends; unidirectional left at 100), and two bursts of 6 fetches
@@ -631,10 +647,13 @@ does not describe:
    `websocket` capture, `tls.helloRetry`, where the hello sent again after
    a HelloRetryRequest puts the cookie, from every retried connection of
    the `hrr` capture (left out, not measured, for a profile without one),
-   and `http1.uploadRecords`, how the browser cuts
+   `http1.uploadRecords`, how the browser cuts
    an HTTP/1.1 request with a body into TLS records, from every request
    of the `http1-upload` capture (testing-build captures included;
-   decision 0052).
+   decision 0052), and `tls.trailingDotSni`, the server_name of a host
+   ending in a dot, from the `urls` capture's `h-dot` case, fetched and
+   navigated to (`keep` when the server refused a ClientHello naming it
+   with its dot, `omit` when the request came with no SNI; decision 0057).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.
@@ -658,7 +677,13 @@ connection the server sent GOAWAY on, also from `h3-discovery`),
 the request that waits for it a fresh or resumed dial starts), and
 `quic.zeroRtt` from the resumed connections of both sets; where the h3
 captures have none (Safari) it holds the edge captures' resumed first
-flights to the full handshakes' rules. hellogen checks every resumed
+flights to the full handshakes' rules. From `h3-resume-table` alone
+(`server.H3ResumeTableCaptures`) it derives `http3.qpack.resumed`: a
+resumed connection's encoder stream must open with the server's capacity,
+in 0-RTT on at least one connection, and every connection whose encoder
+wrote again in 1-RTT must agree on whether the capacity was set a second
+time there (`remembered_repeat`, Chrome and Edge) or not (`remembered`,
+Firefox); without the capture it stays unset. hellogen checks every resumed
 QUIC hello of the edge captures and derives `tls.quic.earlyDataBefore`
 from them. kindsgen reads only `h3-discovery` and `h3-page`
 (`server.H3ProfileCaptures`). Each
@@ -736,10 +761,11 @@ kindsgen's captures, and what each gives the profile:
   lists was sent (Firefox, Safari), it stays unset.
 - `<name>.urls.pagetrace.json.gz`: `urls` (`deriveURLs`): the characters
   the browser encodes in a path beyond the set every browser does
-  (`pathEncodes`), and whether it refuses the malformed punycode host
+  (`pathEncodes`) and whether it refuses the malformed punycode host
   (`checkPunycode`). Samples, and each case's fetch and navigation, must
   agree, and a character the shared set encodes may not go as written.
-  Without the capture it stays unset.
+  Without the capture it stays unset. hellogen reads the same capture for
+  `tls.trailingDotSni`.
 
 A variant only the cors, cors-edge or cookies capture shows was measured
 over HTTP/2 only, so it has no `http1` list, and mimicry refuses such a

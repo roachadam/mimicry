@@ -1,6 +1,6 @@
 # 0057: URL parsing as the browsers measure it
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-06 (trailing-dot SNI, [#88](https://github.com/roachadam/mimicry/issues/88)); amended 2026-11-07 (Chrome 155 and Firefox 158 measured)
 - Date: 2026-11-04
 - Commits: the one that closes [#71](https://github.com/roachadam/mimicry/issues/71)
 
@@ -9,8 +9,8 @@ awkward URLs, by fetch() and by navigation, and mimicry now sends what
 they agree on: `'` in a query as `%27`, a path's `\` as `/` and its dot
 segments resolved, IPv4 hosts in any form as dotted decimal. Where they
 differ, a kindsgen-derived profile section `urls` says what each does (`|`
-in a path; an invalid `xn--` label). Trailing-dot SNI differs too and is
-left to [#88](https://github.com/roachadam/mimicry/issues/88).
+in a path; an invalid `xn--` label); as amended, `tls.trailingDotSni` does
+for a trailing-dot host's SNI.
 
 ## Problem
 
@@ -92,18 +92,69 @@ dot in `Host` everywhere; its SNI keeps it in Chrome and Firefox
 ## Consequences
 
 - Callers' URLs go out as a browser sends them in every case measured but
-  two, pinned in `urlsKnown` (`TestURLsMatchBrowser`): a lone `%` in a
-  path, which Go's `url.Parse` refuses inside `http.NewRequest` (send it
-  with `URL.Opaque`), and trailing-dot SNI (#88).
+  a lone `%` in a path, pinned in `urlsKnown` (`TestURLsMatchBrowser`),
+  which Go's `url.Parse` refuses inside `http.NewRequest` (send it with
+  `URL.Opaque`). Trailing-dot SNI was the second until the amendment.
 - `TestOpaqueTargetGoesOutAsWritten` keeps `URL.Opaque` raw over every
   protocol.
 - `TestURLsMatchBrowser` fails when a case starts matching, so a pin
   cannot outlive its cause.
-- A profile without `urls` errors on two inputs it could not know; the
-  older profiles keep that until retired.
+- A profile without `urls` errors on a `|` in a path and an invalid
+  `xn--` label, and one without `tls.trailingDotSni` on a trailing-dot
+  host over TLS: inputs it could not know. The older profiles keep that
+  until retired.
 - IPv6 literal forms (`[0:0::1]`) are not captured and stay as written.
 
 ## Revisit when
 
 A browser's next version changes a case (a refresh's `urls` capture shows
-it, and kindsgen refuses a character it cannot model), or #88 lands.
+it, and kindsgen refuses a character it cannot model).
+
+## Amendment 2026-11-06: trailing-dot SNI
+
+The `h-dot` case's SNI is now the browser's, from a new field,
+`tls.trailingDotSni`, which hellogen derives from the `urls` capture's
+hellos in every sample, fetched and navigated to. It sits with the
+ClientHello rather than in `urls`: it is the network stack's, not the URL
+parser's.
+
+- `keep` (desktop Chrome, Edge and Firefox): the name goes out
+  with its dot, as the capture server's refused ClientHellos show. uTLS
+  strips it, as crypto/tls does (RFC 6066), so the fork's `SNIExtension`
+  gained `KeepTrailingDot` (roachadam/utls#18, `5e9089f`, pinned as
+  `v0.0.0-20261107020059-5e9089fc4824`), which mimicry always sets: only
+  a name ending in a dot is affected.
+- `omit` (Safari 26 and 27, and every iPhone profile, Chrome and Firefox
+  included: iOS browsers are WebKit, and they inherit its `urls` capture):
+  no `server_name` at all. The certificate is still verified against the
+  host (uTLS's `InsecureServerNameToVerify`), and `Config.VerifyConnection`
+  gets the host as the state's `ServerName`, as crypto/tls would report
+  it, so a callback checking the certificate against it still checks. Such
+  a request never coalesces onto another host's connection: Safari opened
+  one of its own for `www.urls.test.` beside its `www.urls.test` one,
+  every sample.
+
+The rule applies over QUIC too: each browser builds its QUIC hello from
+the same host, though no capture has a trailing-dot host over HTTP/3. A
+profile without the field refuses a trailing-dot host over TLS
+(`ErrNotMeasured`); since the next amendment, none built in.
+
+`h-dotpool` stays pinned for Chrome, Edge and Firefox: each pools
+`www.urls.test.` onto its `www.urls.test` connection in one of fetch()
+(Chrome) and navigation (Firefox) and opens a new one in the other.
+Chrome's split would be top-level-site partitioning, measured but deferred
+([0011](0011-connection-partitioning.md), [0029](0029-scope-what-gets-modelled.md));
+Firefox's is its connection grouping, a known gap (0011).
+
+## Amendment 2026-11-07: Chrome 155 and Firefox 158
+
+The versions thought no longer installable were measured: Firefox
+158.0.1, the brand, from Mozilla's archive, on macOS and Windows, beside
+the installed Firefox (its updates off), and Chrome 155 as Chrome for
+Testing 155.0.8059.84 (`cmd/capture -firefox-app`, `-chrome-app`; refresh
+passes both). Firefox 158's `urls` capture gives its whole `urls` section,
+as Firefox 159's (`checkPunycode`), and `tls.trailingDotSni` `keep`, its
+`h-dotpool` as 159's. Chrome 155's testing build gives
+`tls.trailingDotSni` `keep` alone (decision 0042's testing-build rule: the
+server_name is the network stack's); its `urls` section stays unset, so a
+`|` in a path or an invalid `xn--` label still refuses for it.

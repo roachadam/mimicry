@@ -1,0 +1,548 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 407,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 407,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 200,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 26,
+      "status": 200,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 30,
+      "status": 200,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 31,
+      "status": 200,
+      "target": "static.kinds-a.test:37628",
+      "lines": [
+        "CONNECT static.kinds-a.test:37628 HTTP/1.1",
+        "Host: static.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 200,
+      "target": "static.kinds-a.test:37628",
+      "lines": [
+        "CONNECT static.kinds-a.test:37628 HTTP/1.1",
+        "Host: static.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 33,
+      "status": 200,
+      "target": "h1.kinds-a.test:37628",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37628 HTTP/1.1",
+        "Host: h1.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 35,
+      "status": 200,
+      "target": "h1.kinds-a.test:37628",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37628 HTTP/1.1",
+        "Host: h1.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 36,
+      "status": 200,
+      "target": "h1.kinds-a.test:37628",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37628 HTTP/1.1",
+        "Host: h1.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 37,
+      "status": 200,
+      "target": "h1.kinds-a.test:37628",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37628 HTTP/1.1",
+        "Host: h1.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 38,
+      "status": 200,
+      "target": "h1.kinds-a.test:37628",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37628 HTTP/1.1",
+        "Host: h1.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:37628",
+      "lines": [
+        "CONNECT www.kinds-a.test:37628 HTTP/1.1",
+        "Host: www.kinds-a.test:37628",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 407,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 407,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 200,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 25,
+      "status": 200,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 30,
+      "status": 200,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 31,
+      "status": 200,
+      "target": "static.kinds-a.test:37676",
+      "lines": [
+        "CONNECT static.kinds-a.test:37676 HTTP/1.1",
+        "Host: static.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 200,
+      "target": "static.kinds-a.test:37676",
+      "lines": [
+        "CONNECT static.kinds-a.test:37676 HTTP/1.1",
+        "Host: static.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 33,
+      "status": 200,
+      "target": "h1.kinds-a.test:37676",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37676 HTTP/1.1",
+        "Host: h1.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 35,
+      "status": 200,
+      "target": "h1.kinds-a.test:37676",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37676 HTTP/1.1",
+        "Host: h1.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 36,
+      "status": 200,
+      "target": "h1.kinds-a.test:37676",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37676 HTTP/1.1",
+        "Host: h1.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 37,
+      "status": 200,
+      "target": "h1.kinds-a.test:37676",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37676 HTTP/1.1",
+        "Host: h1.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 38,
+      "status": 200,
+      "target": "h1.kinds-a.test:37676",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37676 HTTP/1.1",
+        "Host: h1.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:37676",
+      "lines": [
+        "CONNECT www.kinds-a.test:37676 HTTP/1.1",
+        "Host: www.kinds-a.test:37676",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 19,
+      "status": 407,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 407,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 22,
+      "status": 200,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 24,
+      "status": 200,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 25,
+      "status": 200,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 30,
+      "status": 200,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 31,
+      "status": 200,
+      "target": "static.kinds-a.test:37724",
+      "lines": [
+        "CONNECT static.kinds-a.test:37724 HTTP/1.1",
+        "Host: static.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 32,
+      "status": 200,
+      "target": "static.kinds-a.test:37724",
+      "lines": [
+        "CONNECT static.kinds-a.test:37724 HTTP/1.1",
+        "Host: static.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 33,
+      "status": 200,
+      "target": "h1.kinds-a.test:37724",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37724 HTTP/1.1",
+        "Host: h1.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 35,
+      "status": 200,
+      "target": "h1.kinds-a.test:37724",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37724 HTTP/1.1",
+        "Host: h1.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 36,
+      "status": 200,
+      "target": "h1.kinds-a.test:37724",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37724 HTTP/1.1",
+        "Host: h1.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 37,
+      "status": 200,
+      "target": "h1.kinds-a.test:37724",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37724 HTTP/1.1",
+        "Host: h1.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 38,
+      "status": 200,
+      "target": "h1.kinds-a.test:37724",
+      "lines": [
+        "CONNECT h1.kinds-a.test:37724 HTTP/1.1",
+        "Host: h1.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    },
+    {
+      "kind": "connect",
+      "conn": 40,
+      "status": 200,
+      "target": "www.kinds-a.test:37724",
+      "lines": [
+        "CONNECT www.kinds-a.test:37724 HTTP/1.1",
+        "Host: www.kinds-a.test:37724",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36 Edg/157.0.0.0",
+        "Proxy-Authorization: Basic bWltaWNyeTpjYXB0dXJl"
+      ]
+    }
+  ]
+]

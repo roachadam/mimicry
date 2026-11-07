@@ -12,15 +12,27 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// urlsKnown are the urls cases mimicry does not send as any browser
-// measured does, fetched or navigated to, for every profile, and why.
-// TestURLsMatchBrowser fails once one matches every sample, so the entry
-// goes.
-var urlsKnown = map[string]string{
-	"p-lonepct": "Go's url.Parse refuses a path with a lone %, so http.NewRequest fails before mimicry sees the URL (URL.Opaque sends it); browsers send it as written",
-	"h-dot":     "SNI of a host ending in a dot: Chrome and Firefox keep the dot, Safari sends none, mimicry's uTLS strips it (issue #88)",
-	"h-dotpool": "as h-dot, and browsers pool www.urls.test. onto www.urls.test's connection in one of fetch() and navigation (issue #88)",
-}
+// urlsKnown are the urls cases mimicry does not send as the browser
+// measured does, fetched or navigated to, and why: keyed by case for
+// every profile, or "<profile>/<case>" for one. TestURLsMatchBrowser
+// fails once one matches every sample, so the entry goes.
+var urlsKnown = func() map[string]string {
+	known := map[string]string{
+		"p-lonepct": "Go's url.Parse refuses a path with a lone %, so http.NewRequest fails before mimicry sees the URL (URL.Opaque sends it); browsers send it as written",
+	}
+
+	const chromePool = "Chrome sent the fetch() of www.urls.test. on its www.urls.test connection and opened a new one for the navigation (its hello, keeping the dot, refused); mimicry runs the case once and coalesces it as the fetch. A navigation's own connection would be top-level-site partitioning, measured but not modelled (decisions 0011, 0029)"
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+		known[name+"/h-dotpool"] = chromePool
+	}
+
+	const firefoxPool = "Firefox sent the navigation to www.urls.test. on its www.urls.test connection and opened a new one for the credential-less fetch() (its hello, keeping the dot, refused); mimicry runs the case once and opens a new connection as the fetch. Which requests Firefox groups on a connection is a known gap (decision 0011)"
+	for _, name := range []string{"firefox-158-macos", "firefox-158-windows", "firefox-159-macos", "firefox-159-windows", "firefox-159-linux"} {
+		known[name+"/h-dotpool"] = firefoxPool
+	}
+
+	return known
+}()
 
 // The urls page's URLs through mimicry, each given to http.NewRequest as
 // the page writes it (server.URLCases), against every sample: for each, the
@@ -59,20 +71,29 @@ func TestURLsMatchBrowser(t *testing.T) {
 
 						differs[c.ID] = true
 
-						if _, known := urlsKnown[c.ID]; !known {
+						if !urlKnown(name, c.ID) {
 							t.Errorf("sample %d, %s-%s %s:\n  browser %s\n  mimicry %s", i, kind, c.ID, c.URL, b, m)
 						}
 					}
 				}
 			}
 
-			for id := range urlsKnown {
-				if !differs[id] {
-					t.Errorf("%s matches every sample now: drop it from urlsKnown", id)
+			for _, c := range server.URLCases() {
+				if urlKnown(name, c.ID) && !differs[c.ID] {
+					t.Errorf("%s matches every sample now: drop it from urlsKnown", c.ID)
 				}
 			}
 		})
 	}
+}
+
+// urlKnown reports whether urlsKnown lists case id for every profile or
+// for name.
+func urlKnown(name, id string) bool {
+	_, all := urlsKnown[id]
+	_, one := urlsKnown[name+"/"+id]
+
+	return all || one
 }
 
 // runURLs has mimicry, as p, send every urls case (kind "m") and returns

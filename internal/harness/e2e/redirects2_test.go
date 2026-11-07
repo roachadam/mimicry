@@ -116,6 +116,14 @@ var redirectsReload = map[string]bool{
 	// redirects2-cookies) the chain stopped after hop19 and the error
 	// page reloaded hop19, then followed it to hop25.
 	"chrome-157-linux": true,
+	// As chrome-156-windows's: in all six samples (redirects2 and
+	// redirects2-cookies) Edge's chain stopped after hop19 and the error
+	// page reloaded hop19, then followed it to hop25.
+	"edge-157-macos": true,
+	// As edge-157-macos's: in all six samples (redirects2 and
+	// redirects2-cookies) Edge on Windows's chain stopped after hop19 and
+	// the error page reloaded hop19, then followed it to hop25.
+	"edge-157-windows": true,
 }
 
 // redirectsMerged are hosts whose connections are compared as one, per
@@ -155,6 +163,21 @@ var redirectsLineGaps = map[string]map[string]string{
 		"/p/img-markup.so.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
 		"/p/img-markup.ss":      "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
 		"/p/img-markup.ss.hop1": "markup images and their hops go at u=1 (weight 219) in some samples, raised once layout found them visible",
+	},
+	// As chrome-156-macos's: the layout priority on markup images, in
+	// redirects2 and redirects2-cookies alike (img-markup.so itself u=2 in
+	// all six samples).
+	"edge-157-macos": {
+		"/p/img-markup.so.hop1": "as chrome-156-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge: 2 of 6 samples)",
+		"/p/img-markup.ss":      "as chrome-156-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge: 2 of 6 samples)",
+		"/p/img-markup.ss.hop1": "as chrome-156-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge: 4 of 6 samples)",
+	},
+	// As edge-157-macos's: the layout priority on markup images, here on
+	// img-markup.ss and its hop only (img-markup.so and its hop u=2 in all
+	// six samples).
+	"edge-157-windows": {
+		"/p/img-markup.ss":      "as edge-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge on Windows: 5 of 6 samples)",
+		"/p/img-markup.ss.hop1": "as edge-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge on Windows: 5 of 6 samples)",
 	},
 	// Markup images in some samples go at u=3, raised by layout.
 	"safari-27-ios": {

@@ -320,7 +320,8 @@
     },
     "helloRetry": {
       "cookieAfter": "0x000d"
-    }
+    },
+    "trailingDotSni": "keep"
   },
   "http2": {
     "settings": [
@@ -10037,7 +10038,8 @@
     },
     "qpack": {
       "encoder": "new_names",
-      "huffman": "always"
+      "huffman": "always",
+      "resumed": "remembered"
     },
     "maxDataFrame": 32768,
     "firstDataFrame": 32224,

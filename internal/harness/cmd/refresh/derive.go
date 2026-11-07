@@ -33,9 +33,14 @@ func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spe
 	p.Deprecated = false
 	p.CapturesFrom = capturesFrom
 
-	// The first profile on a platform is copied from another platform's.
+	// The first profile on a platform is copied from another platform's,
+	// and the first of a Chromium browser from Chrome's.
 	if captured.Platform != "" {
 		p.Platform = captured.Platform
+	}
+
+	if captured.Browser != "" {
+		p.Browser = captured.Browser
 	}
 
 	if p.Platform == platformLinux && prev.Platform != platformLinux && p.ClientHints != nil {
@@ -91,8 +96,8 @@ func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spe
 
 	if prev.HTTP1 != nil {
 		if h1 == nil {
-			if prev.Platform != p.Platform {
-				return nil, fmt.Errorf("no http1 capture for %s: the HTTP/1.1 lines of %s carry %s's user agent and platform headers; capture http1", name, prev.Name, prev.Platform)
+			if prev.Platform != p.Platform || prev.Browser != p.Browser {
+				return nil, fmt.Errorf("no http1 capture for %s: the HTTP/1.1 lines of %s carry %s on %s's user agent and client hints; capture http1", name, prev.Name, prev.Browser, prev.Platform)
 			}
 
 			rw := capture.NewRewriter(prev, p)

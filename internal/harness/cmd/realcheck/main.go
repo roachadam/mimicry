@@ -36,7 +36,7 @@ func run() error {
 	out := flag.String("out", filepath.Join(os.TempDir(), "mimicry-realcheck"), "directory for raw answers and the comparison")
 	echo := flag.Bool("echo", true, "visit the echo endpoints")
 	doSites := flag.Bool("sites", true, "visit the protected sites")
-	browserList := flag.String("browsers", "", "comma-separated installed browsers to drive (chrome, firefox, safari); takes over the screen")
+	browserList := flag.String("browsers", "", "comma-separated installed browsers to drive (chrome, edge, firefox, safari); takes over the screen")
 	profileList := flag.String("profiles", "", "comma-separated built-in profile names (default every supported one; \"none\" for none)")
 	noGo := flag.Bool("no-go", false, "skip Go's net/http default client on the sites")
 

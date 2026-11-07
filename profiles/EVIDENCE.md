@@ -5,16 +5,18 @@ from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`chrome-157-linux`, `chrome-157-ios`, `firefox-158-macos`,
-`firefox-158-windows`, `firefox-159-macos`, `firefox-159-windows`,
-`firefox-159-linux`, `firefox-159-ios`, `safari-27-macos`,
-`safari-26-macos`, `safari-27-ios` and `safari-26-ios`. Safari 27 was
-captured on macOS 27; Safari 26 on a second Mac kept on macOS 26, as was
-Firefox 159 for macOS; Chrome 156 and Firefox 158 and 159 for Windows on
-Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1 for Linux, Google's
-and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on that Windows PC;
-Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS on an iPhone
-on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
+`chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
+`edge-157-windows`, `firefox-158-macos`, `firefox-158-windows`,
+`firefox-159-macos`, `firefox-159-windows`, `firefox-159-linux`,
+`firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
+and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
+second Mac kept on macOS 26, as were Firefox 159 and Edge 157 for macOS
+(that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and 159 and Edge
+157 for Windows on Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1
+for Linux, Google's and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on
+that Windows PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for
+iOS on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS
+26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -44,9 +46,10 @@ with its 2026-11-01 captures (0053), `firefox-159-ios` with its
 2026-11-03 captures (0053, amended), `firefox-159-macos` and
 `firefox-159-windows` with their 2026-11-03 quick refreshes, the client
 hints rows with the 2026-11-04 `client-hints` captures (0055), the URL
-rows with the 2026-11-04 `urls` captures (0057), and `chrome-157-linux`
-and `firefox-159-linux` with their 2026-11-05 captures (0058). The "Not
-covered" list was rechecked against the code on 2026-10-29.
+rows with the 2026-11-04 `urls` captures (0057), `chrome-157-linux` and
+`firefox-159-linux` with their 2026-11-05 captures (0058), and
+`edge-157-macos` with its 2026-11-06 captures (0059). The "Not covered"
+list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
 
@@ -276,13 +279,12 @@ Linux differs:
   resumed probes and the idle origin's move to a new TCP connection after
   8.0 s, as on macOS (`h3EdgeGaps`), the fast fallback (`h3EdgeFastGaps`)
   and the burst and `h3-too-early` timing (`h3EdgeSchedulingGaps`).
-- **Pinned on Linux only:** in one `h3-page` sample Chrome left its first
-  connection unused and sent the page on a resumed one, where it filled
-  the QPACK table in 0-RTT from the SETTINGS it remembered and set the
-  capacity again in 1-RTT (`qpackRepeatedCapacity`; Not covered, below);
-  in h3gen's `sampleGaps`, one control stream after its Finished's
-  datagram (1 of 12), one MAX_STREAM_DATA 2.07% above 3 MiB and the
-  after-raise STREAMS_BLOCKED pair sent twice in one sample.
+- **Pinned on Linux only:** in h3gen's `sampleGaps`, one control stream
+  after its Finished's datagram (1 of 12), one MAX_STREAM_DATA 2.07% above
+  3 MiB and the after-raise STREAMS_BLOCKED pair sent twice in one sample.
+  The `h3-page` sample whose page went on a resumed connection, filling
+  the QPACK table in 0-RTT and setting the capacity again in 1-RTT, is
+  `http3.qpack.resumed`'s rule now (decision 0060).
 
 `realcheck` in WSL found no difference between Chrome and
 `chrome-157-linux` on the echo endpoints (tls.peet.ws, browserleaks' TLS
@@ -343,6 +345,80 @@ are macOS Firefox 159's but for the platform. Where Linux differs:
 `firefox-159-linux` on the echo endpoints; browserleaks' HTTP/2 page
 showed Firefox's stream WINDOW_UPDATE on the browser's side only (on
 macOS, on mimicry's).
+
+**`edge-157-macos`** (2026-11-06, Edge 157.0.4341.42 on the second Mac,
+macOS 26.2,
+[report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md);
+[decision 0059](../docs/decisions/0059-edge-profiles.md)) has no column
+of its own. It inherits nothing: every scenario and replay was captured
+from Edge, three samples each, and its profile started as
+`chrome-156-macos`'s, every generated section derived again and every
+copied one checked against Edge's captures. Each row has the class and
+value of `chrome-155-macos`'s column but where Edge differs:
+
+- **The browser:** `user-agent` ends `Edg/157.0.0.0`, `sec-ch-ua` names
+  `"Microsoft Edge"`, in every header list.
+- **W, TLS:** no Trust Anchor IDs (`0xca34`) in any hello, so 16
+  extensions where Chrome sends 17; everything else is Chrome's. JA4
+  `t13d1516h2_8daaf6152771_806a8c22fdea` (Chrome 157's:
+  `t13d1517h2_8daaf6152771_cb7bf5808d99`), as realcheck showed for the
+  real Edge and mimicry alike.
+- **W, `accept`:** no `image/jxl`, in navigations, frames and every image
+  kind and variant.
+- **W, client hints:** `fullVersion` 157.0.4341.42 and the new
+  `chromiumFullVersion` 157.0.8103.39, the Chromium brand's version in
+  `sec-ch-ua-full-version-list`; the second Mac's machine (macOS 26.2,
+  arm, 16 GB, reduced motion and transparency); `width` 100.
+- **W, `quic.packetNumbers`:** `shared_second_long`: Chrome's counter,
+  but the second Initial's number in 2 bytes in 115 of 123 connections,
+  token or not (Chrome: only without a token, 283 of 283); the 8 others,
+  all with a token, are pinned (Not covered, below).
+- **W, from the edge captures (h3gen):** `tcpDelayMs` 313–315 (Chrome on
+  macOS 305–306); the server's Initial acknowledged in 4 of 12 full
+  handshakes (pinned, as Chrome's).
+- **Pinned as Chrome's:** NEW_TOKEN presented on some reconnections
+  (h3gen's `sampleGaps`), the XHR header order (`headersOrderGaps`), the
+  error-page reload after hop 19 (`redirectsReload`), markup images at
+  `u=1` in 8 of 24 requests (`redirectsLineGaps`), the plain-HTTP page's
+  link navigation (`proxyPlainGaps`), the client-hints third party's
+  connection and `width` (`h3Gaps`), the blackhole resend 54.4 s in and
+  the resumed probes (2 Initials, Chrome on macOS 4), the idle origin's
+  moves to new TCP connections after 8.0 and 10.0 s (`h3EdgeGaps`), the
+  fast fallback (`h3EdgeFastGaps`) and the burst order
+  (`h3EdgeSchedulingGaps`).
+
+`realcheck` on the second Mac found no difference between Edge and
+`edge-157-macos` on the echo endpoints (tls.peet.ws, browserleaks' TLS
+and HTTP/2 pages, impersonate.pro over HTTP/2 and HTTP/3); browserleaks'
+HTTP/2 page also logged Edge's own `/favicon.ico` request.
+
+**`edge-157-windows`** (2026-11-06, Edge 157.0.4341.42 on the Windows
+PC, Windows 10,
+[report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md);
+[decision 0059](../docs/decisions/0059-edge-profiles.md)) has no column of
+its own either. It started from `edge-157-macos` and inherits nothing;
+every scenario and replay was captured on Windows with the PC's Edge
+policies lifted (they made Edge send `dnt: 1`; a first run was
+discarded). Its rows are `edge-157-macos`'s: the same hello, JA4,
+headers, client-hint rules and QUIC parameters. Where Windows differs:
+
+- **The platform:** `user-agent` says `Windows NT 10.0; Win64; x64` and
+  `sec-ch-ua-platform` `"Windows"`, in every header list.
+- **W, the machine's client hints:** `platformVersion` 10.0.0, x86, `dpr`
+  1, 32 GB, dark scheme, viewport 1241×1288.
+- **W, from the edge captures (h3gen):** `tcpDelayMs` 303–313 (macOS
+  313–315); 114 of 123 second Initials in 2 bytes (macOS 115), the 9
+  others with a token.
+- **Pinned on Windows only (h3gen's `sampleGaps`):** one `h3-blackhole`
+  attempt whose first flight's two Initials went 2.1 ms apart, which the
+  2 ms flight boundary split (`probes`); two MAX_STREAM_DATA 2.08% above
+  3 MiB (`credit`); in the e2e tests, one `h3-broken` sample's move to a
+  new path after 2.91 PTOs where the other two moved after 3.89 and 3.93
+  (`pathMoveGaps`).
+
+`realcheck` on the Windows PC, the policies lifted again for it, found no
+difference between Edge and `edge-157-windows` on the echo endpoints;
+browserleaks' HTTP/2 page logged Edge's own `/favicon.ico` request.
 
 **`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
 27.2, over Wi-Fi,
@@ -824,7 +900,8 @@ sample's fetch and navigation.
 | `urls.pathEncodes`: `\|` in a path encoded (`%7C`) by Chrome; sent as written by Firefox and Safari | W (`p-bar`) | The request target, Referer, WebSocket URL and cookie paths use mimicry's form, not Go's `EscapedPath` (`internal/weburl`) |
 | Hosts: lowercase; non-ASCII through UTS #46 ToASCII; an explicit default port, `:0443` too, dropped; IPv4 in short, hex, octal, integer and trailing-dot forms as dotted decimal | W (`h-upper`, `h-idn`, `h-port443`, `h-port0`, `ip-*`, every browser) | `ip-*` from a plain `http://` page: Safari blocks even loopback `http://` from an `https://` page |
 | `urls.checkPunycode`: an ASCII host's `xn--` label that is not valid punycode refused by Firefox and Safari 26, sent as written by Chrome and Safari 27 | W (`h-badpuny`) | A valid `xn--` label goes out as written in every browser |
-| A host ending in a dot keeps it in `Host` and `:authority` | W (`h-dot`, `h-dotpool`; Safari's requests, the others' pooled ones) | SNI differs: see "Not covered" |
+| A host ending in a dot keeps it in `Host` and `:authority` | W (`h-dot`, `h-dotpool`; Safari's requests, the others' pooled ones) | |
+| A host ending in a dot keeps it in SNI (desktop Chrome, Edge, Firefox) or sends none (Safari and every iPhone profile, WebKit), and Safari gives it a connection of its own (`tls.trailingDotSni`, hellogen) | W (`h-dot`, every sample, fetched and navigated to; `h-dotpool` for Safari); Firefox 158 from Mozilla's archive, Chrome 155 from Chrome for Testing 155 (the network stack's, decision 0042) | Over QUIC by inference: no capture has such a host on HTTP/3 |
 
 ## CORS preflights
 
@@ -1014,6 +1091,7 @@ with a GOAWAY (Firefox), Chrome's transport parameters unshuffled.
 | `http3.earlyStreamsWithRequest` (a connection dialled for a 0-RTT request sends the control stream in its packet) | W: false: the control stream alone first, then the request (18 of 18 on `h3-early`/`h3-too-early`) | — (`earlyRequestFirst`: the request leads the streams in their packet) | W: true: control stream then request in one 0-RTT packet (18 of 18 GET, HEAD, OPTIONS connections); the pair's connection (a POST made with the GET) sent the control stream alone, then the GET (6 of 6: Not covered) | W: as 27 (18 of 18; pair 6 of 6) |
 | `http3.discovery.dialDelayMs`, `resumedDialDelayMs` (every delay, sorted, from the request that waits for it to a fresh or resumed attempt's first datagram, edge pages, a navigation's left out; nil where every delay is within the `?t=` clock's 3 ms; a dial draws one plus up to 1 ms, only with `Config.BrowserDialDelay`: off by default, decision 0050) | W: none: resumed 0–3 ms (50 dials; Chrome 156 51, Windows 0–2 in 34); its fresh dials go beside a request on TCP, none waited for | W: fresh none (its fresh dials are background validations no request waits for); resumed 48 delays, mean 5.1 ms: 11 of 0–3, 36 of 4–9, one 34 (on `h3-too-early` sample 1's first resumed connection); the draw's mean 5.6 | W: fresh 30, 3–10 ms, mean 7.1 (draw 7.6); resumed 51, mean 8.8 (draw 9.3): all but one 5–11, the 22 on `h3-too-early` sample 1's first resumed connection, as Firefox's 34 | W: fresh 27, mean 8.9 (draw 9.4): 23 of 3–10, then 17, 18, 25, 28; resumed 51, mean 8.5 (draw 9.0): all but one 6–11, then 23. Requests on open connections arrive 0–2 ms after they are made (Safari 26 up to 7), so the delay is the dial's; nothing ties the outliers to the slower Mac, so they stay, as rare as measured. Checked by `TestHTTP3EdgeMatchesBrowser` (`checkDialDelays`) and `TestDialDelayAfterReconnect` (the default, the draw) |
 | `http3.qpack` | W: `index_all`, inserts first, `shorter` | W: `new_names`, request first, `always` | W: encoder not measured (no table offered); `always` | W: as 27 |
+| `http3.qpack.resumed` (`h3-resume-table`, decision 0060) | W (Chrome for Testing 155, decision 0042): `remembered_repeat`, as Chrome 156 (macOS, Windows), 157 (Linux) and Edge 157: of 18 resumed connections each (Linux 19), 15 set the remembered 65536 and inserted in 0-RTT (the held navigation's in 1-RTT), and all 11–12 that wrote again once the server's SETTINGS arrived set it again first | W (158.0.1 from Mozilla's archive): `remembered`, as Firefox 159 (macOS, Windows, Linux): every resumed connection opened the encoder with the remembered 65536 in 0-RTT, and none of the 9–12 per profile that wrote again in 1-RTT set it again | none: Safari never uses a table | as 27 |
 | `http3.priorityUpdate`, `maxDataFrame`, `firstDataFrame` | W: true (102 of 102 prioritised requests); one DATA frame per body | W: false; 32768, first 32224 (64 KiB: 32224 + 32768 + 544, 3 of 3) | W: false; not measured (no body) | W: as 27 |
 | `http3.headers` | W: nil (114 requests: HTTP/2 order and pseudo order) | W: pseudo `:method :scheme :authority :path`, `te` dropped, `alt-used` before `referer` (before `cookie` for fetch: cookie never went over HTTP/3, its side is assumed) in 129 requests of 11 kinds and the navigation; kinds not captured over HTTP/3 have no entry (not measured). `alt-used` value `<host>:<port>` (every capture, unprivileged ports), the port left out when it is 443 (code, `altUsedValue`): seen once on the wire through a public echo (fp.impersonate.pro over HTTP/3, `internal/harness/reports/realcheck-2026-10-25.md`), no capture reaches port 443; `TestAltUsedPort` | W: nil (9 fetches) | W: as 27 |
 | `http3.high`, `http3.low` | W: low `injected_image` `i` (HTTP/2 has no image-low); every other priority header the kind's HTTP/2 value | W: low `injected_image` `u=6, i`; `markup-image2.so` `u=4, i` pinned (layout-driven) | W: none; `kinds.injected_image.low` `u=7, i` from its `h3-page` HTTP/2 requests | W: as 27 |
@@ -1203,7 +1281,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's re-prioritisation** (Chrome): a PRIORITY frame mid-load, and a mid-upload stream kept in its lists ([INFERENCE]); never sent; detection medium; model `OnStreamUpdate` against the page traces.
 - **Several requests in the opening record** (Safari on iOS): with three requests waiting as a connection opened, the iPhone put all three HEADERS in the opening's TLS record; `http2.openingRecords` describes the first request's only; detection low; a capture with requests of known count waiting, and a record rule for them.
 - **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
-- **Idle origin moved to new TCP** (Chrome on macOS and Linux): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Idle origin moved to new TCP** (Chrome on macOS and Linux, Edge): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples; Edge: 8.0 s, and again after 10.0 s, 3 of 3); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
 - **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
 - **Blob and File bodies joined with the head** (Chrome): Chrome sends a Blob or File body apart from its head even when the two fit 1400 bytes (`http1-upload`'s `/up/blob-100`, `-500`); mimicry cannot tell a Blob from bytes and joins every small body up to `http1.uploadRecords.joinUpTo`; small file uploads over HTTP/1.1; detection low; none planned (decision 0052).
 - **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
@@ -1234,7 +1312,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's packet numbers in some resumed first flights** (Chrome): in some edge resumed attempts (`h3-broken` sample 1 connection 3, `h3-early` sample 1 connection 2) the 0-RTT packets do not continue the shared numbering the `h3-discovery` connections follow; not checked (as the GREASE line); detection low; a look at those flights.
 - **nginx drops Chrome's port migration** (Chrome): nginx answers nothing on the new path, so a 30 s stall; mimicry migrates as Chrome; detection none; a capture of Chrome doing it.
 - **Chrome after declining to move** (Chrome): a server's `disable_active_migration` keeps Chrome on its degrading path ([Chromium source](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.85/net/quic/quic_chromium_client_session.cc#3282), a lead; [RFC 9000 §18.2](https://www.rfc-editor.org/rfc/rfc9000#section-18.2)), and mimicry stays with its keep-alives, probes and idle timeout; what Chrome does then (probes, close timing, where the stuck request goes) is not captured; detection low; a Chrome `h3-broken` capture against a server sending the parameter.
-- **Chrome's blackhole close** (Chrome): Chrome closes after 54–61 s and resends on TCP; mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Chrome's blackhole close** (Chrome, Edge): Chrome closes after 54–61 s and resends on TCP (Edge 54.4–54.5 s, macOS and Windows); mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Edge on Windows's early path move** (Edge on Windows): in 1 of 3 `h3-broken` samples Edge moved its silenced connection to a new path after 2.91 of its PTOs, 13 ms after its second probe, where the others and every other Chromium sample moved after about 4; mimicry moves after 4 (`afterPtos`); detection low; more Windows samples, to tell a rule from a timer (`pathMoveGaps`).
 - **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
 - **Firefox's short-lived QUIC side connections** (Firefox, macOS, Windows and Linux): Firefox intermittently opens QUIC connections beside the page's that carry no request and closes each 1–5 ms after its handshake, H3_NO_ERROR: Firefox 158 on Windows in 2 of its 36 HTTP/3 page samples (`h3-broken`, `h3-download`, one per request: 14 and 7); Firefox 159 in 3 of 6 macOS and 4 of 6 Windows `h3-discovery`/`h3-page` samples with locally trusted roots (8–20 per sample, about 300 ms apart), after which later connections to the host in the sample resume nothing and carry no token, and the server's close in `h3-discovery` got no TCP race; on Linux in about half of the `h3-*` samples (15 per sample) and in every `h3-streams-blocked` sample (6, each within 4 ms of a fetch), and in those samples no GET or HEAD went in 0-RTT and the resumed attempt after the server's close ended silently; mimicry opens none; trigger unknown; detection low; more samples to find when (h3gen's `sampleGaps`, kindsgen's `h3AltUsedGaps`, `h3EdgeGaps`).
 - **Firefox on Windows's resumed attempt** (Firefox on Windows): after the server's close, its resumed attempt first probed 1.7–1.9 s after its first flight (`cachedRtt` false) and gave up at 9.8 s or 10.2 s, or (1 of 3 samples) probed from a cached RTT and ended silently at 4.5 s with nothing held (6 further samples: 9.8, 9.8, 10.2, 10.3, 5.0 s and one silent end); mimicry gives up at 9.8 s; only to a silent server; detection low; more samples to find what decides (h3gen's `sampleGaps`).
@@ -1249,8 +1328,9 @@ A difference closed is removed here, with its pinned gap entry.
 - **Retry** (all): no browser captured answering a Retry; detection low to medium; a Retry-forcing server.
 - **PMTU probing, ECN, DATAGRAM, ACK_FREQUENCY** (all): not done or ignored; not measured; real paths; detection low to medium; real-network captures.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
-- **QPACK on a resumed connection** (Chrome; Firefox's side connections): with 0-RTT the browser fills its QPACK table from the SETTINGS it remembers, before the server's arrive, and Chrome sets the same capacity again once they do (one `chrome-157-linux` `h3-page` connection; 13 resumed Firefox side connections set it in 0-RTT); mimicry remembers no SETTINGS, so its 0-RTT request uses no dynamic table; detection low; a page that reliably resumes with a dynamic table allowed, then remembered SETTINGS ([#90](https://github.com/roachadam/mimicry/issues/90), `qpackRepeatedCapacity`).
+- **A navigation's 0-RTT** (Chrome, Edge): on a resumed connection Chrome and Edge held a navigation (GET) until after the Finished, 3 of 3 `h3-resume-table` samples each, where their fetch, XHR and image GETs went in 0-RTT; `http3.earlyData` holds methods only, so mimicry sends the navigation in 0-RTT; detection low; a navigation rule in `http3.earlyData` (`h3EdgeGaps`).
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
+- **Edge's second Initial in 1 byte** (Edge, macOS and Windows): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
@@ -1275,16 +1355,17 @@ A difference closed is removed here, with its pinned gap entry.
 - **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
 - **Pages below `/`** (all): the full-path `Referer` follows the standard, not a capture; detection medium if wrong; a deep kinds page.
 - **A lone `%` in a path** (all): browsers send it as written (`urls`, `p-lonepct`); Go's `url.Parse` refuses the URL, so `http.NewRequest` fails before mimicry sees it; a caller can send it with `req.URL.Opaque`, which mimicry sends as written (decision 0057); detection none (mimicry sends nothing otherwise) (`urlsKnown`).
-- **SNI of a host ending in a dot** (all): Chrome and Firefox send the name with its dot, Safari sends no SNI; mimicry's uTLS strips the dot; Chrome and Firefox also pool `host.` onto `host`'s connection in one of fetch and navigation; detection low (hosts typed with a dot); a uTLS fork option and a profile field ([#88](https://github.com/roachadam/mimicry/issues/88), `urlsKnown`).
-- **URL rules without a `urls` capture** (`chrome-155-macos`, `firefox-158-macos`, `firefox-158-windows`): no `urls`; inheriting is only from older versions, and these browsers can no longer be installed; a `\|` in a path or an invalid `xn--` label is `ErrNotMeasured`, every other URL as the browsers measured agree; detection none.
+- **Pooling a host ending in a dot** (Chrome, Edge, Firefox): Chrome sends a fetch() of `host.` on `host`'s connection and opens a new one for a navigation; Firefox does the opposite; mimicry runs the case once and matches one of the two; detection low (hosts typed with a dot); top-level-site partitioning (Chrome, decisions 0011 and 0029) and Firefox's connection grouping (`urlsKnown`).
+- **URL rules without a `urls` capture** (`chrome-155-macos`): branded Chrome 155 cannot be installed, and its testing build gives only the network stack's `tls.trailingDotSni`; a `\|` in a path or an invalid `xn--` label is `ErrNotMeasured`, every other URL as the browsers measured agree; detection none.
+- **A host ending in a dot over HTTP/3** (all): the `urls` page is TCP only, so its SNI over QUIC follows `tls.trailingDotSni` by inference (each browser builds both hellos from the host); with `omit` (Safari) such a QUIC connection keeps no ticket, since uTLS keys QUIC tickets by server name, so it never resumes; detection low; an Alt-Svc case for a trailing-dot host.
 - **IPv6 literals** (all): kept as written; the URL standard compresses them (`[0:0::1]` is `[::1]`); not captured (the capture server listens on IPv4 only); detection low; a `::1` listener and `ip6-*` cases.
 - **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
-- **Layout-driven image priorities** (Firefox, Chrome): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
+- **Layout-driven image priorities** (Firefox, Chrome, Edge): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
 - **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
 - **Safari's bodiless fetch() order** (Safari 27 macOS): its fetch() POST, PUT and PATCH without a body start `sec-fetch-site, accept, origin` (its header table without `content-type`); mimicry sends the order of its lists measured with a body, `accept, origin, sec-fetch-site`, as it did before; `content-length: 0` and the framing match; detection medium; the header table applied to Safari's own headers whenever the list's measured set differs (`bodilessGaps`).
-- **`Width` and `Sec-CH-Width`** (Chrome): an `<img>` with `sizes` sends its layout width once the page's origin opted in (`client-hints`, `next.width-img`: 50px × DPR); mimicry has no way to say an image's width and sends neither; detection low (sizes images on opted-in sites); a request field for the width (`h3Gaps`, the `client-hints` header list of `/h3/next.width-img`).
+- **`Width` and `Sec-CH-Width`** (Chrome, Edge): an `<img>` with `sizes` sends its layout width once the page's origin opted in (`client-hints`, `next.width-img`: 50px × DPR); mimicry has no way to say an image's width and sends neither; detection low (sizes images on opted-in sites); a request field for the width (`h3Gaps`, the `client-hints` header list of `/h3/next.width-img`).
 - **`Clear-Site-Data` on a redirect** (Chrome): emptied like any other response's, not captured; detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
 - **Network client hints** (Chrome): `rtt` is mimicry's last TCP connect time (QUIC connections do not update it) and `downlink` the machine's captured estimate (1.6 Mbps; 1.55 on Linux), each with ±10% noise and fixed per host for the Transport's life, where Chrome's network quality estimator measures HTTP round trips and throughput and changes over time: on Linux it rose by 30% or more within one sample (1.3 and 1.75 Mbps to one host; kindsgen's `downlinkGaps`); detection low ([0055](../docs/decisions/0055-client-hints-opt-in.md)).
 - **Client hints opt-in without a capture** (`chrome-155-macos`): no `clientHints`, so `Accept-CH` is ignored as before; detection high on sites that opt in; a `client-hints` capture, which Chrome 155 can no longer give (not installable as branded Chrome).
@@ -1307,7 +1388,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari 26's clicked navigations** (Safari 26): not captured; follow its script's; detection low (`missingCaptures`).
 - **Chrome 155's hop `cookie` slot** (Chrome 155): no twin captures, so cookies go after the list; detection medium; ends with its deprecation.
 - **`cookie` slot on hops no twin carried cookies on** (all): credentialed cross-site hops, hops from `http://`, Safari 27's same-site image hop; detection low to medium ([0048](../docs/decisions/0048-cookie-twins.md)).
-- **Chrome's error-page reload** (Chrome): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
+- **Chrome's error-page reload** (Chrome, Edge): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
 - **Unmeasured chain rules** (all): `navigationSite` on longer chains; `hopPreflight` to another cross-site origin; CORS checks of style, font and preload redirects; Safari's `keep` Origin through a third origin; the frame redirect limit; detection low to medium; a `redirects2` step each.
 - **Safari's cold first sample** (Safari): a hop on a new connection with another order; detection low (`sampleGaps` in kindsgen).
 
@@ -1457,11 +1538,11 @@ add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
   out: whether a connection probes is when its server answered.
 - `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`)
   walks the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
-  `h3-early`, `h3-too-early` and `h3-streams-blocked` pages through
-  mimicry on the browser's schedule. Per request it compares every
-  connection it went on and how long it was held. On a connection that
-  sent 0-RTT it compares each stream (in 0-RTT, held with or after the
-  Finished, or sent again after a 425). Per host it compares the
+  `h3-early`, `h3-too-early`, `h3-resume-table` and `h3-streams-blocked`
+  pages through mimicry on the browser's schedule. Per request it
+  compares every connection it went on and how long it was held. On a
+  connection that sent 0-RTT it compares each stream (in 0-RTT, held with
+  or after the Finished, or sent again after a 425). Per host it compares the
   STREAMS_BLOCKED frames sent alone (count and limits) and those sent
   with a stream (limit and place: whole where the samples agree, as sets
   where they differ, `compareStreamsBlockedWith`); on
@@ -1621,7 +1702,11 @@ the first on an iPhone the
 the first on Linux the
 [Chrome 157 on Linux report](../internal/harness/reports/refresh-chrome-157-linux-2026-11-05.md)
 (Firefox's: the
-[Firefox 159 on Linux report](../internal/harness/reports/refresh-firefox-159-linux-2026-11-05.md)).
+[Firefox 159 on Linux report](../internal/harness/reports/refresh-firefox-159-linux-2026-11-05.md));
+the first Edge profile the
+[Edge 157 on macOS report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md)
+(on Windows: the
+[Edge 157 on Windows report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md)).
 
 ## Keeping it true
 
