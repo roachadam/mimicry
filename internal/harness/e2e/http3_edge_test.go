@@ -208,6 +208,28 @@ var h3EdgeGaps = func() map[string]string {
 		gaps["edge-157-macos/h3-broken "+k] = why
 	}
 
+	// Edge on Windows: as Edge on macOS, every one in 3 of 3 samples (its
+	// first resumed probe's Initial packet number steps differ between
+	// samples, so they are not compared).
+	for k, why := range map[string]string{
+		"edge request /h3/silence.so sent":               "as edge-157-macos's: Edge on Windows sent the silenced request again over a new TCP connection 54.5 s after it made it (54452–54506 ms, 3 of 3 samples), when it gave up its migrated connection, a rule no profile field holds; mimicry's waits on its QUIC connection",
+		"edge request /h3/silence.so delay ms":           "as its sending",
+		"edge TCP www.h3-a.test #2 goaway":               "the TCP connection that carried Edge's late resend of silence.so",
+		"edge TCP www.h3-a.test #2 trigger":              "as its goaway",
+		"edge TCP www.h3-a.test #2 after its trigger ms": "as its goaway",
+		"edge QUIC www.h3-b.test #2 datagrams":           "as edge-157-macos's: Edge on Windows's resumed attempt probes first with its resumed hello cut afresh (2 Initials, 39–45 ms into the attempt, in 2 of 3 samples, 3 in the third), and sends a lone 0-RTT datagram 2.0 s in; quic.loss's one_packet probe sends one Initial per PTO and says nothing of the 0-RTT ones (14–15 datagrams in 3 samples, mimicry's 12–13; timing and give-up match)",
+		"edge TCP www.h3-b.test #3 goaway":               "as edge-157-macos's: Edge on Windows moved h3-b's requests to a new TCP connection after 8.0 s idle on its last one (closed5.cs, 3 of 3 samples), not captured why; mimicry keeps its HTTP/2 connection",
+		"edge TCP www.h3-b.test #3 trigger":              "as its goaway",
+		"edge TCP www.h3-b.test #3 after its trigger ms": "as its goaway",
+		"edge request /h3/closed5.cs sent":               "as its goaway",
+		"edge TCP www.h3-b.test #4 goaway":               "as edge-157-macos's: Edge on Windows moved closed6.cs to another new TCP connection after 10.0 s idle on #3 (3 of 3 samples), not captured why; mimicry keeps its HTTP/2 connection",
+		"edge TCP www.h3-b.test #4 trigger":              "as its goaway",
+		"edge TCP www.h3-b.test #4 after its trigger ms": "as its goaway",
+		"edge request /h3/closed6.cs sent":               "as TCP www.h3-b.test #4's goaway",
+	} {
+		gaps["edge-157-windows/h3-broken "+k] = why
+	}
+
 	gaps["firefox-159-linux/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-windows's: Firefox on Linux's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT in 2 of 6; from 300 ms in 4, two or three Initials first; lone 40–42-B 0-RTT datagrams beside them; 14–26 datagrams in the 4 samples whose attempt ran to its 5.0 s close, mimicry's 31–37), and the profile has no resumed-probe rule; give-up time and close match"
 
 	// Firefox on Linux's side connections on the h3-streams-blocked page,
@@ -330,7 +352,7 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	// (compareBurstWaits), and each request still goes on the QUIC
 	// connection (its "sent").
 	const burstOrder = "the replay makes the burst's six requests together, so which of them waits for the server's stream limit is this process's scheduling (the waits themselves, sorted, are compared: compareBurstWaits); the browser made them in order and gave them streams in that order"
-	for _, name := range []string{"chrome-156-macos", "chrome-157-linux", "edge-157-macos", "firefox-158-macos", "firefox-158-windows", "firefox-159-linux", "safari-27-macos"} {
+	for _, name := range []string{"chrome-156-macos", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "firefox-158-macos", "firefox-158-windows", "firefox-159-linux", "safari-27-macos"} {
 		for _, burst := range []string{"a", "b"} {
 			for i := 1; i <= 6; i++ {
 				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
@@ -369,8 +391,9 @@ var h3EdgeFastGaps = func() map[string]string {
 		"firefox-158-windows/h3-broken edge TCP www.h3-b.test #3 after its trigger ms": firefoxWin,
 	}
 	// Edge on macOS holds and follows as Chrome does (closed1.cs 4007–4009 ms,
-	// closed2.cs 2005–2007 ms, 3 of 3 samples).
-	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos"} {
+	// closed2.cs 2005–2007 ms, 3 of 3 samples), and on Windows (closed1.cs
+	// 4004–4014 ms, closed2.cs 1990–2007 ms, 3 of 3 samples).
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
 		for k, why := range map[string]string{
 			"edge request /h3/closed1.cs delay ms":            chromeHold,
 			"edge TCP www.h3-b.test #2 trigger":               chromeHold,
@@ -1341,11 +1364,19 @@ func pnSpace(typ string) string {
 	return "application"
 }
 
+// pathMoveGaps pins a browser sample's connection whose move to a new path
+// strayed from quic.loss.pathDegrading.afterPtos, keyed "<profile>/browser
+// sample N: QUIC <host> (connection M)"; mimicry's moves are never pinned.
+// A pinned connection that moves on time fails, so a pin cannot go stale.
+var pathMoveGaps = map[string]string{
+	"edge-157-windows/browser sample 3: QUIC www.h3-a.test (connection 1)": "Edge on Windows moved this silenced connection 112.0 ms after its last request, 2.91 of its PTOs and 13.4 ms after its second probe, where samples 1 and 2 moved after 3.89 and 3.93 (h3gen's measure; afterPtos 4, as Chrome's and Edge on macOS): an early timer on Windows, not captured",
+}
+
 // checkPathMoves holds every connection of page that moved path to
 // quic.loss.pathDegrading.afterPtos: the move comes that many of its own
 // PTOs after its last request, within half a PTO (h3gen's rounding). The PTO
 // is measured from its probes, floored by tracePTO, so the rule holds under
-// load too.
+// load too. A browser sample's connection in pathMoveGaps is let through.
 func checkPathMoves(t *testing.T, p *profile.Spec, who string, page *capture.Page) {
 	t.Helper()
 
@@ -1372,9 +1403,15 @@ func checkPathMoves(t *testing.T, p *profile.Spec, who string, page *capture.Pag
 
 		ratio := float64(m.after) / m.probePTO
 		report := fmt.Sprintf("%s moved to a new path %.1f ms after its last request: %.2f of its %.1f ms PTOs (%d probes; RFC 9002 on its trace's RTT samples: at least %.1f ms)", conn, float64(m.after)/1000, ratio, m.probePTO/1000, m.probes, m.rttPTO/1000)
+		gap, pinned := pathMoveGaps[p.Name+"/"+conn]
+		late := math.Abs(ratio-float64(d.AfterPTOs)) > 0.5
 
 		switch {
-		case math.Abs(ratio-float64(d.AfterPTOs)) > 0.5:
+		case late && pinned && who != "mimicry":
+			t.Logf("known gap: %s: %s", report, gap)
+		case pinned && who != "mimicry":
+			t.Errorf("%s; pathMoveGaps pins it, but it moved on time: remove the pin", report)
+		case late:
 			t.Errorf("%s; want %d", report, d.AfterPTOs)
 		case m.probePTO < m.rttPTO-1000:
 			t.Errorf("%s; its probes came sooner than its RTT allows", report)

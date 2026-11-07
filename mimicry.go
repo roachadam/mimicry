@@ -22,9 +22,9 @@
 // profile holds only what was recorded from the real browser: asking for
 // anything else fails with ErrNotMeasured instead of guessing. Built-in
 // profiles are in package profiles: Chrome, Firefox and Safari on macOS and
-// the iPhone, Edge on macOS, Chrome and Firefox on Windows and Linux
-// (profiles.ChromeLinux, profiles.EdgeMacOS, ...). Guides are in the
-// repository's docs directory.
+// the iPhone, Edge on macOS and Windows, Chrome and Firefox on Windows and
+// Linux (profiles.ChromeLinux, profiles.EdgeWindows, ...). Guides are in
+// the repository's docs directory.
 package mimicry
 
 import (

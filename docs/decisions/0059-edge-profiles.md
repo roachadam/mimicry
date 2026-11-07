@@ -2,15 +2,16 @@
 
 - Status: Accepted
 - Date: 2026-11-06
-- Commits: the one that closes [#65](https://github.com/roachadam/mimicry/issues/65) for macOS
+- Commits: the ones that close [#65](https://github.com/roachadam/mimicry/issues/65)
 
-**Summary.** `edge-157-macos` is Microsoft Edge on macOS, captured like
-every other profile: the full set of scenarios and replays, three samples
-each, on the second Mac. Edge is Chromium, but it does not send Chrome's
-first request: no Trust Anchor IDs, no `image/jxl` in `accept`, its own
-brands and full versions, and a different packet number length. So it
-gets its own profiles and inherits nothing from Chrome's. Edge on Windows
-follows when its machine can capture.
+**Summary.** `edge-157-macos` and `edge-157-windows` are Microsoft Edge
+on macOS and Windows, captured like every other profile: the full set of
+scenarios and replays, three samples each, on the second Mac and the
+Windows PC. Edge is Chromium, but it does not send Chrome's first request:
+no Trust Anchor IDs, no `image/jxl` in `accept`, its own brands and full
+versions, and a different packet number length. So it gets its own
+profiles and inherits nothing from Chrome's. Edge on the two platforms is
+the same but for the platform and the machine.
 
 ## Problem
 
@@ -52,12 +53,12 @@ name. The captures below show both are detectable.
 
 ## Decision
 
-- Profiles `edge-<major>-<platform>` (`profiles.EdgeMacOS()`), refreshed
+- Profiles `edge-<major>-<platform>` (`profiles.EdgeMacOS()`, `profiles.EdgeWindows()`), refreshed
   by `cmd/refresh -browser edge -mini <alias>` (and `edge-windows` with
   `-windows`). `releasewatch` reads Edge Stable from Microsoft's
   `edgeupdates` feed.
 - The capture tooling treats Edge as a Chromium browser
-  (`platform.Chromium`): Chrome's launch flags, warm-up, DevTools driving,
+  (`capture.Chromium`): Chrome's launch flags, warm-up, DevTools driving,
   NSS trust on Linux and QUIC conditions.
 - A browser's first profile on a platform starts from its own profile on
   another platform; Edge's very first, from Chrome's on the same platform.
@@ -99,16 +100,24 @@ Microsoft's package before capturing), 71 captures:
 - `realcheck` against the real Edge: no difference on the echo endpoints
   (TLS, HTTP/2, QUIC, HTTP/3); browserleaks' HTTP/2 page also logged
   Edge's own `/favicon.ico` request.
+- **Windows:** Edge 157.0.4341.42 on Windows 10, the same day (updated
+  from 156 with Microsoft's MSI), 71 captures with the PC's Edge policies
+  lifted. The profile is `edge-157-macos`'s but for the platform strings,
+  the machine's client hints and the fallback's TCP delay (303–313 ms):
+  the same TLS hello and JA4, headers, QUIC transport parameters and
+  `shared_second_long` (114 of 123 second Initials in 2 bytes, the 9
+  others with a token). The first probe's flight split by the recorder in
+  one `h3-blackhole` sample is pinned. `realcheck`: no difference.
 
 ## Consequences
 
-- Edge on macOS has a profile of its own; Edge on Windows needs the
-  Windows PC's capture run. A first one (2026-11-06, Edge 157.0.4341.42)
-  was discarded: the PC's Edge policies (`HKLM` and `HKCU`
-  `SOFTWARE\Policies\Microsoft\Edge`, about 35 settings from a debloat
-  tool, `ConfigureDoNotTrack` among them) made Edge add `dnt: 1` to every
-  request after its first few, which no default Edge sends. The run needs
-  those keys lifted, and restored after.
+- Edge has a profile of its own on macOS and Windows. On Windows, the
+  PC's Edge policies (`HKLM` and `HKCU` `SOFTWARE\Policies\Microsoft\Edge`,
+  about 35 settings from a debloat tool, `ConfigureDoNotTrack` among
+  them) made Edge add `dnt: 1` to every request after its first few, which
+  no default Edge sends, so the first Windows capture (2026-11-06) was
+  discarded. The keys were exported, lifted for the recapture and for
+  realcheck, and imported again after; the captures carry no `dnt`.
 - Edge refreshes are full captures until a second Edge version inherits
   from the first.
 - The 8 one-byte second Initials are a known gap until a capture shows
@@ -117,5 +126,5 @@ Microsoft's package before capturing), 71 captures:
 ## Revisit when
 
 Edge starts sending Trust Anchor IDs or `image/jxl`, a capture explains
-the second Initial's length, or Edge on another platform differs from
-Edge on macOS.
+the second Initial's length, or Edge on one platform starts to differ from
+the other beyond the platform and the machine.

@@ -23,6 +23,7 @@ var headersOrderGaps = map[string][]string{
 	"chrome-156-windows":  chromeHeadersOrderGaps,
 	"chrome-157-linux":    chromeHeadersOrderGaps,
 	"edge-157-macos":      chromeHeadersOrderGaps,
+	"edge-157-windows":    chromeHeadersOrderGaps,
 	"chrome-157-ios":      safariHeadersOrderGaps,
 	"firefox-159-ios":     safariHeadersOrderGaps,
 	"firefox-158-macos":   firefoxHeadersOrderGaps,

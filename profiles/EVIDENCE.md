@@ -6,16 +6,17 @@ TLS cipher list or a cookie rule.
 
 **Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
 `chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
-`firefox-158-macos`, `firefox-158-windows`, `firefox-159-macos`,
-`firefox-159-windows`, `firefox-159-linux`, `firefox-159-ios`,
-`safari-27-macos`, `safari-26-macos`, `safari-27-ios` and
-`safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
+`edge-157-windows`, `firefox-158-macos`, `firefox-158-windows`,
+`firefox-159-macos`, `firefox-159-windows`, `firefox-159-linux`,
+`firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
+and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
 second Mac kept on macOS 26, as were Firefox 159 and Edge 157 for macOS
-(that Mac on 26.2 by Edge's run); Chrome 156 and Firefox 158 and 159 for
-Windows on Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1 for
-Linux, Google's and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on that
-Windows PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS
-on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
+(that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and 159 and Edge
+157 for Windows on Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1
+for Linux, Google's and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on
+that Windows PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for
+iOS on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS
+26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -391,6 +392,34 @@ value of `chrome-155-macos`'s column but where Edge differs:
 `edge-157-macos` on the echo endpoints (tls.peet.ws, browserleaks' TLS
 and HTTP/2 pages, impersonate.pro over HTTP/2 and HTTP/3); browserleaks'
 HTTP/2 page also logged Edge's own `/favicon.ico` request.
+
+**`edge-157-windows`** (2026-11-06, Edge 157.0.4341.42 on the Windows
+PC, Windows 10,
+[report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md);
+[decision 0059](../docs/decisions/0059-edge-profiles.md)) has no column of
+its own either. It started from `edge-157-macos` and inherits nothing;
+every scenario and replay was captured on Windows with the PC's Edge
+policies lifted (they made Edge send `dnt: 1`; a first run was
+discarded). Its rows are `edge-157-macos`'s: the same hello, JA4,
+headers, client-hint rules and QUIC parameters. Where Windows differs:
+
+- **The platform:** `user-agent` says `Windows NT 10.0; Win64; x64` and
+  `sec-ch-ua-platform` `"Windows"`, in every header list.
+- **W, the machine's client hints:** `platformVersion` 10.0.0, x86, `dpr`
+  1, 32 GB, dark scheme, viewport 1241×1288.
+- **W, from the edge captures (h3gen):** `tcpDelayMs` 303–313 (macOS
+  313–315); 114 of 123 second Initials in 2 bytes (macOS 115), the 9
+  others with a token.
+- **Pinned on Windows only (h3gen's `sampleGaps`):** one `h3-blackhole`
+  attempt whose first flight's two Initials went 2.1 ms apart, which the
+  2 ms flight boundary split (`probes`); two MAX_STREAM_DATA 2.08% above
+  3 MiB (`credit`); in the e2e tests, one `h3-broken` sample's move to a
+  new path after 2.91 PTOs where the other two moved after 3.89 and 3.93
+  (`pathMoveGaps`).
+
+`realcheck` on the Windows PC, the policies lifted again for it, found no
+difference between Edge and `edge-157-windows` on the echo endpoints;
+browserleaks' HTTP/2 page logged Edge's own `/favicon.ico` request.
 
 **`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
 27.2, over Wi-Fi,
@@ -1282,7 +1311,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's packet numbers in some resumed first flights** (Chrome): in some edge resumed attempts (`h3-broken` sample 1 connection 3, `h3-early` sample 1 connection 2) the 0-RTT packets do not continue the shared numbering the `h3-discovery` connections follow; not checked (as the GREASE line); detection low; a look at those flights.
 - **nginx drops Chrome's port migration** (Chrome): nginx answers nothing on the new path, so a 30 s stall; mimicry migrates as Chrome; detection none; a capture of Chrome doing it.
 - **Chrome after declining to move** (Chrome): a server's `disable_active_migration` keeps Chrome on its degrading path ([Chromium source](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.85/net/quic/quic_chromium_client_session.cc#3282), a lead; [RFC 9000 §18.2](https://www.rfc-editor.org/rfc/rfc9000#section-18.2)), and mimicry stays with its keep-alives, probes and idle timeout; what Chrome does then (probes, close timing, where the stuck request goes) is not captured; detection low; a Chrome `h3-broken` capture against a server sending the parameter.
-- **Chrome's blackhole close** (Chrome): Chrome closes after 54–61 s and resends on TCP; mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Chrome's blackhole close** (Chrome, Edge): Chrome closes after 54–61 s and resends on TCP (Edge 54.4–54.5 s, macOS and Windows); mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Edge on Windows's early path move** (Edge on Windows): in 1 of 3 `h3-broken` samples Edge moved its silenced connection to a new path after 2.91 of its PTOs, 13 ms after its second probe, where the others and every other Chromium sample moved after about 4; mimicry moves after 4 (`afterPtos`); detection low; more Windows samples, to tell a rule from a timer (`pathMoveGaps`).
 - **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
 - **Firefox's short-lived QUIC side connections** (Firefox, macOS, Windows and Linux): Firefox intermittently opens QUIC connections beside the page's that carry no request and closes each 1–5 ms after its handshake, H3_NO_ERROR: Firefox 158 on Windows in 2 of its 36 HTTP/3 page samples (`h3-broken`, `h3-download`, one per request: 14 and 7); Firefox 159 in 3 of 6 macOS and 4 of 6 Windows `h3-discovery`/`h3-page` samples with locally trusted roots (8–20 per sample, about 300 ms apart), after which later connections to the host in the sample resume nothing and carry no token, and the server's close in `h3-discovery` got no TCP race; on Linux in about half of the `h3-*` samples (15 per sample) and in every `h3-streams-blocked` sample (6, each within 4 ms of a fetch), and in those samples no GET or HEAD went in 0-RTT and the resumed attempt after the server's close ended silently; mimicry opens none; trigger unknown; detection low; more samples to find when (h3gen's `sampleGaps`, kindsgen's `h3AltUsedGaps`, `h3EdgeGaps`).
 - **Firefox on Windows's resumed attempt** (Firefox on Windows): after the server's close, its resumed attempt first probed 1.7–1.9 s after its first flight (`cachedRtt` false) and gave up at 9.8 s or 10.2 s, or (1 of 3 samples) probed from a cached RTT and ended silently at 4.5 s with nothing held (6 further samples: 9.8, 9.8, 10.2, 10.3, 5.0 s and one silent end); mimicry gives up at 9.8 s; only to a silent server; detection low; more samples to find what decides (h3gen's `sampleGaps`).
@@ -1299,7 +1329,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
 - **QPACK on a resumed connection** (Chrome; Firefox's side connections): with 0-RTT the browser fills its QPACK table from the SETTINGS it remembers, before the server's arrive, and Chrome sets the same capacity again once they do (one `chrome-157-linux` `h3-page` connection; 13 resumed Firefox side connections set it in 0-RTT); mimicry remembers no SETTINGS, so its 0-RTT request uses no dynamic table; detection low; a page that reliably resumes with a dynamic table allowed, then remembered SETTINGS ([#90](https://github.com/roachadam/mimicry/issues/90), `qpackRepeatedCapacity`).
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
-- **Edge's second Initial in 1 byte** (Edge): 8 of 123 connections sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
+- **Edge's second Initial in 1 byte** (Edge, macOS and Windows): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
@@ -1672,7 +1702,9 @@ the first on Linux the
 (Firefox's: the
 [Firefox 159 on Linux report](../internal/harness/reports/refresh-firefox-159-linux-2026-11-05.md));
 the first Edge profile the
-[Edge 157 on macOS report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md).
+[Edge 157 on macOS report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md)
+(on Windows: the
+[Edge 157 on Windows report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md)).
 
 ## Keeping it true
 
