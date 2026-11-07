@@ -4,6 +4,7 @@ package quic
 // ClientHello, its sessions and 0-RTT. Not in upstream; see UPSTREAM.md.
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -79,6 +80,10 @@ func (c *Conn) handleClientTLSEvent(_ time.Time, e tls.QUICEvent) (bool, error) 
 			return true, nil
 		}
 
+		if cc.rememberApp {
+			cc.recalled, _ = recallApp(s.Extra)
+		}
+
 		return true, c.applyRememberedParams(p)
 
 	case tls.QUICStoreSession:
@@ -93,11 +98,19 @@ func (c *Conn) handleClientTLSEvent(_ time.Time, e tls.QUICEvent) (bool, error) 
 			s.Extra = rememberedParams(s.Extra, cc.peerParams)
 		}
 
-		if u, ok := c.tls.(*tls.UQUICConn); ok {
-			return true, u.StoreSession(s)
+		if cc.rememberApp && s.EarlyData {
+			if cc.appState == nil {
+				// Held until SetApplicationState: a 0-RTT ticket
+				// without the SETTINGS would resume with no table.
+				cc.pending = append(cc.pending, s)
+
+				return true, nil
+			}
+
+			s.Extra = rememberedApp(s.Extra, cc.appState)
 		}
 
-		return true, nil
+		return true, c.storeSession(s)
 
 	case tls.QUICRejectedEarlyData:
 		// Every 0-RTT packet is lost: their data goes again in 1-RTT
@@ -146,6 +159,78 @@ func (c *Conn) handleClientTLSEvent(_ time.Time, e tls.QUICEvent) (bool, error) 
 	}
 
 	return false, nil
+}
+
+// storeSession hands s to uTLS's session cache.
+func (c *Conn) storeSession(s *tls.SessionState) error {
+	if u, ok := c.tls.(*tls.UQUICConn); ok {
+		return u.StoreSession(s)
+	}
+
+	return nil
+}
+
+// rememberedAppPrefix marks the application's state (HTTP/3: the server's
+// SETTINGS) in a ticket's SessionState.Extra.
+var rememberedAppPrefix = []byte("mimicry/application-state\x00")
+
+// rememberedApp appends the application's state to a ticket's Extra.
+func rememberedApp(extra [][]byte, state []byte) [][]byte {
+	return append(extra, append(append([]byte(nil), rememberedAppPrefix...), state...))
+}
+
+// recallApp finds the application's state in a ticket's Extra.
+func recallApp(extra [][]byte) ([]byte, bool) {
+	for _, e := range extra {
+		if body, ok := bytes.CutPrefix(e, rememberedAppPrefix); ok {
+			return body, true
+		}
+	}
+
+	return nil, false
+}
+
+// SetApplicationState gives the application's state to store with the
+// connection's 0-RTT tickets (DialConfig.RememberApplication): those held
+// for it are stored now, later ones with it. Only the first call counts:
+// the server's SETTINGS come once.
+func (c *Conn) SetApplicationState(state []byte) {
+	if c.client == nil || !c.client.rememberApp {
+		return
+	}
+
+	state = cloneBytes(state)
+
+	_ = c.runOnLoop(context.Background(), func(now time.Time, c *Conn) {
+		cc := c.client
+		if cc.appState != nil {
+			return
+		}
+
+		cc.appState = state
+
+		for _, s := range cc.pending {
+			s.Extra = rememberedApp(s.Extra, state)
+			if err := c.storeSession(s); err != nil {
+				c.abort(now, err)
+
+				return
+			}
+		}
+
+		cc.pending = nil
+	})
+}
+
+// RememberedApplicationState is the application's state stored with the
+// ticket the connection resumed with 0-RTT (DialConfig.RememberApplication),
+// or nil: none, or no 0-RTT. Set before Dial returns.
+func (c *Conn) RememberedApplicationState() []byte {
+	if c.client == nil {
+		return nil
+	}
+
+	return c.client.recalled
 }
 
 // handleNewToken passes a NEW_TOKEN frame's token to the application.

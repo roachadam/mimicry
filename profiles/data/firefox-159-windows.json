@@ -10021,7 +10021,8 @@
     },
     "qpack": {
       "encoder": "new_names",
-      "huffman": "always"
+      "huffman": "always",
+      "resumed": "remembered"
     },
     "maxDataFrame": 32768,
     "firstDataFrame": 32228,

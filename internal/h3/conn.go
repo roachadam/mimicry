@@ -103,6 +103,10 @@ type Conn struct {
 	// encMu guards enc, which the decoder stream reader also updates.
 	encMu sync.Mutex
 	enc   *qpack.Encoder
+	// remembered: the connection resumed with 0-RTT and its encoder
+	// started from the SETTINGS remembered with the ticket
+	// (profile.QPACK.Resumed).
+	remembered bool
 
 	// decMu guards dec; decCond wakes sections blocked on its inserts.
 	decMu   sync.Mutex
@@ -162,6 +166,17 @@ func New(qc *quic.Conn, p *profile.Spec, opts Options) (*Conn, error) {
 
 	c.decCond = sync.NewCond(&c.decMu)
 	c.enc = qpack.NewEncoder(QPACKConfig(h))
+
+	// A 0-RTT connection's encoder starts from the server's SETTINGS
+	// remembered with its ticket (RFC 9114, section 7.2.4.2), before
+	// serve can read the server's own.
+	if h.QPACK.Resumed != "" && qc.EarlyData() {
+		if capacity, blocked, err := parseSettings(qc.RememberedApplicationState()); err == nil && capacity > 0 {
+			c.enc.SetPeerSettings(capacity, blocked)
+
+			c.remembered = true
+		}
+	}
 
 	tableCapacity := uint64(0)
 
@@ -667,58 +682,21 @@ func (c *Conn) readControl(s *quic.Stream) error {
 	}
 }
 
-// applySettings applies the server's SETTINGS to the QPACK encoder.
+// applySettings applies the server's SETTINGS to the QPACK encoder, and
+// gives them to the QUIC connection to store with its tickets where the
+// profile remembers them (profile.QPACK.Resumed).
 func (c *Conn) applySettings(b []byte) error {
-	var capacity, blocked uint64
-
-	seen := map[uint64]bool{}
-
-	for len(b) > 0 {
-		id, n := quicwire.ConsumeVarint(b)
-		if n < 0 {
-			return &connError{
-				code: codeFrameError,
-				msg:  "malformed SETTINGS",
-			}
-		}
-
-		b = b[n:]
-
-		v, n := quicwire.ConsumeVarint(b)
-
-		if n < 0 {
-			return &connError{
-				code: codeFrameError,
-				msg:  "malformed SETTINGS",
-			}
-		}
-
-		b = b[n:]
-
-		if seen[id] {
-			return &connError{
-				code: codeSettingsError,
-				msg:  fmt.Sprintf("setting 0x%x twice", id),
-			}
-		}
-
-		seen[id] = true
-		switch id {
-		case profile.H3SettingQPACKMaxTableCapacity:
-			capacity = v
-		case profile.H3SettingQPACKBlockedStreams:
-			blocked = v
-		case 0x02, 0x03, 0x04, 0x05:
-			// HTTP/2 settings reserved in HTTP/3 (RFC 9114, 7.2.4.1).
-			return &connError{
-				code: codeSettingsError,
-				msg:  fmt.Sprintf("reserved setting 0x%x", id),
-			}
-		}
+	capacity, blocked, err := parseSettings(b)
+	if err != nil {
+		return err
 	}
 
 	c.encMu.Lock()
 	c.enc.SetPeerSettings(capacity, blocked)
+
+	if c.remembered && c.h3.QPACK.Resumed == profile.QPACKResumedRepeat {
+		c.enc.RepeatCapacity()
+	}
 
 	var announce []byte
 	if capacity > 0 && encoderOnSettings(c.h3) {
@@ -729,6 +707,10 @@ func (c *Conn) applySettings(b []byte) error {
 	c.settingsOnce.Do(func() {
 		close(c.settings)
 	})
+
+	if c.h3.QPACK.Resumed != "" {
+		c.qc.SetApplicationState(b)
+	}
 
 	if len(announce) > 0 {
 		// The encoder stream opens with Set Dynamic Table Capacity as the
@@ -743,6 +725,58 @@ func (c *Conn) applySettings(b []byte) error {
 	}
 
 	return nil
+}
+
+// parseSettings reads a SETTINGS frame's payload: its QPACK table capacity
+// and blocked streams, or the connection error it is.
+func parseSettings(b []byte) (capacity, blocked uint64, err error) {
+	seen := map[uint64]bool{}
+
+	for len(b) > 0 {
+		id, n := quicwire.ConsumeVarint(b)
+		if n < 0 {
+			return 0, 0, &connError{
+				code: codeFrameError,
+				msg:  "malformed SETTINGS",
+			}
+		}
+
+		b = b[n:]
+
+		v, n := quicwire.ConsumeVarint(b)
+
+		if n < 0 {
+			return 0, 0, &connError{
+				code: codeFrameError,
+				msg:  "malformed SETTINGS",
+			}
+		}
+
+		b = b[n:]
+
+		if seen[id] {
+			return 0, 0, &connError{
+				code: codeSettingsError,
+				msg:  fmt.Sprintf("setting 0x%x twice", id),
+			}
+		}
+
+		seen[id] = true
+		switch id {
+		case profile.H3SettingQPACKMaxTableCapacity:
+			capacity = v
+		case profile.H3SettingQPACKBlockedStreams:
+			blocked = v
+		case 0x02, 0x03, 0x04, 0x05:
+			// HTTP/2 settings reserved in HTTP/3 (RFC 9114, 7.2.4.1).
+			return 0, 0, &connError{
+				code: codeSettingsError,
+				msg:  fmt.Sprintf("reserved setting 0x%x", id),
+			}
+		}
+	}
+
+	return capacity, blocked, nil
 }
 
 // goAway records the server's GOAWAY: requests on streams from id on

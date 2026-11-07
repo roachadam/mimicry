@@ -279,13 +279,12 @@ Linux differs:
   resumed probes and the idle origin's move to a new TCP connection after
   8.0 s, as on macOS (`h3EdgeGaps`), the fast fallback (`h3EdgeFastGaps`)
   and the burst and `h3-too-early` timing (`h3EdgeSchedulingGaps`).
-- **Pinned on Linux only:** in one `h3-page` sample Chrome left its first
-  connection unused and sent the page on a resumed one, where it filled
-  the QPACK table in 0-RTT from the SETTINGS it remembered and set the
-  capacity again in 1-RTT (`qpackRepeatedCapacity`; Not covered, below);
-  in h3gen's `sampleGaps`, one control stream after its Finished's
-  datagram (1 of 12), one MAX_STREAM_DATA 2.07% above 3 MiB and the
-  after-raise STREAMS_BLOCKED pair sent twice in one sample.
+- **Pinned on Linux only:** in h3gen's `sampleGaps`, one control stream
+  after its Finished's datagram (1 of 12), one MAX_STREAM_DATA 2.07% above
+  3 MiB and the after-raise STREAMS_BLOCKED pair sent twice in one sample.
+  The `h3-page` sample whose page went on a resumed connection, filling
+  the QPACK table in 0-RTT and setting the capacity again in 1-RTT, is
+  `http3.qpack.resumed`'s rule now (decision 0060).
 
 `realcheck` in WSL found no difference between Chrome and
 `chrome-157-linux` on the echo endpoints (tls.peet.ws, browserleaks' TLS
@@ -1091,6 +1090,7 @@ with a GOAWAY (Firefox), Chrome's transport parameters unshuffled.
 | `http3.earlyStreamsWithRequest` (a connection dialled for a 0-RTT request sends the control stream in its packet) | W: false: the control stream alone first, then the request (18 of 18 on `h3-early`/`h3-too-early`) | — (`earlyRequestFirst`: the request leads the streams in their packet) | W: true: control stream then request in one 0-RTT packet (18 of 18 GET, HEAD, OPTIONS connections); the pair's connection (a POST made with the GET) sent the control stream alone, then the GET (6 of 6: Not covered) | W: as 27 (18 of 18; pair 6 of 6) |
 | `http3.discovery.dialDelayMs`, `resumedDialDelayMs` (every delay, sorted, from the request that waits for it to a fresh or resumed attempt's first datagram, edge pages, a navigation's left out; nil where every delay is within the `?t=` clock's 3 ms; a dial draws one plus up to 1 ms, only with `Config.BrowserDialDelay`: off by default, decision 0050) | W: none: resumed 0–3 ms (50 dials; Chrome 156 51, Windows 0–2 in 34); its fresh dials go beside a request on TCP, none waited for | W: fresh none (its fresh dials are background validations no request waits for); resumed 48 delays, mean 5.1 ms: 11 of 0–3, 36 of 4–9, one 34 (on `h3-too-early` sample 1's first resumed connection); the draw's mean 5.6 | W: fresh 30, 3–10 ms, mean 7.1 (draw 7.6); resumed 51, mean 8.8 (draw 9.3): all but one 5–11, the 22 on `h3-too-early` sample 1's first resumed connection, as Firefox's 34 | W: fresh 27, mean 8.9 (draw 9.4): 23 of 3–10, then 17, 18, 25, 28; resumed 51, mean 8.5 (draw 9.0): all but one 6–11, then 23. Requests on open connections arrive 0–2 ms after they are made (Safari 26 up to 7), so the delay is the dial's; nothing ties the outliers to the slower Mac, so they stay, as rare as measured. Checked by `TestHTTP3EdgeMatchesBrowser` (`checkDialDelays`) and `TestDialDelayAfterReconnect` (the default, the draw) |
 | `http3.qpack` | W: `index_all`, inserts first, `shorter` | W: `new_names`, request first, `always` | W: encoder not measured (no table offered); `always` | W: as 27 |
+| `http3.qpack.resumed` (`h3-resume-table`, decision 0060) | not captured (Chrome 155 cannot be installed): its 0-RTT requests use no table. Chrome 156 (macOS, Windows), 157 (Linux) and Edge 157: W: `remembered_repeat`, 18 resumed connections each: 15 set the remembered 65536 and inserted in 0-RTT (the navigation's 3 after the handshake), and the 6 that wrote again once the server's SETTINGS arrived set it again first | not captured: as Chrome 155. Firefox 159 (macOS, Windows, Linux): W: `remembered`, 18 of 18 opened the encoder with the remembered 65536 in 0-RTT; of the 1, 10 and 15 that wrote again in 1-RTT, none set it again | none: Safari never uses a table | as 27 |
 | `http3.priorityUpdate`, `maxDataFrame`, `firstDataFrame` | W: true (102 of 102 prioritised requests); one DATA frame per body | W: false; 32768, first 32224 (64 KiB: 32224 + 32768 + 544, 3 of 3) | W: false; not measured (no body) | W: as 27 |
 | `http3.headers` | W: nil (114 requests: HTTP/2 order and pseudo order) | W: pseudo `:method :scheme :authority :path`, `te` dropped, `alt-used` before `referer` (before `cookie` for fetch: cookie never went over HTTP/3, its side is assumed) in 129 requests of 11 kinds and the navigation; kinds not captured over HTTP/3 have no entry (not measured). `alt-used` value `<host>:<port>` (every capture, unprivileged ports), the port left out when it is 443 (code, `altUsedValue`): seen once on the wire through a public echo (fp.impersonate.pro over HTTP/3, `internal/harness/reports/realcheck-2026-10-25.md`), no capture reaches port 443; `TestAltUsedPort` | W: nil (9 fetches) | W: as 27 |
 | `http3.high`, `http3.low` | W: low `injected_image` `i` (HTTP/2 has no image-low); every other priority header the kind's HTTP/2 value | W: low `injected_image` `u=6, i`; `markup-image2.so` `u=4, i` pinned (layout-driven) | W: none; `kinds.injected_image.low` `u=7, i` from its `h3-page` HTTP/2 requests | W: as 27 |
@@ -1327,7 +1327,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Retry** (all): no browser captured answering a Retry; detection low to medium; a Retry-forcing server.
 - **PMTU probing, ECN, DATAGRAM, ACK_FREQUENCY** (all): not done or ignored; not measured; real paths; detection low to medium; real-network captures.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
-- **QPACK on a resumed connection** (Chrome; Firefox's side connections): with 0-RTT the browser fills its QPACK table from the SETTINGS it remembers, before the server's arrive, and Chrome sets the same capacity again once they do (one `chrome-157-linux` `h3-page` connection; 13 resumed Firefox side connections set it in 0-RTT); mimicry remembers no SETTINGS, so its 0-RTT request uses no dynamic table; detection low; a page that reliably resumes with a dynamic table allowed, then remembered SETTINGS ([#90](https://github.com/roachadam/mimicry/issues/90), `qpackRepeatedCapacity`).
+- **A navigation's 0-RTT** (Chrome, Edge): on a resumed connection Chrome and Edge held a navigation (GET) until after the Finished, 3 of 3 `h3-resume-table` samples each, where their fetch, XHR and image GETs went in 0-RTT; `http3.earlyData` holds methods only, so mimicry sends the navigation in 0-RTT; detection low; a navigation rule in `http3.earlyData` (`h3EdgeGaps`).
+- **QPACK on a resumed connection without a capture** (`chrome-155-macos`, `firefox-158-*`): no `http3.qpack.resumed` (no `h3-resume-table`; these browsers can no longer be installed), so their 0-RTT requests use no dynamic table; detection low.
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
 - **Edge's second Initial in 1 byte** (Edge, macOS and Windows): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
@@ -1536,11 +1537,11 @@ add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
   out: whether a connection probes is when its server answered.
 - `TestHTTP3EdgeMatchesBrowser` (`internal/harness/e2e/http3_edge_test.go`)
   walks the `h3-blackhole`, `h3-broken`, `h3-vn`, (with aioquic) `h3-v2`,
-  `h3-early`, `h3-too-early` and `h3-streams-blocked` pages through
-  mimicry on the browser's schedule. Per request it compares every
-  connection it went on and how long it was held. On a connection that
-  sent 0-RTT it compares each stream (in 0-RTT, held with or after the
-  Finished, or sent again after a 425). Per host it compares the
+  `h3-early`, `h3-too-early`, `h3-resume-table` and `h3-streams-blocked`
+  pages through mimicry on the browser's schedule. Per request it
+  compares every connection it went on and how long it was held. On a
+  connection that sent 0-RTT it compares each stream (in 0-RTT, held with
+  or after the Finished, or sent again after a 425). Per host it compares the
   STREAMS_BLOCKED frames sent alone (count and limits) and those sent
   with a stream (limit and place: whole where the samples agree, as sets
   where they differ, `compareStreamsBlockedWith`); on

@@ -506,6 +506,11 @@ Failure, version, transfer, early-data and stream-limit scenarios:
   request whose stream started in a 0-RTT packet, read from quic-go's
   per-packet trace (`earlyStreams`), as its HTTP/3 layer only exposes a racy
   `HandshakeComplete`.
+- `h3-resume-table`: the `h3-early` schedule's resumed connections, every
+  request a GET (fetches, a pair made together, an image, an XHR, a
+  navigation), against a server allowing `h3-page`'s 64 KiB QPACK table:
+  what the browser's encoder does in 0-RTT with the SETTINGS it remembers,
+  and once the server's arrive (issue #90).
 - `h3-streams-blocked`: quic-go allowing 2 concurrent bidirectional
   streams (`initial_max_streams_bidi` 2, raised by MAX_STREAMS as each
   stream ends; unidirectional left at 100), and two bursts of 6 fetches
@@ -659,7 +664,13 @@ connection the server sent GOAWAY on, also from `h3-discovery`),
 the request that waits for it a fresh or resumed dial starts), and
 `quic.zeroRtt` from the resumed connections of both sets; where the h3
 captures have none (Safari) it holds the edge captures' resumed first
-flights to the full handshakes' rules. hellogen checks every resumed
+flights to the full handshakes' rules. From `h3-resume-table` alone
+(`server.H3ResumeTableCaptures`) it derives `http3.qpack.resumed`: a
+resumed connection's encoder stream must open with the server's capacity,
+in 0-RTT on at least one connection, and every connection whose encoder
+wrote again in 1-RTT must agree on whether the capacity was set a second
+time there (`remembered_repeat`, Chrome and Edge) or not (`remembered`,
+Firefox); without the capture it stays unset. hellogen checks every resumed
 QUIC hello of the edge captures and derives `tls.quic.earlyDataBefore`
 from them. kindsgen reads only `h3-discovery` and `h3-page`
 (`server.H3ProfileCaptures`). Each

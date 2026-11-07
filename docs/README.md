@@ -123,3 +123,4 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
 | [0049](decisions/0049-streams-blocked.md) | STREAMS_BLOCKED as each browser sends it | Accepted |
 | [0050](decisions/0050-quic-resumption-and-dial-delays.md) | QUIC resumption by `quic.zeroRtt` alone; dial delays per kind; close on GOAWAY | Accepted |
+| [0060](decisions/0060-qpack-remembered-settings.md) | QPACK on a resumed connection uses the SETTINGS remembered with its ticket; `http3.qpack.resumed` | Accepted |

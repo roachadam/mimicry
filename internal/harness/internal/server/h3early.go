@@ -8,6 +8,8 @@ import (
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/qlog"
 	"github.com/quic-go/quic-go/qlogwriter"
+
+	"github.com/roachadam/mimicry/internal/harness/internal/quictrace"
 )
 
 // H3Early is the h3-early scenario: requests of every method as the first
@@ -95,6 +97,70 @@ func H3EarlySteps() []H3Step {
 		with(h3Fetch(h3Host, "head.so", h3EarlyGap), "HEAD", ""),
 		with(h3Fetch(h3Host, "options.so", h3EarlyGap), "OPTIONS", ""),
 		with(form, "POST", "a=1"),
+	}
+}
+
+// H3ResumeTable is the h3-resume-table scenario: the h3-early schedule's
+// resumed connections against a server that allows h3-page's QPACK dynamic
+// table, so each 0-RTT request shows what the browser does with the
+// SETTINGS it remembers from the last connection: whether it sets the
+// table's capacity and inserts before the server's SETTINGS arrive, and
+// what it sends once they do (issue #90). See H3ResumeTableSteps.
+var H3ResumeTable = &Scenario{
+	Name: "h3-resume-table",
+	Doc:  "requests first on resumed QUIC connections, each after the last idled out, against a server allowing a 64 KiB QPACK dynamic table: whether the browser sets the remembered capacity and inserts in 0-RTT, before the server's SETTINGS, and what its encoder sends once they arrive",
+	multi: h3Page{
+		fixedHosts: fixedHosts{
+			names: []string{
+				h3Host,
+			},
+			runFor: 45 * time.Second,
+		},
+		steps: H3ResumeTableSteps,
+	},
+	h3: &h3Server{
+		settings: [][2]uint64{
+			{quictrace.SettingQPACKMaxTableCapacity, 64 << 10},
+			{quictrace.SettingQPACKBlockedStreams, 100},
+		},
+		idleTimeout: h3EarlyIdle,
+	},
+}
+
+// H3ResumeTableSteps lists the h3-resume-table page's requests: a warm-up
+// and a GOAWAY that moves the page to HTTP/3, a fresh QUIC connection that
+// fills a table and leaves a ticket, then, each once the last connection
+// idled out, resumed connections carrying a fetch, another, an image, two
+// fetches made together (whether the second uses the first's inserts), an
+// XHR and a navigation. Every method is one the browsers send in 0-RTT.
+func H3ResumeTableSteps() []H3Step {
+	goAway := h3Fetch(h3Host, "goaway.so", 1000)
+
+	goAway.GoAwayTCP = true
+
+	image := h3Fetch(h3Host, "image.so", h3EarlyGap)
+
+	image.Kind = "image"
+
+	xhr := h3Fetch(h3Host, "xhr.so", h3EarlyGap)
+
+	xhr.Kind = "xhr"
+
+	nav := h3Fetch(h3Host, "nav.so", h3EarlyGap)
+
+	nav.Kind = "navigate"
+
+	return []H3Step{
+		h3Fetch(h3Host, "warm.so", 0),
+		goAway,
+		h3Fetch(h3Host, "fetch1.so", 1500),
+		h3Fetch(h3Host, "resume1.so", h3EarlyGap),
+		h3Fetch(h3Host, "resume2.so", h3EarlyGap),
+		image,
+		h3Fetch(h3Host, "pair-a.so", h3EarlyGap),
+		h3Fetch(h3Host, "pair-b.so", 0),
+		xhr,
+		nav,
 	}
 }
 

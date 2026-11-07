@@ -149,7 +149,25 @@ type QPACK struct {
 	// Huffman is when strings are Huffman-coded: HuffmanShorter or
 	// HuffmanAlways.
 	Huffman HuffmanRule `json:"huffman"`
+	// Resumed is what a connection resumed with 0-RTT does with the
+	// server's SETTINGS remembered with its ticket (RFC 9114, section
+	// 7.2.4.2): QPACKResumedRemembered or QPACKResumedRepeat. Empty: not
+	// measured, and its 0-RTT requests use no dynamic table until the
+	// server's SETTINGS arrive.
+	Resumed string `json:"resumed,omitempty"`
 }
+
+// Values of QPACK.Resumed.
+const (
+	// QPACKResumedRemembered: the table's capacity is the remembered one
+	// from the connection's start, set before the first insert, in 0-RTT;
+	// the server's SETTINGS set it again only if they differ (Firefox).
+	QPACKResumedRemembered = "remembered"
+	// QPACKResumedRepeat is QPACKResumedRemembered, and the capacity is
+	// set again once the server's SETTINGS arrive, unchanged or not, ahead
+	// of the encoder stream's next instructions (Chrome).
+	QPACKResumedRepeat = "remembered_repeat"
+)
 
 // Values of QPACK.Encoder.
 const (

@@ -570,6 +570,17 @@ func (c *checker) checkHTTP3(p *Spec) {
 		c.add(path+".qpack.insertsFirst", "needs an encoder")
 	}
 
+	switch h.QPACK.Resumed {
+	case "":
+	case QPACKResumedRemembered, QPACKResumedRepeat:
+		if h.QPACK.Encoder == "" {
+			c.add(path+".qpack.resumed", "needs an encoder")
+		}
+
+	default:
+		c.add(path+".qpack.resumed", "%q must be empty, %q or %q", h.QPACK.Resumed, QPACKResumedRemembered, QPACKResumedRepeat)
+	}
+
 	if h.QPACK.Huffman != HuffmanShorter && h.QPACK.Huffman != HuffmanAlways {
 		c.add(path+".qpack.huffman", "%q must be %q or %q", h.QPACK.Huffman, HuffmanShorter, HuffmanAlways)
 	}

@@ -65,6 +65,13 @@ type DialConfig struct {
 	// (QUICPathDegrading's PathMigrate: Chrome). Required for such a
 	// profile; the socket is the connection's from then on.
 	NewPath func(ctx context.Context) (net.PacketConn, error)
+	// RememberApplication keeps each ticket the server sends until
+	// Conn.SetApplicationState gives the application's state for it (the
+	// server's HTTP/3 SETTINGS, which a client remembers for 0-RTT: RFC
+	// 9114, section 7.2.4.2), then stores both, as QUICHE does; a
+	// connection resuming the ticket finds that state in
+	// Conn.RememberedApplicationState.
+	RememberApplication bool
 }
 
 // ErrIdleTimeout is the error of a connection closed by its idle timeout
@@ -312,6 +319,14 @@ type clientState struct {
 	// peerParams is the server's quic_transport_parameters body, stored
 	// with its tickets for 0-RTT.
 	peerParams []byte
+	// rememberApp is DialConfig.RememberApplication. appState is the
+	// application's state, once SetApplicationState gave it, stored with
+	// every ticket from then on; pending the tickets waiting for it.
+	// recalled is the state the resumed ticket carried, for 0-RTT.
+	rememberApp bool
+	appState    []byte
+	pending     []*tls.SessionState
+	recalled    []byte
 	// version is the QUIC version in use: 1, or 2 once the server's
 	// Initial switched to it (clientUpgrade). sentVersionInfo: the
 	// profile sends version_information; available is its Available
@@ -409,6 +424,7 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 
 	cc.originalVersion = cc.version
 	cc.afterVN = cfg.AfterVersionNegotiation
+	cc.rememberApp = cfg.RememberApplication
 
 	if p.Tokens && len(cfg.Token) > 0 {
 		cc.token = cloneBytes(cfg.Token)

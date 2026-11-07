@@ -123,8 +123,9 @@ type Encoder struct {
 	// maxBlocked its SETTINGS_QPACK_BLOCKED_STREAMS.
 	peerMax    uint64
 	maxBlocked uint64
-	// setCapacity is set while the capacity instruction is unsent.
-	setCapacity bool
+	// capacities are the Set Dynamic Table Capacity instructions not sent
+	// yet, in order.
+	capacities []uint64
 	// known is the Known Received Count; sections the unacknowledged
 	// sections of each stream, oldest first.
 	known    uint64
@@ -155,7 +156,8 @@ func NewEncoder(cfg Config) *Encoder {
 // and SETTINGS_QPACK_BLOCKED_STREAMS: the table's capacity becomes the
 // smallest of the peer's, the configured maximum and none for
 // StrategyStatic (unless AnnounceCapacity), set by the encoder stream's
-// first instruction.
+// next instruction when it changes. A connection resumed with 0-RTT calls
+// it first with the SETTINGS remembered with its ticket.
 func (e *Encoder) SetPeerSettings(maxCapacity, blockedStreams uint64) {
 	e.peerMax, e.maxBlocked = maxCapacity, blockedStreams
 
@@ -167,21 +169,33 @@ func (e *Encoder) SetPeerSettings(maxCapacity, blockedStreams uint64) {
 
 	if capacity != e.t.capacity {
 		e.t.capacity = capacity
-		e.setCapacity = true
+		e.capacities = append(e.capacities, capacity)
 	}
 }
 
-// TakeCapacity returns the Set Dynamic Table Capacity instruction the
+// RepeatCapacity sets the table's capacity again with the next
+// instructions, though it did not change: Chrome does once a resumed
+// connection's SETTINGS arrive (profile.QPACKResumedRepeat), after the
+// remembered capacity's instruction, even one not sent yet.
+func (e *Encoder) RepeatCapacity() {
+	if e.t.capacity > 0 {
+		e.capacities = append(e.capacities, e.t.capacity)
+	}
+}
+
+// TakeCapacity returns the Set Dynamic Table Capacity instructions the
 // encoder has not sent yet, or nil, for an encoder stream that opens with
-// it before any section; Encode then leaves it out.
+// them before any section; Encode then leaves them out.
 func (e *Encoder) TakeCapacity() []byte {
-	if !e.setCapacity {
-		return nil
+	var out []byte
+
+	for _, c := range e.capacities {
+		out = appendInt(out, 0x20, 5, c)
 	}
 
-	e.setCapacity = false
+	e.capacities = e.capacities[:0]
 
-	return appendInt(nil, 0x20, 5, e.t.capacity)
+	return out
 }
 
 // rep is one field line before its section's base is known.
@@ -205,10 +219,11 @@ const (
 // returns the encoder stream instructions the section needs (to be sent
 // as the strategy orders them against the section) and the section.
 func (e *Encoder) Encode(stream uint64, fields []Field) (instructions, block []byte) {
-	if e.setCapacity {
-		instructions = appendInt(instructions, 0x20, 5, e.t.capacity)
-		e.setCapacity = false
+	for _, c := range e.capacities {
+		instructions = appendInt(instructions, 0x20, 5, c)
 	}
+
+	e.capacities = e.capacities[:0]
 
 	start := e.t.inserted()
 
