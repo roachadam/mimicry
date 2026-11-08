@@ -40,50 +40,49 @@
 #
 # seconds  tier      package          test[/subtests]       flags
 # The generators run on one goroutine (no go statements or parallel
-# subtests in them or the capture decoders). Without -race they took 22 s,
-# 2 s, 10 s, 0.2 s, 2 s and 0.2 s on an M-series Mac (2026-11-07, every
-# profile's captures); the runner is about 2.2 times slower.
-50         gen       ./cmd/hellogen   TestRegenerateReproducesProfiles     norace
-5          gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures norace
-22         gen       ./cmd/h3gen      TestRegenerateReproducesProfiles     norace
-2          gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures norace
-5          gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles     norace
-2          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures norace
+# subtests in them or the capture decoders), so without -race. Times from
+# a run by hand on 2026-11-08 (every main tier test, 8 shards), as below.
+25         gen       ./cmd/hellogen   TestRegenerateReproducesProfiles     norace
+3          gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures norace
+14         gen       ./cmd/h3gen      TestRegenerateReproducesProfiles     norace
+1          gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures norace
+4          gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles     norace
+1          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures norace
 # Its subtests wait out each page's schedule (the longest, h3-broken, about
 # 72 s), but they compare timings: at -parallel 16 the runner's 4 CPUs
-# stalled the process past the browsers' races (2026-11-08), so 8.
-# Estimated: to be retaken from the runner's log.
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos             parallel=8
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows           parallel=8
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux             parallel=8
-180        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios) parallel=8
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=8
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=8
+# stalled the process past the browsers' races (2026-11-08), so 8. The
+# rest unit is the iPhone profiles' (h3-broken's 72 s bounds it).
+75         main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos             parallel=8
+95         main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows           parallel=8
+75         main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux             parallel=8
+160        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios) parallel=8
+100        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=8
+100        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=8
 140        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-                       parallel=8
 80         main      ./e2e            TestHTTP3EdgeMatchesBrowser                              parallel=8
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,
 # nearly all of their time): apart, each decodes them. Without -race the
-# pair took 9 s on a Mac (325 s with it); their h2.Conn replays are the
-# code TestConnectionMatchesBrowserTrace, the kinds and cookies tests and
-# internal/h2's own tests run under -race.
-30         -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
-25         protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces norace
-25         core      ./e2e            TestHPACKReproducesBrowserBlocks       norace
-250        protocol  ./e2e            TestConnectionMatchesBrowserTrace
+# pair took 16 s (437 s with it, in 2026-11-07's main run); their h2.Conn
+# replays are the code TestConnectionMatchesBrowserTrace, the kinds and
+# cookies tests and internal/h2's own tests run under -race.
+16         -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
+15         protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces norace
+15         core      ./e2e            TestHPACKReproducesBrowserBlocks       norace
+10         protocol  ./e2e            TestConnectionMatchesBrowserTrace
 135        protocol  ./e2e            TestHTTP3DownloadMatchesBrowser
 # h3-discovery waits about 51 s (its pauses and the 35 s idle) in every
 # profile.
-70         protocol  ./e2e            TestHTTP3MatchesBrowser                parallel=8
+115        protocol  ./e2e            TestHTTP3MatchesBrowser                parallel=8
 # One profile's download (the override is the same for every profile).
-45         protocol  ./e2e            TestHTTP3ACKEvery
-# The rerun without HPACK and WebSockets: 17 s on a Mac (73 s with them).
-40         core      ./e2e            TestInheritedProfile
+30         protocol  ./e2e            TestHTTP3ACKEvery
+# The rerun without HPACK and WebSockets (75 s with them).
+25         core      ./e2e            TestInheritedProfile
 # Each socket waits out the browser's close (Chrome 2 s, about 31 s a
 # profile).
-45         core      ./e2e            TestWebSocketsMatchBrowser             parallel=16
+50         core      ./e2e            TestWebSocketsMatchBrowser             parallel=16
 # The client-hints page's script pauses (about 15 s, its subtests in
-# parallel); estimated from a local run, not yet a runner's log.
+# parallel).
 20         core      ./e2e            TestClientHintsMatchesBrowser          parallel=16
 15         core      ./e2e            TestConnectionsMatchBrowser
 15         core      ./e2e            TestCORSMatchesBrowser
