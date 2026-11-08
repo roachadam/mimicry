@@ -8,7 +8,8 @@
 # parallel the --- PASS line says 0.00s, so its time is from === RUN to
 # --- PASS). Parallel subtests are bound by -parallel, by default the
 # runner's 4 CPUs: subtests that mostly wait on a page's own timers get
-# parallel=16, or they take the sum of their subtests over 4.
+# parallel=16 (8 where they compare timings, which an overloaded runner
+# skews), or they take the sum of their subtests over 4.
 #
 # Tiers (.github/workflows/ci.yml picks them):
 #   core      every pull request that touches code, and main
@@ -49,16 +50,17 @@
 5          gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles     norace
 2          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures norace
 # Its subtests wait out each page's schedule (the longest, h3-broken, about
-# 72 s); at -parallel 16 a slice takes about its longest subtest per 16.
+# 72 s), but they compare timings: at -parallel 16 the runner's 4 CPUs
+# stalled the process past the browsers' races (2026-11-08), so 8.
 # Estimated: to be retaken from the runner's log.
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos             parallel=16
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows           parallel=16
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux             parallel=16
-180        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios) parallel=16
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=16
-110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=16
-140        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-                       parallel=16
-80         main      ./e2e            TestHTTP3EdgeMatchesBrowser                              parallel=16
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos             parallel=8
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows           parallel=8
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux             parallel=8
+180        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios) parallel=8
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=8
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=8
+140        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-                       parallel=8
+80         main      ./e2e            TestHTTP3EdgeMatchesBrowser                              parallel=8
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,
 # nearly all of their time): apart, each decodes them. Without -race the
@@ -72,7 +74,7 @@
 135        protocol  ./e2e            TestHTTP3DownloadMatchesBrowser
 # h3-discovery waits about 51 s (its pauses and the 35 s idle) in every
 # profile.
-70         protocol  ./e2e            TestHTTP3MatchesBrowser                parallel=16
+70         protocol  ./e2e            TestHTTP3MatchesBrowser                parallel=8
 # One profile's download (the override is the same for every profile).
 45         protocol  ./e2e            TestHTTP3ACKEvery
 # The rerun without HPACK and WebSockets: 17 s on a Mac (73 s with them).
