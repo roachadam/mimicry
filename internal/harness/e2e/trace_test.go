@@ -70,10 +70,11 @@ func TestConnectionMatchesBrowserTrace(t *testing.T) {
 			c := <-captures
 			got := h2trace.Extract(c.Trace)
 
-			wantOpening, err := capture.OpeningRecords(captureDir, p)
-			if err != nil {
-				t.Fatal(err)
-			}
+			// capture.OpeningRecords of p's captures, which hellogen's
+			// TestRegenerateReproducesProfiles holds http2.openingRecords
+			// to exactly: read from the profile, as decoding every page
+			// capture again took 45 s a profile under -race.
+			wantOpening := p.HTTP2.OpeningRecords
 
 			gotOpening, _, err := h2trace.Opening(c.Trace)
 			if err != nil {

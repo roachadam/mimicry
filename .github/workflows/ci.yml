@@ -88,7 +88,8 @@ jobs:
               tiers+=,protocol shards=$((shards + 3))
             fi
             if echo "$files" | grep -Eq "$GEN_PATHS"; then
-              tiers+=,gen shards=$((shards + 3))
+              # the generators run without -race: about 90 s in all
+              tiers+=,gen shards=$((shards + 1))
             fi
           fi
           echo "code changed: $code; harness tiers: $tiers in $shards shards"

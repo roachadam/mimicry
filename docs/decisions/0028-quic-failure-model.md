@@ -181,7 +181,7 @@ an unanswered 0-RTT connection at the profile's race delay (Chrome
 of the give-up (`zeroRttHolds` 4 s, `hold` 5 s), and on a failed attempt at
 once instead of at the race delay. The QUIC connections, the race delays
 and everything a server that answers sees are unchanged;
-`TestHTTP3EdgeMatchesBrowser` checks both modes.
+`TestHTTP3EdgeMatchesBrowser` checks both modes where they can differ.
 
 ## Amendment 2026-10-28: an attempt counts once it has sent
 

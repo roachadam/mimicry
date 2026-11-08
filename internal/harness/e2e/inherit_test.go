@@ -17,7 +17,11 @@ import (
 
 // inheritedTests are the tests that read non-default scenario captures, so
 // check an inheriting profile. inheritedTestsFull take a minute or more each
-// and run only with MIMICRY_PROFILES=all.
+// and run only with MIMICRY_PROFILES=all. Left out as costly and covered by
+// the default profiles' own run (chrome-156-macos and firefox-159-macos
+// inherit through the same lookup): TestHPACKReproducesBrowserBlocks, which
+// compares the captured bytes unrewritten, and TestWebSocketsMatchBrowser,
+// whose proxy-websocket captures those profiles inherit rewritten.
 var (
 	inheritedTests = []string{
 		"TestKindsMatchBrowserTraces",
@@ -32,11 +36,9 @@ var (
 		"TestNavRedirectsMatchBrowser",
 		"TestHTTP1MatchesBrowserTrace",
 		"TestProxyMatchesBrowser",
-		"TestWebSocketsMatchBrowser",
 		"TestDeflateReproducesBrowserMessages",
 		"TestConnectionsMatchBrowser",
 		"TestResumptionMatchesBrowser",
-		"TestHPACKReproducesBrowserBlocks",
 		"TestQPACKReproducesBrowserSections",
 	}
 	inheritedTestsFull = []string{

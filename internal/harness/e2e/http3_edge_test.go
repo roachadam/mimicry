@@ -52,24 +52,52 @@ const h3PageHost = "www.h3-a.test"
 // process's stalls (compareTimes); a page whose race between QUIC and TCP
 // the stalls decided (raceStall) runs again, up to edgeRuns times in all,
 // as such a run compares nothing of mimicry's. Known differences are in
-// h3EdgeGaps and h3EdgeSchedulingGaps. Each page runs twice: with
+// h3EdgeGaps and h3EdgeSchedulingGaps. Each page runs with
 // Config.BrowserQUICFallback and Config.BrowserDialDelay ("browser"),
-// where that is all that differs, and with the fast default ("fast"),
-// whose differences besides are exactly h3EdgeFastGaps: requests that
-// stop waiting on a QUIC attempt the server has not answered, and the TCP
-// connections they open (a healthy page has none), and dials that start
-// at once (checkDialDelays). Subtests run in parallel (about 75 s).
+// where that is all that differs, and the pages h3EdgeFast picks run again
+// with the fast default ("fast"), whose differences besides are exactly
+// h3EdgeFastGaps: requests that stop waiting on a QUIC attempt the server
+// has not answered, and the TCP connections they open (a healthy page has
+// none), and dials that start at once (checkDialDelays). Subtests run in
+// parallel; the slowest page, h3-broken, takes about 75 s.
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	dials := &dialRecord{}
 	lone := &afterRTTRecord{}
+	// planned is how many pages each profile runs, finished how many ran or
+	// were skipped.
+	planned := map[string]int{}
+
+	var finishedMu sync.Mutex
+
+	finished := map[string]int{}
 	t.Cleanup(func() {
-		dials.compare(t)
-		lone.compare(t)
+		dials.compare(t, func(name string) bool {
+			return finished[name] == planned[name]
+		})
+		lone.compare(t, planned)
 	})
 
 	for _, name := range testProfiles(t) {
+		p, err := loadProfile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if p.HTTP3 == nil || p.QUIC == nil {
+			t.Fatalf("%s: the profile has no http3 or quic section", name)
+		}
+
+		checkFastGapsRun(t, p)
+
 		for _, sc := range h3EdgeScenarios {
-			for _, fast := range []bool{false, true} {
+			modes := []bool{false}
+			if h3EdgeFast(sc, p) {
+				modes = append(modes, true)
+			}
+
+			for _, fast := range modes {
+				planned[name]++
+
 				mode := "browser"
 				if fast {
 					mode = "fast"
@@ -78,19 +106,17 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 				t.Run(name+"/"+sc.Name+"/"+mode, func(t *testing.T) {
 					t.Parallel()
 
+					defer func() {
+						finishedMu.Lock()
+
+						finished[name]++
+						finishedMu.Unlock()
+					}()
+
 					if sc.NeedsAioquic() {
 						if err := server.AioquicAvailable(t.Context()); err != nil {
 							t.Skipf("%s needs aioquic: %v", sc.Name, err)
 						}
-					}
-
-					p, err := loadProfile(name)
-					if err != nil {
-						t.Fatal(err)
-					}
-
-					if p.HTTP3 == nil || p.QUIC == nil {
-						t.Fatal("the profile has no http3 or quic section")
 					}
 
 					want := h3Captures(t, p, sc)
@@ -131,8 +157,72 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	}
 }
 
+// h3EdgeFast reports whether TestHTTP3EdgeMatchesBrowser runs sc for p in
+// fast mode too. The engine differs between the modes in three places only:
+// a QUIC attempt that fails before the race delay (Engine.await), a
+// resumed connection whose server has not answered after the race delay
+// (earlyUntil, which Safari gets in both modes) and the dial delay
+// (dialDelay, only for a profile with http3.discovery dialDelayMs or
+// resumedDialDelayMs). So fast mode runs:
+//   - h3-broken and h3-vn, for every profile: their attempts fail (a closed
+//     server, Version Negotiation) or go unanswered, where the fast default
+//     differs (h3EdgeFastGaps; checkFastGapsRun holds each listed gap on a
+//     page that runs fast);
+//   - h3-early and h3-too-early, for a profile with a dial delay, and
+//     h3-blackhole for one with a fresh dial delay (dialDelayMs: Safari):
+//     their dials feed dialRecord.compare, the only end-to-end check that
+//     BrowserDialDelay is off by default. Safari's fresh dials need
+//     blackhole's two to reach minDials in fast mode (broken 3, vn 1,
+//     early 1, too-early 1); firefox-159-linux has dialDelayMs too but
+//     makes only 2 fresh dials on all the pages, so it runs blackhole fast
+//     for no comparison.
+//
+// Every other page (v2, resume-table, streams-blocked, early and too-early
+// without a dial delay, blackhole without a fresh one) answers within the
+// race delay over loopback or never fails an attempt early (blackhole's
+// attempts are fresh and go unanswered for seconds), so fast mode runs the
+// same code as the browser's there: no fast gap was ever listed on one,
+// and TestHTTP3MatchesBrowser and TestHTTP3DownloadMatchesBrowser check the
+// default on healthy pages.
+func h3EdgeFast(sc *server.Scenario, p *profile.Spec) bool {
+	switch sc {
+	case server.H3Broken, server.H3VN:
+		return true
+	case server.H3Early, server.H3TooEarly:
+		d := p.HTTP3.Discovery
+
+		return len(d.DialDelayMillis) > 0 || len(d.ResumedDialDelayMillis) > 0
+
+	case server.H3Blackhole:
+		return len(p.HTTP3.Discovery.DialDelayMillis) > 0
+
+	default:
+		return false
+	}
+}
+
+// checkFastGapsRun fails for each h3EdgeFastGaps entry of p's pages
+// (keyed by their captures' source, as edgeGapsFor) that does not run in
+// fast mode (h3EdgeFast), where unused would never look for it.
+func checkFastGapsRun(t *testing.T, p *profile.Spec) {
+	t.Helper()
+
+	for _, sc := range h3EdgeScenarios {
+		if h3EdgeFast(sc, p) {
+			continue
+		}
+
+		prefix := capture.Source(p, sc.Name) + "/" + sc.Name + " "
+		for k := range h3EdgeFastGaps {
+			if strings.HasPrefix(k, prefix) {
+				t.Errorf("listed fast gap %q is on a page that does not run in fast mode (h3EdgeFast)", k)
+			}
+		}
+	}
+}
+
 // h3EdgeScenarios are the scenarios TestHTTP3EdgeMatchesBrowser replays,
-// each in the browser's mode and the fast one.
+// each in the browser's mode, and those h3EdgeFast picks in the fast one.
 var h3EdgeScenarios = []*server.Scenario{server.H3Blackhole, server.H3Broken, server.H3VN, server.H3V2, server.H3Early, server.H3TooEarly, server.H3ResumeTable, server.H3StreamsBlocked}
 
 // edgeRuns bounds how often TestHTTP3EdgeMatchesBrowser runs a page whose
@@ -1744,6 +1834,9 @@ type profileDials struct {
 	delays  [2][2][]int64
 }
 
+// minDials is how many dials each mode needs for dialRecord.compare.
+const minDials = 8
+
 // add records name's page's delays in its mode.
 func (r *dialRecord) add(name string, p *profile.Spec, browser bool, raw [2][]int64) {
 	r.mu.Lock()
@@ -1773,11 +1866,15 @@ func (r *dialRecord) add(name string, p *profile.Spec, browser bool, raw [2][]in
 	}
 }
 
-// compare holds, per profile and kind with samples and 8 dials or more in
-// each mode, the browser mode's median delay above the fast one's by at
-// least half the samples' median: the delay is applied with
-// Config.BrowserDialDelay and not by default.
-func (r *dialRecord) compare(t *testing.T) {
+// compare holds, per profile and kind with samples, the browser mode's
+// median delay above the fast one's by at least half the samples' median:
+// the delay is applied with Config.BrowserDialDelay and not by default.
+// It needs minDials dials in each mode. The browser mode runs every page,
+// so with fewer there the edge pages cannot measure the kind; with enough
+// there and fewer in the fast mode once every page of the profile has run
+// (complete), the pages h3EdgeFast picks no longer feed the check, which
+// fails.
+func (r *dialRecord) compare(t *testing.T, complete func(name string) bool) {
 	t.Helper()
 
 	r.mu.Lock()
@@ -1792,9 +1889,29 @@ func (r *dialRecord) compare(t *testing.T) {
 		pd := r.by[name]
 		for kind, s := range pd.samples {
 			fast, browser := pd.delays[0][kind], pd.delays[1][kind]
-			if len(s) == 0 || len(fast) < 8 || len(browser) < 8 {
+
+			if len(s) == 0 {
 				continue
 			}
+
+			switch {
+			case len(browser) < minDials:
+				t.Logf("%s: the dials (resumed %v): %d with BrowserDialDelay, fewer than %d; not compared", name, kind == 1, len(browser), minDials)
+
+				continue
+
+			case len(fast) < minDials && !complete(name):
+				t.Logf("%s: the dials (resumed %v): %d without BrowserDialDelay, and not every edge page ran; not compared", name, kind == 1, len(fast))
+
+				continue
+
+			case len(fast) < minDials:
+				t.Errorf("%s: the dials (resumed %v): %d with BrowserDialDelay and %d without, fewer than %d; the pages h3EdgeFast picks must feed the check", name, kind == 1, len(browser), len(fast), minDials)
+
+				continue
+			}
+
+			t.Logf("%s: the dials (resumed %v): %d with BrowserDialDelay, %d without", name, kind == 1, len(browser), len(fast))
 
 			if diff, want := median(browser)-median(fast), int64(s[len(s)/2]/2); diff < want {
 				t.Errorf("%s: the dials (resumed %v) start %d ms later with BrowserDialDelay than without (medians of %d and %d dials); the samples' median is %d ms, so at least %d", name, kind == 1, diff, len(browser), len(fast), s[len(s)/2], want)
@@ -1924,8 +2041,9 @@ func (r *afterRTTRecord) add(name string, p *profile.Spec, got *capture.Page) {
 	}
 }
 
-// compare reports each profile's count against the browser's.
-func (r *afterRTTRecord) compare(t *testing.T) {
+// compare reports each profile's count against the browser's; planned is
+// how many pages each profile runs.
+func (r *afterRTTRecord) compare(t *testing.T, planned map[string]int) {
 	t.Helper()
 
 	r.mu.Lock()
@@ -1936,8 +2054,8 @@ func (r *afterRTTRecord) compare(t *testing.T) {
 		allowed := max(1, n.Late/20)
 
 		switch {
-		case n.Late == 0 && r.pages[name] < len(h3EdgeScenarios)*2:
-			t.Logf("%s: quic.ack.afterRtt: no lone packet after a quiet spell in the %d edge pages run (of %d); not compared", name, r.pages[name], len(h3EdgeScenarios)*2)
+		case n.Late == 0 && r.pages[name] < planned[name]:
+			t.Logf("%s: quic.ack.afterRtt: no lone packet after a quiet spell in the %d edge pages run (of %d); not compared", name, r.pages[name], planned[name])
 		case n.Late == 0:
 			t.Errorf("%s: quic.ack.afterRtt: no lone packet after a quiet spell in any edge page; the rule went unexercised", name)
 		case held > allowed:
