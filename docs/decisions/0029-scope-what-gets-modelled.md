@@ -124,8 +124,9 @@ By [0036](0036-fast-quic-fallback.md): failure-path
 timing may be faster than the browser's by default when it is a stall a
 user notices and is visible only where QUIC fails; the browser's timing
 stays available as an option (`Config.BrowserQUICFallback`). The test that
-it is visible only there is an e2e replay in both modes, with every
-difference listed (`h3EdgeFastGaps`).
+it is visible only there is an e2e replay in both modes of the pages
+where the modes can differ, with every difference listed
+(`h3EdgeFastGaps`; [0036, amendment 2026-11-07](0036-fast-quic-fallback.md#amendment-2026-11-07-fast-mode-only-where-it-can-differ)).
 
 ## Amendment 2026-10-28: faster defaults for costly, low-risk behaviours
 

@@ -90,22 +90,23 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 // the warm-up, by the same check as the profile's rule above, held to the
 // changed rate. Profiles that batch their ACKs are left out: their ACKs
 // advance by however many packets arrived, so a count is not a cadence.
+// The override replaces quic.ack.every alike for every profile (ackOverride
+// in internal/engine/native, with its own tests), so one profile shows it on
+// the wire: the first of the run's that counts.
 func TestHTTP3ACKEvery(t *testing.T) {
 	const every = 20
 
 	for _, name := range testProfiles(t) {
+		p, err := loadProfile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if p.QUIC == nil || p.QUIC.Ack.Batched || p.QUIC.Ack.Every >= every {
+			continue
+		}
+
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			p, err := loadProfile(name)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if p.QUIC == nil || p.QUIC.Ack.Batched || p.QUIC.Ack.Every >= every {
-				t.Skip("the profile batches its ACKs, or acknowledges no more often")
-			}
-
 			want := h3Captures(t, p, server.H3Download)
 			got := runH3PageWith(t, p, server.H3Download, want[0], func(cfg *mimicry.Config) {
 				cfg.HTTP3ACKEvery = every
@@ -122,7 +123,11 @@ func TestHTTP3ACKEvery(t *testing.T) {
 
 			t.Logf("mimicry with HTTP3ACKEvery %d: %s", every, summary)
 		})
+
+		return
 	}
+
+	t.Skip("no profile in the run counts its ACKs more often than every 20")
 }
 
 // downloadConn is the page's QUIC connection that carried the download:

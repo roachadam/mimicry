@@ -87,7 +87,8 @@ By default (`Config.BrowserQUICFallback` false):
 
 ## Evidence
 
-- `TestHTTP3EdgeMatchesBrowser` runs every edge page in both modes. With
+- `TestHTTP3EdgeMatchesBrowser` ran every edge page in both modes (since
+  the 2026-11-07 amendment, the default only where it can differ). With
   `BrowserQUICFallback` every comparison is as before. With the default,
   the differences are exactly `h3EdgeFastGaps`, all on the pages where
   QUIC fails (`h3-broken`: the requests behind Chrome's 0-RTT attempt and
@@ -141,3 +142,41 @@ By default (`Config.BrowserQUICFallback` false):
 - A capture shows a browser bounding its 0-RTT hold itself (Chrome's
   source has a "QUIC zero-RTT job" race whose timing the captures did not
   show), or a model of dead-path detection for Firefox lands.
+
+## Amendment 2026-11-07: fast mode only where it can differ
+
+`TestHTTP3EdgeMatchesBrowser` no longer runs every edge page in both
+modes. The engine differs between the modes in three places only: a
+request waiting on an attempt that failed before the race delay
+(`Engine.await`), a resumed connection unanswered past the race delay
+(`earlyUntil`, which Safari gets in both modes and a healthy loopback page
+never reaches) and the dial delay (`BrowserDialDelay`, only for profiles
+whose `http3.discovery` has `dialDelayMs` or `resumedDialDelayMs`: Safari,
+Firefox). So every page runs with `BrowserQUICFallback` and
+`BrowserDialDelay`, and the default runs only where it can change
+something (`h3EdgeFast`):
+
+- `h3-broken` and `h3-vn`, every profile: the pages where QUIC fails,
+  where every `h3EdgeFastGaps` entry is. A gap listed for a page that no
+  longer runs fast fails the test.
+- `h3-early` and `h3-too-early`, for a profile with a dial delay, and
+  `h3-blackhole` for one with a fresh dial delay (`dialDelayMs`): their
+  dials feed the comparison of the modes' dial delays, the only end-to-end
+  check that `BrowserDialDelay` is off by default. Safari's fresh dials
+  need blackhole's two to reach 8 in the fast mode (broken 3, vn 1, early
+  1, too-early 1; measured 2026-11-07). The comparison now fails when the
+  browser mode, which runs every page, has 8 dials of a kind the profile
+  has samples for and the fast mode has fewer. firefox-159-linux also has
+  `dialDelayMs` but makes only 2 fresh dials on all the pages, so that
+  kind is not compared there (as before) and its blackhole fast run buys
+  nothing.
+
+`h3-v2`, `h3-resume-table` and `h3-streams-blocked`, `h3-blackhole`
+without a fresh dial delay, and `h3-early`/`h3-too-early` for Chrome and
+Edge ran the same code in both modes and never had a fast gap: their
+attempts are answered within the race delay over loopback, or (blackhole)
+are fresh and go unanswered for seconds, so `await`'s fast branch and
+`earlyUntil` cannot fire. `TestHTTP3MatchesBrowser` and
+`TestHTTP3DownloadMatchesBrowser` still check the default on healthy
+pages. Reopen if a mode difference is added that one of these pages could
+reach.

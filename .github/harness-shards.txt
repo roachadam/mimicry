@@ -1,13 +1,14 @@
 # How long the harness module's slow tests take on a GitHub runner (4 vCPU,
-# go test -race, the default MIMICRY_PROFILES), in seconds, and the tier
-# each test runs in. Read by .github/scripts/harness-shard.sh to pick a CI
-# run's tests and split them into shards; a test not listed counts as 2
-# seconds, tier core. Taken from the runner's logs (each shard's log has
-# every test's --- PASS line with its duration, and its === RUN line; for a
-# test whose subtests are parallel the --- PASS line says 0.00s, so its time
-# is from === RUN to --- PASS). The parallel tests (HTTP/3, the edge
-# scenarios) are bound by -parallel, which is the runner's 4 CPUs: they take
-# about the sum of their subtests over 4, far longer than on a many-core Mac.
+# go test -race unless the line says norace, the default MIMICRY_PROFILES),
+# in seconds, the tier each test runs in, and its go test flags. Read by
+# .github/scripts/harness-shard.sh to pick a CI run's tests and split them
+# into shards; a test not listed counts as 2 seconds, tier core. Taken from
+# the runner's logs (each shard's log has every test's --- PASS line with
+# its duration, and its === RUN line; for a test whose subtests are
+# parallel the --- PASS line says 0.00s, so its time is from === RUN to
+# --- PASS). Parallel subtests are bound by -parallel, by default the
+# runner's 4 CPUs: subtests that mostly wait on a page's own timers get
+# parallel=16, or they take the sum of their subtests over 4.
 #
 # Tiers (.github/workflows/ci.yml picks them):
 #   core      every pull request that touches code, and main
@@ -26,56 +27,62 @@
 # tier's shard count). `Test/regex` runs a slice of a test's subtests as its
 # own unit (a test whose subtests alone take longer than a shard should);
 # the subtests no slice matches run as one more unit. A test's lines share
-# one tier. `TestA|TestB` (tier -) keeps tests in one unit when the run's
-# tiers include them all; its members' own lines give their tiers, and their
-# weights when they run apart.
+# one tier and one set of flags. `TestA|TestB` (tier -) keeps tests in one
+# unit when the run's tiers include them all; its members' own lines give
+# their tiers, flags (which must agree), and weights when they run apart.
 #
-# seconds  tier      package          test[/subtests]
-# The generators' times are from a pull request's run of 2026-11-07
-# (#98, every profile's captures): hellogen takes about 115-280 s per
-# desktop profile, so a slice per platform, Edge's per profile; the iPhone
-# profiles (about 30 s together) are the rest unit.
-140        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-macos
-210        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-windows
-115        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-macos
-200        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-windows
-155        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^safari-.*-macos
-280        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^chrome-.*-linux
-170        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^firefox-.*-linux
-270        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-.*-macos
-265        gen       ./cmd/hellogen   TestRegenerateReproducesProfiles/^edge-.*-windows
-175        gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures
-150        gen       ./cmd/h3gen      TestRegenerateReproducesProfiles
-22         gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures
-55         gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles
-5          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures
-# 48 subtests of about 50 s, 12 per profile: a profile's take about 300 s
-# on a 4-CPU Linux box, about 1200 s whole, so a slice per profile (the
-# Linux ones estimated as the Windows ones).
-290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos
-305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows
-305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux
-305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios)
-305        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux
-290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-
-290        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-
+# Flags (optional, comma-separated): norace runs the test without -race,
+# for a test on one goroutine or whose concurrent code other tests run
+# under -race (the detector multiplied the generators' time 12-25 times
+# and the page replays' 36 times, finding nothing); parallel=N runs it
+# with -parallel N.
+#
+# seconds  tier      package          test[/subtests]       flags
+# The generators run on one goroutine (no go statements or parallel
+# subtests in them or the capture decoders). Without -race they took 22 s,
+# 2 s, 10 s, 0.2 s, 2 s and 0.2 s on an M-series Mac (2026-11-07, every
+# profile's captures); the runner is about 2.2 times slower.
+50         gen       ./cmd/hellogen   TestRegenerateReproducesProfiles     norace
+5          gen       ./cmd/hellogen   TestRegenerateReadsInheritedCaptures norace
+22         gen       ./cmd/h3gen      TestRegenerateReproducesProfiles     norace
+2          gen       ./cmd/h3gen      TestRegenerateReadsInheritedCaptures norace
+5          gen       ./cmd/kindsgen   TestRegenerateReproducesProfiles     norace
+2          gen       ./cmd/kindsgen   TestRegenerateReadsInheritedCaptures norace
+# Its subtests wait out each page's schedule (the longest, h3-broken, about
+# 72 s); at -parallel 16 a slice takes about its longest subtest per 16.
+# Estimated: to be retaken from the runner's log.
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-macos             parallel=16
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-windows           parallel=16
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^chrome-.*-linux             parallel=16
+180        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-(macos|windows|ios) parallel=16
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=16
+110        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=16
+140        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-                       parallel=16
+80         main      ./e2e            TestHTTP3EdgeMatchesBrowser                              parallel=16
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,
-# nearly all of their time): apart, each decodes them. Together they took
-# 389 s, 503 s and 575 s on the runner (pull requests #96 and #98,
-# 2026-11-06 and 07), with the Linux and Edge profiles' captures.
-580        -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
-560        protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces
-560        core      ./e2e            TestHPACKReproducesBrowserBlocks
+# nearly all of their time): apart, each decodes them. Without -race the
+# pair took 9 s on a Mac (325 s with it); their h2.Conn replays are the
+# code TestConnectionMatchesBrowserTrace, the kinds and cookies tests and
+# internal/h2's own tests run under -race.
+30         -         ./e2e            TestChainedPrioritiesMatchBrowserTraces|TestHPACKReproducesBrowserBlocks
+25         protocol  ./e2e            TestChainedPrioritiesMatchBrowserTraces norace
+25         core      ./e2e            TestHPACKReproducesBrowserBlocks       norace
 250        protocol  ./e2e            TestConnectionMatchesBrowserTrace
 135        protocol  ./e2e            TestHTTP3DownloadMatchesBrowser
-125        protocol  ./e2e            TestHTTP3MatchesBrowser
-35         protocol  ./e2e            TestHTTP3ACKEvery
-120        core      ./e2e            TestInheritedProfile
-80         core      ./e2e            TestWebSocketsMatchBrowser
+# h3-discovery waits about 51 s (its pauses and the 35 s idle) in every
+# profile.
+70         protocol  ./e2e            TestHTTP3MatchesBrowser                parallel=16
+# One profile's download (the override is the same for every profile).
+45         protocol  ./e2e            TestHTTP3ACKEvery
+# The rerun without HPACK and WebSockets: 17 s on a Mac (73 s with them).
+40         core      ./e2e            TestInheritedProfile
+# Each socket waits out the browser's close (Chrome 2 s, about 31 s a
+# profile).
+45         core      ./e2e            TestWebSocketsMatchBrowser             parallel=16
 # The client-hints page's script pauses (about 15 s, its subtests in
 # parallel); estimated from a local run, not yet a runner's log.
-20         core      ./e2e            TestClientHintsMatchesBrowser
+20         core      ./e2e            TestClientHintsMatchesBrowser          parallel=16
 15         core      ./e2e            TestConnectionsMatchBrowser
 15         core      ./e2e            TestCORSMatchesBrowser
 10         core      ./e2e            TestDeflateReproducesBrowserMessages

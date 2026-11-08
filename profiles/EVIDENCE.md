@@ -1555,7 +1555,10 @@ add). `hellogen` and `h3gen` also read the `h3-blackhole`, `h3-broken`,
   send the browser's probes first and come 4 of the connection's own
   PTOs after the request, for mimicry and
   every browser sample, so it holds on a loaded machine too. Each page runs
-  with `Config.BrowserQUICFallback` and with the fast default. The
+  with `Config.BrowserQUICFallback`, and the pages where the modes can
+  differ (`h3EdgeFast`: `h3-broken`, `h3-vn`, for a profile with a dial
+  delay `h3-early` and `h3-too-early`, and with a fresh one `h3-blackhole`)
+  with the fast default too. The
   default's differences are listed one by one (`h3EdgeFastGaps`), all on
   pages where QUIC fails, and each must appear.
 - `TestHTTP3DownloadMatchesBrowser` replays `h3-download`. It holds
