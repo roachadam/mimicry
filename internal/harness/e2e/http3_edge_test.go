@@ -237,10 +237,8 @@ var h3EdgeGaps = func() map[string]string {
 		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #3 goaway":                       "Chrome on macOS moved h3-b's requests to a new TCP connection after 6–10 s idle on its last one (closed4–closed6, in every sample once the origin was broken), not captured why; mimicry keeps its HTTP/2 connection, as Chrome on Windows did in every sample",
 		"chrome-155-macos/h3-broken edge TCP www.h3-b.test #3 after its trigger ms":         "as its goaway",
 		"chrome-155-macos/h3-broken edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 4 Initials (steps 4 1 1 1, mimicry's 4 alone); every other step, the skip before each probe and none before the close, matches. On Windows the samples disagree (4 Initials in 2, 2 in the other), so the step is not compared there",
-		"firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams":                  "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-macos/h3-too-early edge TCP www.h3-a.test declined":                    "beside 3–4 of its 4 retries after 425 Too Early per sample (which ones varies), Firefox also opened a TCP connection to the host and closed it before any request; the retry itself goes on the QUIC connection, as mimicry's does. No profile field holds when Firefox opens these (report h3-early-2026-10-26)",
 		"firefox-158-windows/h3-too-early edge TCP www.h3-a.test declined":                  "as firefox-158-macos's: beside its retries after 425 Too Early Firefox opened TCP connections to the host and closed them before any request (3 per sample on Windows, the unused opening connection left out); no profile field holds when Firefox opens these",
-		"firefox-158-windows/h3-broken edge QUIC www.h3-b.test #2 datagrams":                "as firefox-158-macos's: Firefox's resumed probes vary between samples, and the profile has no resumed-probe rule; give-up time and close match",
 		"firefox-158-windows/h3-broken edge TCP www.h3-a.test #2 after its trigger ms":      "not the network: Firefox on Windows's page made keep2.cs, this connection's trigger, 4.9 s after silent5.so where the page waits 2 s (every sample; its later timers 3.7–5.5 s late too, Firefox on macOS's on time), so the connection that carries the silenced requests came 3.9–4.4 s after it, not mimicry's 7.0 s; the connection itself starts when the silenced QUIC connection dies, as the requests' delays (compared) show",
 	}
 
@@ -322,8 +320,6 @@ var h3EdgeGaps = func() map[string]string {
 	} {
 		gaps["edge-157-windows/h3-broken "+k] = why
 	}
-
-	gaps["firefox-159-linux/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-windows's: Firefox on Linux's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT in 2 of 6; from 300 ms in 4, two or three Initials first; lone 40–42-B 0-RTT datagrams beside them; 14–26 datagrams in the 4 samples whose attempt ran to its 5.0 s close, mimicry's 31–37), and the profile has no resumed-probe rule; give-up time and close match"
 
 	// h3-resume-table: Chrome and Edge, on every platform, held the
 	// navigation to nav.so on its resumed connection until after the
@@ -499,6 +495,16 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	}
 
 	gaps["firefox-159-linux/h3-streams-blocked edge QUIC www.h3-a.test STREAMS_BLOCKED with streams"] = "as firefox-158-windows's: the replay's request spacing. Firefox on Linux sent each burst's first two requests 3–10 ms apart and one STREAMS_BLOCKED with each waiting stream but a burst's last (6 7 8 in 3 of 3 samples, 12 13 14 in 1; in the other 2, pinned in h3gen's sampleGaps, the second burst's first two waiting streams left in one packet behind one 13); when this process puts a burst's first two requests in one packet, quic-go raises the limit by two and mimicry sends one per raise (7, 13), else Firefox's"
+
+	// h3-broken's h3-b #2: Firefox's resumed probes vary between samples,
+	// and the profile has no resumed-probe rule. mimicry's flight probe
+	// usually sends more datagrams than any sample before the 5.0 s give-up,
+	// but how many PTOs fit in it is this process's timer scheduling: in a
+	// loaded :test-full run (every profile at once) firefox-159-macos's
+	// fell inside the browser's range, so the gap need not appear.
+	gaps["firefox-158-macos/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "Firefox's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT, the 3-packet resumed first flight not repeated, lone 40-B 0-RTT datagrams); quic.loss's flight probe replays all 3 first-flight packets per PTO, and the profile has no resumed-probe rule; give-up time and close match. How many probes fit before the give-up is this process's timer scheduling"
+	gaps["firefox-158-windows/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-macos's: Firefox's resumed probes vary between samples, and the profile has no resumed-probe rule; give-up time and close match"
+	gaps["firefox-159-linux/h3-broken edge QUIC www.h3-b.test #2 datagrams"] = "as firefox-158-windows's: Firefox on Linux's resumed probes vary between samples (pairs every PTO from a ~3 ms cached RTT in 2 of 6; from 300 ms in 4, two or three Initials first; lone 40–42-B 0-RTT datagrams beside them; 14–26 datagrams in the 4 samples whose attempt ran to its 5.0 s close, mimicry's 31–37), and the profile has no resumed-probe rule; give-up time and close match"
 
 	return gaps
 }()
