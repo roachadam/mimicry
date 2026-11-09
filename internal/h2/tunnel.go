@@ -77,6 +77,9 @@ func (c *Conn) Tunnel(ctx context.Context, authority string, fields []profile.He
 		return nil, nil, err
 	}
 
+	// Before the read loop can see the stream (writeHeaders).
+	s.connect = true
+
 	if err := c.writeHeaders(s, head); err != nil {
 		c.endStream(s, ending{
 			err: err,
@@ -122,11 +125,13 @@ type tunnel struct {
 	reset http2.ErrCode
 
 	// mu guards the write deadline: wctx ends when it passes, failing the
-	// writes under way with it, and a later deadline starts another.
+	// writes under way with it, and a later deadline starts another. gen
+	// tells the timer of the current deadline from an earlier one's.
 	mu      sync.Mutex
 	wctx    context.Context //nolint:containedctx // the write deadline's, set by SetWriteDeadline
 	wcancel context.CancelFunc
 	wtimer  clockwork.Timer
+	wgen    uint64
 }
 
 // Read reads what the proxy relays: os.ErrDeadlineExceeded once the read
@@ -136,22 +141,19 @@ func (t *tunnel) Read(b []byte) (int, error) {
 }
 
 // Write sends b in DATA frames, waiting for flow-control credit until the
-// write deadline.
+// write deadline; on failure it reports how much went out.
 func (t *tunnel) Write(b []byte) (int, error) {
 	t.mu.Lock()
 
 	ctx := t.wctx
 	t.mu.Unlock()
 
-	if err := t.c.sendData(ctx, t.s, b, false); err != nil {
-		if ctx.Err() != nil {
-			return 0, os.ErrDeadlineExceeded
-		}
-
-		return 0, err
+	n, err := t.c.sendData(ctx, t.s, b, false)
+	if err != nil && ctx.Err() != nil {
+		err = os.ErrDeadlineExceeded
 	}
 
-	return len(b), nil
+	return n, err
 }
 
 // Close resets the stream with the tunnel's error code, unless it has
@@ -196,6 +198,8 @@ func (t *tunnel) SetWriteDeadline(d time.Time) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	t.wgen++
+
 	if t.wtimer != nil {
 		t.wtimer.Stop()
 
@@ -210,7 +214,18 @@ func (t *tunnel) SetWriteDeadline(d time.Time) error {
 	switch left := d.Sub(t.c.clock.Now()); {
 	case d.IsZero():
 	case left > 0:
-		t.wtimer = t.c.clock.AfterFunc(left, t.wcancel)
+		gen, cancel := t.wgen, t.wcancel
+
+		t.wtimer = t.c.clock.AfterFunc(left, func() {
+			t.mu.Lock()
+			defer t.mu.Unlock()
+
+			// A timer Stop came too late for no longer cancels.
+			if t.wgen == gen {
+				cancel()
+			}
+		})
+
 	default:
 		t.wcancel()
 	}

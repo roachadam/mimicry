@@ -105,7 +105,6 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0061](decisions/0061-tls-key-log.md) | `Config.KeyLogWriter` writes TLS secrets on request; `SSLKEYLOGFILE` is never read | Accepted |
 | [0062](decisions/0062-saved-tls-tickets.md) | Session tickets shared and saved on request (`Config.Tickets`), one browser per cache; proxies named by a hash, swept proxies' tickets dropped | Accepted |
 | [0064](decisions/0064-client-certificates.md) | Client certificates as each browser sends them: `tls.clientAuth` (schemes, resumption, Chrome's dropped first connection), unmeasured is `ErrNotMeasured` | Accepted |
-| [0065](decisions/0065-https-proxies.md) | `https://` proxies: the profile's hello to the proxy, CONNECT over HTTP/2 streams or HTTP/1.1 as the proxy picks (`proxy.https`, hellogen), unmeasured is `ErrNotMeasured` | Accepted |
 
 ### Proxies and WebSockets
 
@@ -116,6 +115,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0033](decisions/0033-proxy-errors.md) | Proxy failures are a `*ProxyError` | Amended by 0039 |
 | [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 on request; never a datagram around a proxy | Accepted |
 | [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials sent up front by default | Accepted |
+| [0065](decisions/0065-https-proxies.md) | `https://` proxies: the profile's hello to the proxy, CONNECT over HTTP/2 streams or HTTP/1.1 as the proxy picks (`proxy.https`, hellogen), unmeasured is `ErrNotMeasured` | Accepted |
 
 ### HTTP/3 and QUIC
 

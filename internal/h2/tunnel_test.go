@@ -2,6 +2,7 @@ package h2
 
 import (
 	"errors"
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -159,5 +160,71 @@ func TestTunnelDeadlines(t *testing.T) {
 
 	if !hasReset(pr.sync(), h.StreamID, http2.ErrCodeCancel) {
 		t.Error("Close sent no RST_STREAM CANCEL")
+	}
+}
+
+// A proxy ending a tunnel's stream (END_STREAM, the site having closed)
+// ends only what it sends: the tunnel reads to EOF, can still write, and
+// keeps counting against the connection's streams until it closes, which
+// resets the stream with the tunnel's code, as browsers end theirs
+// (RST_STREAM CANCEL on every tunnel stream of proxy-https-auth's that
+// they ended). Before, the stream was dropped at the END_STREAM and Close
+// sent nothing, while the proxy still counted it open.
+func TestTunnelPeerEnd(t *testing.T) {
+	c, pr := newPeer(t, profiles.ChromeMacOS().Spec(), clockwork.NewRealClock())
+
+	opened := make(chan net.Conn, 1)
+
+	go func() {
+		_, tc, err := c.Tunnel(t.Context(), "site.test:443", nil, 146, "CANCEL")
+		if err != nil {
+			t.Error(err)
+		}
+
+		opened <- tc
+	}()
+
+	h := pr.headers()
+	pr.headerFields(h.StreamID, false, xhpack.HeaderField{
+		Name:  ":status",
+		Value: "200",
+	})
+
+	tc := <-opened
+	if tc == nil {
+		t.Fatal("no tunnel")
+	}
+
+	if err := pr.fr.WriteData(h.StreamID, true, []byte("bye")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := io.ReadAll(tc)
+	if err != nil || string(got) != "bye" {
+		t.Fatalf("read %q, %v; want %q then EOF", got, err, "bye")
+	}
+
+	if _, idle := c.IdleSince(); idle {
+		t.Error("the connection is idle with the tunnel open")
+	}
+
+	if n, err := tc.Write([]byte("x")); n != 1 || err != nil {
+		t.Errorf("write after the proxy's END_STREAM: %d, %v", n, err)
+	}
+
+	if _, ok := pr.next().(*dataCopy); !ok {
+		t.Error("no DATA after the proxy's END_STREAM")
+	}
+
+	if err := tc.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !hasReset(pr.sync(), h.StreamID, http2.ErrCodeCancel) {
+		t.Error("Close sent no RST_STREAM CANCEL")
+	}
+
+	if _, idle := c.IdleSince(); !idle {
+		t.Error("the connection is not idle once the tunnel closed")
 	}
 }

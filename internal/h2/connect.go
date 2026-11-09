@@ -84,7 +84,7 @@ func (st *Stream) Read(p []byte) (int, error) {
 // DATA cap and the flow-control windows; end sets END_STREAM on the last.
 func (st *Stream) Send(ctx context.Context, parts [][]byte, end bool) error {
 	for i, p := range parts {
-		if err := st.c.sendData(ctx, st.s, p, end && i == len(parts)-1); err != nil {
+		if _, err := st.c.sendData(ctx, st.s, p, end && i == len(parts)-1); err != nil {
 			return err
 		}
 	}
