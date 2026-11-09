@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-08
-- Commits: (this change)
+- Commits: `df05317`
 
 **Summary.** `Config.Tickets` takes a `TicketCache`, which keeps the TLS
 and QUIC session tickets of every Transport given it and saves and loads

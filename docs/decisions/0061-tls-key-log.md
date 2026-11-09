@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-08
-- Commits: (this change)
+- Commits: `c15f44b`
 
 **Summary.** `Config.KeyLogWriter` receives every connection's TLS secrets
 in NSS key log format, over TCP and QUIC, so a packet capture of mimicry's
