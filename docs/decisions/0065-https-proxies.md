@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-09
-- Commits: (this change)
+- Commits: `0adcd6c`
 
 **Summary.** `Config.Proxy` takes `https://` proxies: TLS to the proxy with
 the profile's ClientHello, then CONNECT over HTTP/2 when the proxy picks
