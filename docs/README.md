@@ -101,6 +101,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is grouped into TLS records as the browser does | Amended (preconnected connections kept not planned) |
 | [0052](decisions/0052-http1-upload-records.md) | HTTP/1.1 requests are cut into TLS records as the browser does; no dynamic record sizing | Accepted |
 | [0056](decisions/0056-local-addresses.md) | `Config.LocalAddrs` binds TCP, HTTP/3 and SOCKS5 relays to one address per family | Accepted |
+| [0061](decisions/0061-tls-key-log.md) | `Config.KeyLogWriter` writes TLS secrets on request; `SSLKEYLOGFILE` is never read | Accepted |
 | [0062](decisions/0062-saved-tls-tickets.md) | Session tickets shared and saved on request (`Config.Tickets`), one browser per cache; proxies named by a hash, swept proxies' tickets dropped | Accepted |
 
 ### Proxies and WebSockets

@@ -90,8 +90,8 @@ func serveH2Events(events chan<- string) func(context.Context, net.Conn) error {
 }
 
 // quicServerConns accepts QUIC connections on a local port and hands each
-// on conns.
-func quicServerConns(t *testing.T) (uint16, <-chan *quic.Conn) {
+// on conns; keyLog, when set, receives the server's TLS secrets.
+func quicServerConns(t *testing.T, keyLog io.Writer) (uint16, <-chan *quic.Conn) {
 	t.Helper()
 
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
@@ -107,8 +107,9 @@ func quicServerConns(t *testing.T) (uint16, <-chan *quic.Conn) {
 				Certificate: cert.Certificate,
 				PrivateKey:  cert.PrivateKey,
 			}},
-			NextProtos: []string{"h3"},
-			MinVersion: utls.VersionTLS13,
+			NextProtos:   []string{"h3"},
+			MinVersion:   utls.VersionTLS13,
+			KeyLogWriter: keyLog,
 		},
 	})
 	if err != nil {
@@ -246,7 +247,7 @@ func TestIdleConnectionsExpire(t *testing.T) {
 			}
 
 			if tc.h3 {
-				port, conns := quicServerConns(t)
+				port, conns := quicServerConns(t, nil)
 				r, a := dialQUIC(t, e, "https://localhost/", port)
 
 				if a.conn == nil {

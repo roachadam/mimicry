@@ -244,6 +244,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:     e.keyLog,
 	}
 	hello := e.plan.Hello()
 

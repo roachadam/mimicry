@@ -117,9 +117,11 @@ type options struct {
 	maxIdleProxies      int
 	browserProxyAuth    bool
 	http3OverSOCKS5     bool
-	// browserDialDelay is Config.BrowserDialDelay, tickets Config.Tickets.
+	// browserDialDelay is Config.BrowserDialDelay, tickets Config.Tickets,
+	// keyLog Config.KeyLogWriter.
 	browserDialDelay bool
 	tickets          *handshake.Store
+	keyLog           io.Writer
 	// roots, when set, is what the engine trusts, serverCert left as it
 	// is; otherwise a new certificate becomes serverCert.
 	roots *x509.CertPool
@@ -161,6 +163,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		HTTP3OverSOCKS5:     o.http3OverSOCKS5,
 		BrowserDialDelay:    o.browserDialDelay,
 		Tickets:             o.tickets,
+		KeyLogWriter:        o.keyLog,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

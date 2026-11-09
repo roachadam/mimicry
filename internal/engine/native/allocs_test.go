@@ -289,7 +289,7 @@ func TestWarmRequestAllocations(t *testing.T) {
 			})
 
 			if tc.h3 {
-				port, conns := quicServerConns(t)
+				port, conns := quicServerConns(t, nil)
 				if _, a := dialQUIC(t, e, tc.url, port); a.conn == nil {
 					t.Fatal("the QUIC attempt failed")
 				}

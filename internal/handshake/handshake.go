@@ -11,6 +11,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"slices"
 
@@ -41,6 +42,9 @@ type Config struct {
 	// every handshake, resumed ones included, before any received ticket is
 	// kept; an error fails the handshake.
 	VerifyConnection func(tls.ConnectionState) error
+	// KeyLogWriter, when set, receives the connection's TLS secrets in
+	// NSS key log format, TCP and QUIC alike (Config.KeyLogWriter).
+	KeyLogWriter io.Writer
 }
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
@@ -113,6 +117,7 @@ func TLSConfig(cfg Config) *utls.Config {
 		// browser starts small and grows, over HTTP/1.1 or HTTP/2
 		// (decision 0052). QUIC ignores it.
 		DynamicRecordSizingDisabled: true,
+		KeyLogWriter:                cfg.KeyLogWriter,
 	}
 
 	if cfg.OmitSNI {

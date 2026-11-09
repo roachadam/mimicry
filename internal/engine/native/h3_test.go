@@ -303,7 +303,7 @@ func dialQUIC(t *testing.T, e *Engine, target string, port uint16) (route, *atte
 // is freed, however many origins, or proxies, a Transport has used.
 func TestOriginLetsItsClosedConnectionGo(t *testing.T) {
 	e := newTestEngine(t, options{})
-	port, conns := quicServerConns(t)
+	port, conns := quicServerConns(t, nil)
 
 	conn := func() weak.Pointer[quicConn] {
 		_, a := dialQUIC(t, e, "https://localhost/", port)

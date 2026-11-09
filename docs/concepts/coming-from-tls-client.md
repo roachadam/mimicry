@@ -64,6 +64,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `CloseIdleConnections()` | `client.CloseIdleConnections()`; `Config.IdleConnTimeout` |
 | a new client per proxy | `Config.MaxIdleProxies` |
 | `TransportOptions{DisableCompression: true}` | `Config.DisableDecompression` |
+| `TransportOptions{KeyLogWriter: w}` | `Config.KeyLogWriter` (TCP and HTTP/3); `SSLKEYLOGFILE` is not read |
 
 To list a site's pins, run `go run github.com/roachadam/mimicry/cmd/pins URL`
 or call `FetchPins`.
