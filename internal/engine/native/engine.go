@@ -80,8 +80,8 @@ type Config struct {
 	AltSvc *altsvc.Cache
 	// Tickets keeps the TLS and QUIC session tickets, shared with every
 	// engine given the same store; nil gives the engine one of its own. A
-	// shared store keeps a swept proxy's tickets (forgetProxy) until they
-	// expire: another engine may still use that proxy.
+	// store belongs to one browser (handshake.Store.Bind): another's is an
+	// error. A swept proxy's tickets leave it too (forgetProxy).
 	Tickets *handshake.Store
 	// BrowserFallback keeps the browser's timing where QUIC fails: requests
 	// wait on an unanswered 0-RTT connection until it gives up
@@ -163,11 +163,9 @@ type Engine struct {
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// verify is Config.VerifyConnection.
 	verify func(host string, cs tls.ConnectionState) error
-	// tickets keeps TLS session tickets when the profile resumes;
-	// sharedTickets: in Config.Tickets.
-	tickets       *handshake.Tickets
-	sharedTickets bool
-	pool          *pool.Pool[*shared, *h1.Conn]
+	// tickets keeps TLS session tickets when the profile resumes.
+	tickets *handshake.Tickets
+	pool    *pool.Pool[*shared, *h1.Conn]
 	// quic is the engine's HTTP/3; nil when the profile has none (or
 	// Config.DisableHTTP3).
 	quic *quicState
@@ -240,6 +238,14 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		return nil, fmt.Errorf("mimicry: Config.MaxIdleProxies %d is negative", cfg.MaxIdleProxies)
 	}
 
+	// Before anything else is built: a store of another browser's tickets
+	// fails NewTransport.
+	if cfg.Tickets != nil {
+		if err := cfg.Tickets.Bind(p.Browser); err != nil {
+			return nil, fmt.Errorf("mimicry: Config.Tickets: %w", err)
+		}
+	}
+
 	keep, remember, grace := keepProxies, rememberProxies, proxyUnused
 	if cfg.MaxIdleProxies > 0 {
 		keep, remember, grace = cfg.MaxIdleProxies, cfg.MaxIdleProxies, 0
@@ -291,8 +297,6 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 	if store == nil {
 		store = handshake.NewStore()
 	}
-
-	e.sharedTickets = cfg.Tickets != nil
 
 	if plan.Resumes() {
 		e.tickets = store.Tickets(p.TLS.Resumption.TLS12, clock)

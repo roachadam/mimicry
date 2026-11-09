@@ -276,8 +276,8 @@ func (e *Engine) sweepProxies() {
 }
 
 // forgetProxy drops what the engine learned through the swept proxy s: its
-// TLS and QUIC session tickets (unless they are in a shared store,
-// Config.Tickets, whose other engines may still use the proxy), its
+// TLS and QUIC session tickets (from a shared store too, Config.Tickets,
+// whose other engines may lose a resumption through the proxy), its
 // origins' HTTP/3 state and what the dialer knows of it (a 407, a refused
 // UDP association). A request through it later starts as through a new
 // proxy: full handshakes, and the browser's wait for the 407 again
@@ -286,7 +286,7 @@ func (e *Engine) sweepProxies() {
 func (e *Engine) forgetProxy(s staleProxy) {
 	e.dialer.Forget(s.via)
 
-	if e.tickets != nil && !e.sharedTickets {
+	if e.tickets != nil {
 		for _, k := range s.keys {
 			e.tickets.Drop(ticketKey(k))
 		}
@@ -302,9 +302,7 @@ func (e *Engine) forgetProxy(s staleProxy) {
 	defer q.mu.Unlock()
 
 	for _, k := range s.keys {
-		if !e.sharedTickets {
-			q.tickets.Drop(ticketKey(h3PoolKey(k)))
-		}
+		q.tickets.Drop(ticketKey(h3PoolKey(k)))
 
 		delete(q.origins, k)
 	}

@@ -417,3 +417,65 @@ func TestReadTicketsRefusesMalformed(t *testing.T) {
 		})
 	}
 }
+
+// A store belongs to one browser: an engine of another browser, or a file
+// of another browser's tickets, is refused; another version of the same
+// browser is not.
+func TestTicketStoreIsOneBrowsers(t *testing.T) {
+	newEngineWith := func(p *profile.Spec, store *handshake.Store) error {
+		e, err := newEngine(Config{
+			Profile: p,
+			Tickets: store,
+		}, clockwork.NewRealClock(), nil)
+		if err == nil {
+			e.CloseIdleConnections()
+		}
+
+		return err
+	}
+
+	chrome := profiles.Chrome156MacOS().Spec()
+
+	store := handshake.NewStore()
+	if err := newEngineWith(chrome, store); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newEngineWith(profiles.Chrome155MacOS().Spec(), store); err != nil {
+		t.Errorf("another Chrome version: %v", err)
+	}
+
+	if err := newEngineWith(profiles.FirefoxMacOS().Spec(), store); err == nil {
+		t.Error("a Firefox engine shared a Chrome store")
+	}
+
+	ticketInto(t, store.Tickets("", clockwork.NewRealClock()), "https://localhost:443", tls.VersionTLS13)
+
+	var saved bytes.Buffer
+	if err := WriteTickets(&saved, store, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	firefox := handshake.NewStore()
+	if err := newEngineWith(profiles.FirefoxMacOS().Spec(), firefox); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ReadTickets(bytes.NewReader(saved.Bytes()), firefox, time.Now()); err == nil {
+		t.Error("Chrome's saved tickets were read into a Firefox store")
+	}
+
+	if firefox.Tickets("", clockwork.NewRealClock()).Has("https://localhost:443") {
+		t.Error("a refused file added a ticket")
+	}
+
+	// An unbound store takes the file's browser.
+	fresh := handshake.NewStore()
+	if err := ReadTickets(bytes.NewReader(saved.Bytes()), fresh, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := newEngineWith(profiles.FirefoxMacOS().Spec(), fresh); err == nil {
+		t.Error("a Firefox engine took a store loaded with Chrome's tickets")
+	}
+}

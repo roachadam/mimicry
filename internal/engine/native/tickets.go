@@ -52,6 +52,9 @@ func proxyHash(via string) string {
 
 // savedTicket is a session ticket as WriteTickets writes it.
 type savedTicket struct {
+	// Browser is the browser whose engines received it (the store's,
+	// handshake.Store.Bind), if known.
+	Browser string `json:"browser,omitempty"`
 	// Origin is "https://host:port".
 	Origin string `json:"origin"`
 	// Partition is the connection partition it was received in, if any.
@@ -74,9 +77,12 @@ func WriteTickets(w io.Writer, s *handshake.Store, now time.Time) error {
 		return fmt.Errorf("tickets: %w", err)
 	}
 
+	browser := s.Browser()
+
 	entries := make([]savedTicket, 0, len(saved))
 	for _, sv := range saved {
 		e := savedTicket{
+			Browser: browser,
 			Expires: sv.Expires,
 			Ticket:  sv.Ticket,
 			State:   sv.State,
@@ -121,18 +127,28 @@ func compareBool(a, b bool) int {
 
 // ReadTickets adds to s the tickets of a JSON array WriteTickets wrote
 // that are still usable at now, replacing those under the same key. A
-// malformed entry fails it before anything is added.
+// malformed entry, entries of two browsers, or entries of another browser
+// than s's fail it before anything is added.
 func ReadTickets(r io.Reader, s *handshake.Store, now time.Time) error {
 	var entries []savedTicket
 	if err := json.NewDecoder(r).Decode(&entries); err != nil {
 		return fmt.Errorf("tickets: %w", err)
 	}
 
+	var browser string
+
 	saved := make([]handshake.Saved, len(entries))
 	for i, e := range entries {
 		key, err := e.key()
 		if err != nil {
 			return fmt.Errorf("tickets: entry %d: %w", i, err)
+		}
+
+		switch {
+		case browser == "":
+			browser = e.Browser
+		case e.Browser != "" && e.Browser != browser:
+			return fmt.Errorf("tickets: entry %d: browser %q, entries before it %q: one identity's tickets are one browser's", i, e.Browser, browser)
 		}
 
 		saved[i] = handshake.Saved{
@@ -143,7 +159,7 @@ func ReadTickets(r io.Reader, s *handshake.Store, now time.Time) error {
 		}
 	}
 
-	if err := s.Import(saved, now); err != nil {
+	if err := s.Import(saved, browser, now); err != nil {
 		return fmt.Errorf("tickets: %w", err)
 	}
 

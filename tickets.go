@@ -19,8 +19,14 @@ import (
 // Firefox 159 keep tickets in memory only: relaunched, they start with
 // full handshakes, so a loaded cache models one that stayed open. Safari
 // 27 resumes its QUIC sessions, with 0-RTT, after a relaunch too (it never
-// resumes over TCP). Share a cache only between Transports of one
-// identity: a ticket links the connections that use it, as a cookie would.
+// resumes over TCP).
+//
+// A cache belongs to one browser: the first Transport given it (or the
+// first file ReadJSON reads) decides which, and NewTransport refuses a
+// profile of another browser, as ReadJSON refuses another browser's
+// tickets; other versions of the same browser are allowed. A ticket links
+// the connections that use it, as a cookie would, so share a cache only
+// between Transports of one identity.
 //
 // Tickets are kept per origin, connection partition and proxy, and used as
 // the profile's browser uses them: a TLS 1.3 ticket once. A ticket saved

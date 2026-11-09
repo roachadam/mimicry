@@ -14,12 +14,16 @@ import (
 
 // Store keeps session tickets by key (host, port, partition, proxy; QUIC
 // apart) for the Tickets views given it: one engine's, or every engine
-// sharing a store (Config.Tickets). Safe for concurrent use.
+// sharing a store (Config.Tickets). It belongs to one browser once Bind or
+// Import names it. Safe for concurrent use.
 type Store struct {
 	mu sync.Mutex
 	m  map[string]ticket
 	// sweepAt is the store size at which keep next drops expired tickets.
 	sweepAt int
+	// browser is the browser (profile.Spec.Browser) the store's tickets
+	// belong to; empty until Bind or Import names one.
+	browser string
 }
 
 // NewStore returns an empty store.
@@ -28,6 +32,38 @@ func NewStore() *Store {
 		m:       map[string]ticket{},
 		sweepAt: minSweep,
 	}
+}
+
+// Bind makes s browser's, unless it already belongs to another: a ticket
+// links the connections that use it, so two browsers sharing a store
+// would show as one identity.
+func (s *Store) Bind(browser string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.bind(browser)
+}
+
+// bind is Bind with s.mu held. An empty browser binds nothing.
+func (s *Store) bind(browser string) error {
+	switch {
+	case browser == "" || s.browser == browser:
+		return nil
+	case s.browser != "":
+		return fmt.Errorf("the tickets belong to %s, not %s: one identity's tickets are one browser's", s.browser, browser)
+	}
+
+	s.browser = browser
+
+	return nil
+}
+
+// Browser is the browser s belongs to, or "".
+func (s *Store) Browser() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.browser
 }
 
 // Tickets is a view of a Store that uses its tickets as the browser does:
@@ -207,6 +243,11 @@ func (s *Store) put(key string, tk ticket, now time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.putLocked(key, tk, now)
+}
+
+// putLocked is put with s.mu held.
+func (s *Store) putLocked(key string, tk ticket, now time.Time) {
 	s.m[key] = tk
 	if len(s.m) >= s.sweepAt {
 		for k, other := range s.m {
@@ -273,10 +314,11 @@ func (s *Store) Export(now time.Time) ([]Saved, error) {
 	return saved, nil
 }
 
-// Import adds the tickets of saved still usable at now, replacing any
-// under the same key. A session that does not parse, or is neither TLS
-// 1.2 nor 1.3, fails it before anything is added.
-func (s *Store) Import(saved []Saved, now time.Time) error {
+// Import adds the tickets of saved, which belong to browser (empty:
+// unknown), still usable at now, replacing any under the same key. A
+// session that does not parse or is neither TLS 1.2 nor 1.3, or a store
+// belonging to another browser, fails it before anything is added.
+func (s *Store) Import(saved []Saved, browser string, now time.Time) error {
 	tks := make([]ticket, len(saved))
 	for i, sv := range saved {
 		tk, err := parseSaved(sv)
@@ -287,9 +329,16 @@ func (s *Store) Import(saved []Saved, now time.Time) error {
 		tks[i] = tk
 	}
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.bind(browser); err != nil {
+		return err
+	}
+
 	for i, tk := range tks {
 		if !tk.expired(now) {
-			s.put(saved[i].Key, tk, now)
+			s.putLocked(saved[i].Key, tk, now)
 		}
 	}
 
@@ -333,7 +382,7 @@ func parseSaved(sv Saved) (ticket, error) {
 	return tk, nil
 }
 
-// Clear forgets every ticket.
+// Clear forgets every ticket. The store still belongs to its browser.
 func (s *Store) Clear() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

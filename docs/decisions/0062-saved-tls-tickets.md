@@ -51,16 +51,32 @@ The saved form needed two choices:
   own lifetime, whatever the file says. The encoding may change between
   uTLS versions; a file that no longer parses fails `ReadJSON`.
 
-A swept proxy (decision 0040) drops its tickets from a Transport's own
-store; from a shared cache it does not, since another Transport may still
-use the proxy. They expire there: TLS 1.3 tickets within 7 days, TLS 1.2
-ones with their certificate.
+Two rules for a shared cache, chosen by the maintainer (2026-11-08) after
+review:
+
+- **A swept proxy's tickets leave it** (decision 0040), as they leave a
+  Transport's own store. Keeping them until they expire, since another
+  Transport might still use the proxy, grows without bound under rotation:
+  at 0040's rotation rate (a new proxy every 120 ms) and about 1.4 KB a
+  ticket, some 84 MB at a 2-hour ticket lifetime and 7 GB at 7 days, TLS
+  1.2 tickets until their certificate expires. Counting each proxy's users
+  per cache, or a size cap, were the alternatives; dropping costs another
+  Transport still using the proxy one resumption at most.
+- **One browser per cache.** A ticket links the connections that use it,
+  so a cache shared by a Chrome and a Firefox Transport would join two
+  identities. The first Transport, or the first file read, binds the cache
+  to its browser (`profile.Spec.Browser`); `NewTransport` refuses a
+  profile of another, `ReadJSON` another browser's tickets (each saved
+  entry names it). Other versions of the same browser may share it, as an
+  identity moves to a new release; one exact profile per cache would make
+  every upgrade start over.
 
 ## Decision
 
-`TicketCache` and `Config.Tickets` as above. The docs say what a loaded
-cache models per browser, that a cache is loaded into one process at a
-time, and that its file must be kept secret and read only by its writer.
+`TicketCache` and `Config.Tickets` as above, with those two rules. The
+docs say what a loaded cache models per browser, that a cache is loaded
+into one process at a time, and that its file must be kept secret and
+read only by its writer.
 
 ## Evidence
 
@@ -99,6 +115,11 @@ time, and that its file must be kept secret and read only by its writer.
   expired tickets are neither written nor loaded.
 - `TestReadTicketsRefusesMalformed`: a bad origin, proxy, ticket or state
   fails `ReadTickets` with nothing added.
+- `TestTicketStoreIsOneBrowsers`: a Chrome 156 store takes a Chrome 155
+  engine and refuses a Firefox one; Chrome's saved file is refused by a
+  Firefox store, and binds an unbound store to Chrome.
+- `TestSweptProxiesAreForgotten`, run with a shared store as well: a
+  forgotten proxy's next connection is a full handshake either way.
 - `ExampleTicketCache`: over HTTP/2, the restored cache's first request
   resumes.
 - Against cloudflare-quic.com (2026-11-08): a process made five requests

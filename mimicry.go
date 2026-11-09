@@ -198,8 +198,10 @@ type Config struct {
 	// Tickets keeps TLS session tickets, shared by every Transport given
 	// the same cache, like a browser's tabs. Save and load it to carry an
 	// identity's sessions to another process, so its first connections
-	// resume; see TicketCache for what that models. Nil, the default,
-	// keeps one per Transport, lost with it.
+	// resume; see TicketCache for what that models. A cache belongs to one
+	// browser: NewTransport refuses a profile of another. Proxies swept
+	// as MaxIdleProxies says lose their tickets from it too. Nil, the
+	// default, keeps one per Transport, lost with it.
 	Tickets *TicketCache
 	// BrowserQUICFallback copies the browser's slow fallback when QUIC
 	// stalls or fails: requests wait as long as the browser's do. By

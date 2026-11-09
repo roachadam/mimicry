@@ -63,7 +63,14 @@ a loaded cache fits either. (Safari never resumes over TCP.)
   only through the same proxy URL. A weak proxy password can be guessed
   from the hash by someone who also knows the proxy's host and user name.
 - **One identity per cache.** A ticket links the connections that use it,
-  as a cookie does. Don't share a cache between identities or profiles.
+  as a cookie does. A cache belongs to one browser: `NewTransport` refuses
+  a profile of another browser, and `ReadJSON` another browser's file;
+  newer versions of the same browser may use it. Don't share a cache
+  between identities.
+- **Rotating proxies.** A proxy mimicry has forgotten (see
+  [proxies](proxies.md), `Config.MaxIdleProxies`) loses its tickets from
+  the cache too, so a cache stays bounded however many proxies pass
+  through it.
 - **Expiry.** TLS 1.3 tickets expire with their lifetime (7 days at most)
   or their server certificate, whichever is first; TLS 1.2 tickets with
   the certificate. Expired ones are neither written nor loaded.
