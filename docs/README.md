@@ -11,6 +11,7 @@
 - [CORS preflights](concepts/cors-preflights.md)
 - [WebSockets](concepts/websockets.md)
 - [HTTP/3](concepts/http3.md)
+- [Client certificates](concepts/client-certificates.md)
 - [Coming from tls-client](concepts/coming-from-tls-client.md)
 
 ## Evaluating it
@@ -103,6 +104,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0056](decisions/0056-local-addresses.md) | `Config.LocalAddrs` binds TCP, HTTP/3 and SOCKS5 relays to one address per family | Accepted |
 | [0061](decisions/0061-tls-key-log.md) | `Config.KeyLogWriter` writes TLS secrets on request; `SSLKEYLOGFILE` is never read | Accepted |
 | [0062](decisions/0062-saved-tls-tickets.md) | Session tickets shared and saved on request (`Config.Tickets`), one browser per cache; proxies named by a hash, swept proxies' tickets dropped | Accepted |
+| [0064](decisions/0064-client-certificates.md) | Client certificates as each browser sends them: `tls.clientAuth` (schemes, resumption, Chrome's dropped first connection), unmeasured is `ErrNotMeasured` | Accepted |
 
 ### Proxies and WebSockets
 

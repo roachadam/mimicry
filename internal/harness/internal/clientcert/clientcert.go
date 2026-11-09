@@ -13,6 +13,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
@@ -55,6 +56,8 @@ type Identity struct {
 	P12 []byte
 	// Name is its subject common name.
 	Name string
+	// private is its key (TLS).
+	private crypto.Signer
 }
 
 // Set is a run's client CA and its identities.
@@ -248,10 +251,11 @@ func issue(kind string, ca *x509.Certificate, caKey crypto.Signer, now time.Time
 	}
 
 	id := &Identity{
-		Key:  kind,
-		Cert: cert,
-		CA:   ca,
-		Name: name,
+		Key:     kind,
+		Cert:    cert,
+		CA:      ca,
+		Name:    name,
+		private: key,
 	}
 
 	if id.P12, err = pkcs12.LegacyDES.Encode(key, cert, []*x509.Certificate{ca}, Password); err != nil {
@@ -259,6 +263,18 @@ func issue(kind string, ca *x509.Certificate, caKey crypto.Signer, now time.Time
 	}
 
 	return id, nil
+}
+
+// TLS is the identity as crypto/tls holds it: its certificate alone,
+// without the CA, as every captured browser sent it, and its key.
+func (id *Identity) TLS() *tls.Certificate {
+	return &tls.Certificate{
+		Certificate: [][]byte{
+			id.Cert.Raw,
+		},
+		PrivateKey: id.private,
+		Leaf:       id.Cert,
+	}
 }
 
 // serial is a random 128-bit serial number.

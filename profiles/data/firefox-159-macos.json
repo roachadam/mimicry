@@ -321,7 +321,17 @@
     "helloRetry": {
       "cookieAfter": "0x000d"
     },
-    "trailingDotSni": "keep"
+    "trailingDotSni": "keep",
+    "clientAuth": {
+      "tls13": [
+        "0x0403",
+        "0x0804"
+      ],
+      "tls12": [
+        "0x0403",
+        "0x0804"
+      ]
+    }
   },
   "http2": {
     "settings": [

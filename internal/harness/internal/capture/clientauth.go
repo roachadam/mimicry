@@ -1,8 +1,29 @@
 package capture
 
 import (
+	"encoding/json"
+	"fmt"
+	"os"
+
 	"github.com/roachadam/mimicry/profile"
 )
+
+// LoadClientAuth reads a client-certificate scenario's handshakes written
+// by Write (<name>.<scenario>.clientauth.json): every sample's, each in
+// the order the handshakes ended.
+func LoadClientAuth(path string) ([][]ClientAuth, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var samples [][]ClientAuth
+	if err := json.Unmarshal(data, &samples); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	return samples, nil
+}
 
 // ClientAuth is one TLS connection of a client-certificate scenario
 // (server.ClientCertEC and its siblings), whose server asked for a client

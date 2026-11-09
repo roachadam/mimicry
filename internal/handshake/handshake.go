@@ -49,10 +49,23 @@ type Config struct {
 	// ClientCertificate, when set, answers a server's CertificateRequest
 	// (Config.GetClientCertificate, bound to the host); a nil certificate,
 	// or one with no chain, sends none. ClientAuth is the profile's: how
-	// the certificate is signed for, and whether its session is kept.
+	// the certificate is signed for, whether its session is kept, and
+	// whether the first request from a host drops its connection.
 	ClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
 	ClientAuth        *profile.ClientAuth
+	// FirstRequest reports whether this CertificateRequest is the first
+	// from the connection's host and port the client has met, and marks
+	// it met. With ClientCertificate set and tls.clientAuth.restart, Client
+	// then closes the connection with nothing sent and fails with
+	// ErrRestart, and ClientCertificate is not asked.
+	FirstRequest func() bool
 }
+
+// ErrRestart reports a connection Client closed at its host's first
+// CertificateRequest, sending nothing, as the profile's browser does
+// (tls.clientAuth.restart): the request goes again on a new connection,
+// which answers it.
+var ErrRestart = errors.New("handshake: connection dropped at the host's first CertificateRequest, to be made again")
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
 // connection and the negotiated ALPN protocol. It honours ctx; on error conn
@@ -64,7 +77,23 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		return nil, "", err
 	}
 
-	tlsConn := utls.UClient(conn, TLSConfig(cfg), utls.HelloCustom)
+	config := TLSConfig(cfg)
+	if get := config.GetClientCertificate; get != nil && cfg.FirstRequest != nil && cfg.ClientAuth != nil && cfg.ClientAuth.Restart {
+		config.GetClientCertificate = func(req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+			if !cfg.FirstRequest() {
+				return get(req)
+			}
+
+			// Closed before uTLS answers the error with an alert, which
+			// would carry TLS 1.3's buffered change_cipher_spec with it:
+			// the browser sends nothing more.
+			_ = conn.Close()
+
+			return nil, ErrRestart
+		}
+	}
+
+	tlsConn := utls.UClient(conn, config, utls.HelloCustom)
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)

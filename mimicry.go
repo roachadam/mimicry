@@ -275,11 +275,15 @@ type Config struct {
 	// with no chain, sends none. Browsers send their certificate alone,
 	// without its CA; mimicry sends the chain given. It is signed as the
 	// profile's browser signs (tls.clientAuth), and a session it was sent
-	// in is resumed only where the browser resumes one. A profile without
-	// tls.clientAuth, a key type it did not measure, or a server asking
-	// over HTTP/3 makes a certificate ErrNotMeasured. Default: none, and
-	// a server asking gets an empty certificate list, as from a browser
-	// with none. See docs/concepts/client-certificates.md.
+	// in is resumed only where the browser resumes one. Where the browser
+	// drops the connection on which a host and port first asks and sends
+	// the request again on a new one (Chrome, Edge), so does the
+	// Transport, once per host and port, and GetClientCertificate is
+	// called for the new one. A profile without tls.clientAuth, a key
+	// type it did not measure, or a server asking over HTTP/3 makes a
+	// certificate ErrNotMeasured. Default: none, and a server asking gets
+	// an empty certificate list, as from a browser with none. See
+	// docs/concepts/client-certificates.md.
 	GetClientCertificate func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 
 	// Debugging.

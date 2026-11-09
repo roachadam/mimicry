@@ -78,6 +78,7 @@ Runnable examples are in [`example_test.go`](example_test.go).
 - **Proxies:** `http`, `socks5` and `socks5h`, chosen per request with `Config.Proxy`. [Proxies](docs/concepts/proxies.md)
 - **Your own headers:** they go where a page's script would put them. [How a request is built](docs/concepts/how-a-request-is-built.md)
 - **Certificate pins:** `go run github.com/roachadam/mimicry/cmd/pins https://example.com/`, then `Config.Pins`.
+- **Client certificates (mutual TLS):** `Config.GetClientCertificate` answers a server that asks, signed and resumed as the profile's browser does (Chrome and Edge also drop the first connection a host asks on, as the browsers do). [Client certificates](docs/concepts/client-certificates.md)
 - **WebSockets and HTTP/3** need no setup. [WebSockets](docs/concepts/websockets.md) · [HTTP/3](docs/concepts/http3.md)
 
 A request the profile can't describe fails with `mimicry.ErrNotMeasured` before anything is sent, rather than guessing.

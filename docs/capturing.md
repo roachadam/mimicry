@@ -727,10 +727,17 @@ does not describe:
    `http1.uploadRecords`, how the browser cuts
    an HTTP/1.1 request with a body into TLS records, from every request
    of the `http1-upload` capture (testing-build captures included;
-   decision 0052), and `tls.trailingDotSni`, the server_name of a host
+   decision 0052), `tls.trailingDotSni`, the server_name of a host
    ending in a dot, from the `urls` capture's `h-dot` case, fetched and
    navigated to (`keep` when the server refused a ClientHello naming it
-   with its dot, `omit` when the request came with no SNI; decision 0057).
+   with its dot, `omit` when the request came with no SNI; decision 0057),
+   and `tls.clientAuth`, how the browser answers a CertificateRequest,
+   from every connection of the four `client-cert-*` captures: the
+   CertificateVerify scheme per TLS version and key type (samples must
+   agree), `resume` (a later connection offered to resume a session the
+   certificate went in) and `restart` (no first connection to a host
+   answered the request; a later one carried it), left out for a profile
+   without the captures (decision 0064).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.

@@ -274,7 +274,7 @@ func missingWhy(file string) (string, bool) {
 // needing one is skipped. Any other missing capture fails. Keyed by the file
 // of the profile that holds the scenario's captures, so a profile that
 // inherits the scenario (capturesFrom) inherits the entry too.
-var missingCaptures = withTwinsMissing(map[string]string{
+var missingCaptures = withClientCertMissing(withTwinsMissing(map[string]string{
 	"safari-26-macos.proxy-auth.proxytrace.json":    "Safari 26 proxy credentials were never captured",
 	"safari-26-macos.proxy-plain-auth.h1trace.json": "Safari 26 proxy credentials were never captured",
 	// Safari answers a proxy's 407 only with credentials macOS holds: a
@@ -345,7 +345,7 @@ var missingCaptures = withTwinsMissing(map[string]string{
 	// TestInheritedProfile's synthetic profile inherits only the scenarios
 	// chrome-155-macos has captures of.
 	testprofiles.InheritingName: "chrome-155-macos, whose captures it inherits, has none",
-})
+}))
 
 // withTwinsMissing adds to missing an entry for each cookie twin
 // (server.CookieTwins) of each profile in profiles, with why.

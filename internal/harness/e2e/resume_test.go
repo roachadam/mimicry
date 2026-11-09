@@ -264,6 +264,14 @@ func resumeCounts(page *capture.Page) string {
 func runResumePage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.Page {
 	t.Helper()
 
+	return runResumeCapture(t, p, sc).Page
+}
+
+// runResumeCapture is runResumePage returning the whole capture, a
+// client-certificate scenario's handshakes included.
+func runResumeCapture(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.Capture {
+	t.Helper()
+
 	s := startPage(t, p, sc)
 	hosts, _, _ := sc.MultiHost()
 	hostOf := map[string]string{
@@ -320,5 +328,5 @@ func runResumePage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.
 		}
 	}
 
-	return s.finish(s.url(hosts[0], "/done"))
+	return s.finishCapture(s.url(hosts[0], "/done"))
 }

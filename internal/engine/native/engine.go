@@ -22,6 +22,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -166,8 +167,12 @@ type Engine struct {
 	rootCAs     *x509.CertPool
 	keyLog      io.Writer
 	clientCert  func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
-	dialer      *dial.Dialer
-	proxy       func(*http.Request) (*url.URL, error)
+	// certRequested holds the host:port addresses whose servers asked
+	// for a client certificate, as Chrome's SSLClientAuthCache remembers
+	// its answer per host and port (tls.clientAuth.restart).
+	certRequested sync.Map
+	dialer        *dial.Dialer
+	proxy         func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// verify is Config.VerifyConnection.
@@ -828,10 +833,36 @@ func (e *Engine) clientCertFor(host string) func(*tls.CertificateRequestInfo) (*
 	}
 }
 
+// firstRequestFor is the handshake's FirstRequest for a connection to
+// addr (host:port), or nil without Config.ClientCertificate: true once,
+// for the first CertificateRequest from addr.
+func (e *Engine) firstRequestFor(addr string) func() bool {
+	if e.clientCert == nil {
+		return nil
+	}
+
+	return func() bool {
+		_, met := e.certRequested.LoadOrStore(addr, struct{}{})
+		return !met
+	}
+}
+
 // dial connects, through the route's proxy if it has one, and, for https,
 // performs the profile's TLS handshake, bounded by the dial timeout. It
-// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
+// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise). A
+// connection the browser drops at its host's first CertificateRequest
+// (handshake.ErrRestart) is made again, as Chrome sends the request again
+// once it has chosen a certificate.
 func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
+	conn, proto, err := e.dialOnce(ctx, req, r)
+	if errors.Is(err, handshake.ErrRestart) {
+		return e.dialOnce(ctx, req, r)
+	}
+
+	return conn, proto, err
+}
+
+func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
 	var (
 		conn net.Conn
 		err  error
@@ -862,6 +893,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 		KeyLogWriter:      e.keyLog,
 		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
 		ClientAuth:        e.profile.TLS.ClientAuth,
+		FirstRequest:      e.firstRequestFor(r.addr),
 	}
 	hello := e.plan.Hello()
 

@@ -171,6 +171,9 @@ linters:
             - $gostd
             - github.com/jonboulle/clockwork
             - github.com/roachadam/mimicry/internal/fingerprint$
+            # ErrNotMeasured, for a client certificate the profile's
+            # tls.clientAuth does not describe.
+            - github.com/roachadam/mimicry/internal/headerorder$
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
         internal/harness/internal/browser:

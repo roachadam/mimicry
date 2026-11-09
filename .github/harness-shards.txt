@@ -89,4 +89,7 @@
 10         core      ./e2e            TestDeflateReproducesBrowserMessages
 10         core      ./e2e            TestNavRedirectsMatchBrowser
 6          core      ./e2e            TestResumptionMatchesBrowser
+# The resume page four times (TestResumptionMatchesBrowser's twice);
+# estimated from it, not yet from a runner's log.
+12         core      ./e2e            TestClientCertMatchesBrowser
 5          core      ./e2e            TestRedirects2MatchesBrowser

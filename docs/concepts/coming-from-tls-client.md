@@ -65,6 +65,7 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | a new client per proxy | `Config.MaxIdleProxies` |
 | `TransportOptions{DisableCompression: true}` | `Config.DisableDecompression` |
 | `TransportOptions{KeyLogWriter: w}` | `Config.KeyLogWriter` (TCP and HTTP/3); `SSLKEYLOGFILE` is not read |
+| `TransportOptions{Certificates: certs}` | `Config.GetClientCertificate`, which picks per host; sent as the profile's browser sends it ([client certificates](client-certificates.md)) |
 
 To list a site's pins, run `go run github.com/roachadam/mimicry/cmd/pins URL`
 or call `FetchPins`.
