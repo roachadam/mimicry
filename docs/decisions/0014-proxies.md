@@ -1,6 +1,6 @@
 # 0014: Proxies as the browser uses them
 
-- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`); amended 2026-10-30 (`https://` proxies not planned)
+- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`); amended 2026-10-30 (`https://` proxies not planned); amended 2026-11-09 by [0065](0065-https-proxies.md) (`https://` proxies)
 - Date: 2026-10-24
 - Commits: `fb21232`, `e906da5`, `4af5b8d`
 
@@ -41,7 +41,8 @@ server sees. Decision 0010 left proxies to compose with `Config.DialContext`.
   shape, so `http.ProxyURL` and `http.ProxyFromEnvironment` work. Schemes
   `http` (CONNECT for https, absolute-form requests for http), `socks5` and
   `socks5h` (both send the host name for the proxy to resolve, as browsers
-  do). `https` proxies are not supported yet.
+  do). `https` proxies were not supported then; they are since
+  [0065](0065-https-proxies.md).
 - `DialContext` reaches the proxy; everything above the tunnel is unchanged.
 - Profile section `proxy`: `connect` and `connectAuth` (the CONNECT header
   lists without and with credentials; Host and User-Agent filled in),
@@ -163,3 +164,14 @@ TLS to the proxy stays unsupported until a caller needs it (the
 maintainer's decision, 2026-10-30). The limit is documented in
 [Proxies](../concepts/proxies.md#limits). Adding it takes an
 implementation and a capture of each browser's TLS to the proxy.
+
+## Amendment 2026-11-09: https:// proxies supported
+
+The amendment above is reversed: a caller needed them (#105), and every
+current Chrome, Edge and Firefox profile was captured through a proxy
+reached over TLS. `https://` proxies send the profile's ClientHello to
+the proxy and CONNECT over the protocol it picks, HTTP/2 streams or
+HTTP/1.1, as `proxy.https` (hellogen) says; profiles without it refuse
+them with `ErrNotMeasured`. `proxy.connectNoResume` now covers an https
+proxy's tunnels too (Firefox resumes through neither). See
+[0065](0065-https-proxies.md).

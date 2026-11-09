@@ -15,9 +15,9 @@ const caNickname = "mimicry capture CA"
 // trustInProfile has b trust the capture CA (t.CAFile) through dir, its
 // profile for this run, so nothing outside the run is changed: Chrome and
 // Edge read their roots from $HOME/.pki/nssdb and run with HOME set to dir
-// (browserEnv); Firefox from its profile's own database, only when the
-// server gives each host its own certificate (HostCerts), as elsewhere it
-// reads the system roots only then (firefoxProfile). Both need NSS's
+// (browserEnv); Firefox from its profile's own database, only when it
+// checks a certificate from the CA (Target.trustsCA), as elsewhere it reads
+// the system roots only then (firefoxProfile). Both need NSS's
 // certutil (libnss3-tools).
 func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error {
 	if t.CAFile == "" {
@@ -29,7 +29,7 @@ func trustInProfile(ctx context.Context, b *Browser, dir string, t Target) error
 	switch {
 	case chromium(b.Name):
 		db = filepath.Join(dir, ".pki", "nssdb")
-	case b.Name == "firefox" && t.HostCerts:
+	case b.Name == "firefox" && t.trustsCA():
 		db = dir
 	default:
 		return nil

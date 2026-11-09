@@ -62,9 +62,11 @@ type proxyUse struct {
 }
 
 // proxyKeys is a proxy's last use, the route keys of its requests (the
-// HTTP/3 pool's are these with h3Key's suffix) and how many of them have
-// not returned yet (usedProxy to doneProxy): one may still dial. closed:
-// the sweep has closed its connections and keeps it for its state.
+// HTTP/3 pool's are these with h3Key's suffix) and, for an https proxy,
+// the key of its own connections (route.proxyKey), and how many of its
+// requests have not returned yet (usedProxy to doneProxy): one may still
+// dial. closed: the sweep has closed its connections and keeps it for
+// its state.
 type proxyKeys struct {
 	last     time.Time
 	keys     map[string]struct{}
@@ -101,8 +103,10 @@ func (e *Engine) usedProxy(r route) {
 	pk.last, pk.closed = now, false
 	pk.inFlight++
 
-	if _, ok := pk.keys[r.key]; !ok {
-		pk.keys[r.key] = struct{}{}
+	for _, k := range []string{r.key, r.proxyKey} {
+		if _, ok := pk.keys[k]; !ok && k != "" {
+			pk.keys[k] = struct{}{}
+		}
 	}
 
 	if len(u.byURL) > u.keep {
@@ -241,6 +245,12 @@ func (e *Engine) sweepProxies() {
 
 				left = e.quic.pool.ExpireKey(h3PoolKey(k)) || dialing || left
 			}
+		}
+
+		// After the routes' connections, which closing ends their
+		// tunnels: an https proxy's connection is then idle.
+		for _, k := range s.keys {
+			left = e.proxyConns.ExpireKey(k) || left
 		}
 
 		u.mu.Lock()

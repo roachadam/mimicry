@@ -110,11 +110,12 @@ Each record explains why mimicry works the way it does, and what would reopen th
 
 | # | Decision | Status |
 |---|---|---|
-| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Amended by 0038, 0039, 0040 |
+| [0014](decisions/0014-proxies.md) | Proxies as the browser uses them | Amended by 0038, 0039, 0040, 0065 |
 | [0025](decisions/0025-websockets.md) | WebSockets as each browser opens and frames them | Amended |
 | [0033](decisions/0033-proxy-errors.md) | Proxy failures are a `*ProxyError` | Amended by 0039 |
 | [0038](decisions/0038-http3-over-socks5.md) | HTTP/3 through SOCKS5 on request; never a datagram around a proxy | Accepted |
 | [0039](decisions/0039-proxy-credentials-up-front.md) | Proxy credentials sent up front by default | Accepted |
+| [0065](decisions/0065-https-proxies.md) | `https://` proxies: the profile's hello to the proxy, CONNECT over HTTP/2 streams or HTTP/1.1 as the proxy picks (`proxy.https`, hellogen), unmeasured is `ErrNotMeasured` | Accepted |
 
 ### HTTP/3 and QUIC
 

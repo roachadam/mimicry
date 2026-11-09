@@ -2,6 +2,7 @@ package browser
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -10,17 +11,23 @@ import (
 
 // firefoxProfile writes prefs that map the capture hosts to 127.0.0.1 and
 // silence first-run pages, plus a certificate exception for the server (or,
-// with HostCerts, trust in the system roots: the capture CA in the macOS
-// keychain, or in the Windows machine's Root store for the run). The same
-// profile serves macOS and Windows. network.dns.localDomains maps to
-// loopback only, so t.Addr must be Loopback.
+// when it trusts the capture CA (trustsCA), trust in the system roots: the
+// capture CA in the macOS keychain, or in the Windows machine's Root store
+// for the run). The same profile serves macOS and Windows.
+// network.dns.localDomains maps to loopback only, so t.Addr must be
+// Loopback.
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if t.Addr != Loopback {
 		return nil, fmt.Errorf("firefox maps the capture hosts to loopback only (network.dns.localDomains), not %s: capture it without -listen", t.Addr)
 	}
 
+	local := append([]string{t.Host}, t.Hosts...)
+	if h := t.proxyHost(); h != "" {
+		local = append(local, h)
+	}
+
 	prefs := []string{
-		`user_pref("network.dns.localDomains", "` + strings.Join(append([]string{t.Host}, t.Hosts...), ",") + `");`,
+		`user_pref("network.dns.localDomains", "` + strings.Join(local, ",") + `");`,
 		`user_pref("network.dns.disableIPv6", true);`,
 		`user_pref("browser.shell.checkDefaultBrowser", false);`,
 		`user_pref("browser.startup.homepage_override.mstone", "ignore");`,
@@ -28,7 +35,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		`user_pref("datareporting.policy.dataSubmissionEnabled", false);`,
 		`user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);`,
 	}
-	if t.HostCerts {
+	if t.trustsCA() {
 		prefs = append(prefs, `user_pref("security.enterprise_roots.enabled", true);`)
 	}
 
@@ -39,18 +46,26 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	if t.Proxy != nil {
 		host, port := t.Proxy.Hostname(), t.Proxy.Port()
 
-		prefs = append(prefs, `user_pref("network.proxy.type", 1);`)
-
 		switch t.Proxy.Scheme {
 		case "socks5":
 			prefs = append(prefs,
+				`user_pref("network.proxy.type", 1);`,
 				`user_pref("network.proxy.socks", "`+host+`");`,
 				`user_pref("network.proxy.socks_port", `+port+`);`,
 				`user_pref("network.proxy.socks_version", 5);`,
 			)
 
+		case "https":
+			// Firefox's manual settings take no proxy reached over TLS;
+			// a proxy script names one.
+			prefs = append(prefs,
+				`user_pref("network.proxy.type", 2);`,
+				`user_pref("network.proxy.autoconfig_url", "`+firefoxPAC("HTTPS "+t.Proxy.Host)+`");`,
+			)
+
 		default:
 			prefs = append(prefs,
+				`user_pref("network.proxy.type", 1);`,
 				`user_pref("network.proxy.http", "`+host+`");`,
 				`user_pref("network.proxy.http_port", `+port+`);`,
 				`user_pref("network.proxy.ssl", "`+host+`");`,
@@ -103,4 +118,12 @@ func firefoxOverride(t Target) string {
 	return "# PSM Certificate Override Settings file\n" +
 		"# This is a generated file!  Do not edit.\n" +
 		t.Host + ":" + strconv.Itoa(t.Port) + ":\tOID.2.16.840.1.101.3.4.2.1\t" + strings.Join(pairs, ":") + "\t\n"
+}
+
+// firefoxPAC is a data: URL of a proxy script sending every URL to proxy
+// (a PAC result, "HTTPS host:port").
+func firefoxPAC(proxy string) string {
+	script := "function FindProxyForURL(url, host) { return '" + proxy + "'; }"
+
+	return "data:application/x-ns-proxy-autoconfig," + url.PathEscape(script)
 }

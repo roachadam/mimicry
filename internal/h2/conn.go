@@ -208,6 +208,11 @@ type stream struct {
 	// read, before the caller sees it: from then on the stream is no new
 	// request's parent, though it stays in c.streams until endStream.
 	peerEnded bool
+	// connect is set on a CONNECT tunnel's stream (Tunnel) before it is
+	// sent, and open once the proxy answered it 2xx: the peer's
+	// END_STREAM then ends only what it sends (peerEnd), our side staying
+	// open until the tunnel closes. Both belong to the read loop.
+	connect, open bool
 }
 
 type responseOrError struct {
@@ -1144,7 +1149,7 @@ func (c *Conn) writeBody(ctx context.Context, s *stream, body io.Reader, length 
 			}
 		}
 
-		if err := c.sendData(ctx, s, b[:n], eof); err != nil {
+		if _, err := c.sendData(ctx, s, b[:n], eof); err != nil {
 			return err
 		}
 
@@ -1174,8 +1179,9 @@ func hasMore(body io.Reader, probe []byte) (bool, error) {
 }
 
 // sendData writes data as DATA frames within the flow-control windows; end
-// sets END_STREAM on the last one, an empty frame if data is empty.
-func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) error {
+// sets END_STREAM on the last one, an empty frame if data is empty. It
+// returns how many bytes of data went out, all of them unless it fails.
+func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) (int, error) {
 	if len(data) == 0 && end {
 		c.mu.Lock()
 
@@ -1183,9 +1189,11 @@ func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) e
 		c.mu.Unlock()
 
 		if done {
-			return errStreamClosed
+			return 0, errStreamClosed
 		}
 	}
+
+	sent := 0
 
 	for len(data) > 0 || end {
 		var n int
@@ -1194,7 +1202,7 @@ func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) e
 
 			n, err = c.reserveSend(ctx, s, len(data))
 			if err != nil {
-				return err
+				return sent, err
 			}
 		}
 
@@ -1206,17 +1214,17 @@ func (c *Conn) sendData(ctx context.Context, s *stream, data []byte, end bool) e
 		c.wmu.Unlock()
 
 		if err != nil {
-			return err
+			return sent, err
 		}
 
-		data = data[n:]
+		data, sent = data[n:], sent+n
 
 		if last {
-			return nil
+			return sent, nil
 		}
 	}
 
-	return nil
+	return sent, nil
 }
 
 // reserveSend waits until both windows allow some data and takes up to want
@@ -1737,9 +1745,7 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 	if trailers {
 		// Trailers are not exposed, but may end the stream.
 		if f.StreamEnded() {
-			c.endStream(s, ending{
-				err: io.EOF,
-			})
+			c.peerEnd(s)
 		}
 
 		return
@@ -1798,6 +1804,7 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 	}
 
 	s.delivered = true
+	s.open = s.connect && code/100 == 2
 	s.deliver(responseOrError{
 		resp: resp,
 	})
@@ -1808,9 +1815,7 @@ func (c *Conn) onHeaders(f *http2.MetaHeadersFrame) {
 			c.onPeerEndHook()
 		}
 
-		c.endStream(s, ending{
-			err: io.EOF,
-		})
+		c.peerEnd(s)
 	}
 }
 
@@ -1880,12 +1885,27 @@ func (c *Conn) onData(f *http2.DataFrame) error {
 			c.onPeerEndHook()
 		}
 
-		c.endStream(s, ending{
-			err: io.EOF,
-		})
+		c.peerEnd(s)
 	}
 
 	return nil
+}
+
+// peerEnd handles the peer's END_STREAM on s, on the read loop: the stream
+// ends, but an open tunnel's (Tunnel) ends only what the peer sends, its
+// body reading to EOF, and stays counted and writable until the tunnel's
+// Close resets it, as a browser keeps its side of a tunnel the proxy ended
+// until it closes the socket.
+func (c *Conn) peerEnd(s *stream) {
+	if s.open {
+		s.body.end(io.EOF)
+
+		return
+	}
+
+	c.endStream(s, ending{
+		err: io.EOF,
+	})
 }
 
 // returnConnCredit counts size bytes that no reader will consume towards the

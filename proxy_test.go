@@ -2,6 +2,8 @@ package mimicry_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"net"
@@ -152,7 +154,9 @@ func closedAddr(t *testing.T) string {
 // TestProxyErrors: every way a proxy fails a request is a *ProxyError
 // naming it without its password, with the proxy's answer where there was
 // one, wrapping the deadline where that was the cause; a WebSocket's too,
-// through its own tunnel or sent to the proxy whole (Safari's ws://).
+// through its own tunnel or sent to the proxy whole (Safari's ws://); and
+// an https:// proxy's, its TLS handshake included, over HTTP/2 and
+// HTTP/1.1.
 func TestProxyErrors(t *testing.T) {
 	const password = "s3cr3t-pw"
 
@@ -171,6 +175,24 @@ func TestProxyErrors(t *testing.T) {
 	defer refusing.Close()
 
 	refusing.Refuse("403 Forbidden")
+
+	httpsAsking, httpsCert := startHTTPSProxy("alice", "right", false)
+
+	defer httpsAsking.Close()
+
+	httpsRefusing, _ := startHTTPSProxy("", "", false)
+
+	defer httpsRefusing.Close()
+
+	httpsRefusing.Refuse("403 Forbidden")
+
+	h1Asking, _ := startHTTPSProxy("alice", "right", true)
+
+	defer h1Asking.Close()
+
+	// The shop's root and the https:// proxies' certificate.
+	trusted := shop.RootCAs.Clone()
+	trusted.AddCert(httpsCert)
 
 	proxyURL := func(scheme, addr string, user *url.Userinfo) *url.URL {
 		return &url.URL{
@@ -199,7 +221,90 @@ func TestProxyErrors(t *testing.T) {
 		safari    bool
 		// browserAuth sets Config.BrowserProxyAuth.
 		browserAuth bool
+		// roots are Config.RootCAs; nil, the shop's root and the https://
+		// proxies' certificate. verify is Config.VerifyConnection.
+		roots  *x509.CertPool
+		verify func(tls.ConnectionState) error
 	}{
+		{
+			name:   "https proxy with an untrusted certificate",
+			proxy:  proxyURL("https", httpsAsking.URL.Host, wrong),
+			target: "https://www.shop.test/",
+			roots:  shop.RootCAs,
+		},
+		{
+			name:   "https proxy refused by VerifyConnection",
+			proxy:  proxyURL("https", httpsAsking.URL.Host, wrong),
+			target: "https://www.shop.test/",
+			verify: func(cs tls.ConnectionState) error {
+				if cs.ServerName == "127.0.0.1" {
+					return errors.New("not this proxy")
+				}
+
+				return nil
+			},
+		},
+		{
+			name:         "https proxy unanswered",
+			proxy:        proxyURL("https", silentListener(t), wrong),
+			target:       "https://www.shop.test/",
+			timeout:      300 * time.Millisecond,
+			wantDeadline: true,
+		},
+		{
+			name:       "https proxy over HTTP/2: CONNECT refused",
+			proxy:      proxyURL("https", httpsRefusing.URL.Host, nil),
+			target:     "https://www.shop.test/",
+			wantStatus: http.StatusForbidden,
+			wantLog: []string{
+				"HTTP/2.0 CONNECT www.shop.test:443 without credentials: 403",
+			},
+		},
+		{
+			name:          "https proxy over HTTP/2: 407 to credentials sent up front",
+			proxy:         proxyURL("https", httpsAsking.URL.Host, wrong),
+			target:        "https://www.shop.test/",
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"HTTP/2.0 CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
+			name:          "https proxy over HTTP/2: 407 after the credential flow",
+			proxy:         proxyURL("https", httpsAsking.URL.Host, wrong),
+			target:        "https://www.shop.test/",
+			browserAuth:   true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"HTTP/2.0 CONNECT www.shop.test:443 without credentials: 407",
+				"HTTP/2.0 CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
+			name:          "https proxy over HTTP/1.1: 407 after the credential flow",
+			proxy:         proxyURL("https", h1Asking.URL.Host, wrong),
+			target:        "https://www.shop.test/",
+			browserAuth:   true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"HTTP/1.1 CONNECT www.shop.test:443 without credentials: 407",
+				"HTTP/1.1 CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
+		{
+			name:          "WebSocket through an https proxy over HTTP/2, 407",
+			proxy:         proxyURL("https", httpsAsking.URL.Host, wrong),
+			target:        "wss://www.shop.test/socket",
+			websocket:     true,
+			wantStatus:    http.StatusProxyAuthRequired,
+			wantChallenge: true,
+			wantLog: []string{
+				"HTTP/2.0 CONNECT www.shop.test:443 as alice: 407",
+			},
+		},
 		{
 			name:   "unreachable",
 			proxy:  proxyURL("http", closedAddr(t), wrong),
@@ -347,8 +452,11 @@ func TestProxyErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			before := map[*proxy]int{
-				asking:   len(asking.Log()),
-				refusing: len(refusing.Log()),
+				asking:        len(asking.Log()),
+				refusing:      len(refusing.Log()),
+				httpsAsking:   len(httpsAsking.Log()),
+				httpsRefusing: len(httpsRefusing.Log()),
+				h1Asking:      len(h1Asking.Log()),
 			}
 			p := profiles.ChromeMacOS()
 
@@ -356,10 +464,16 @@ func TestProxyErrors(t *testing.T) {
 				p = profiles.SafariMacOS()
 			}
 
+			roots := tc.roots
+			if roots == nil {
+				roots = trusted
+			}
+
 			tr, err := mimicry.NewTransport(mimicry.Config{
 				Profile:          p,
 				Proxy:            http.ProxyURL(tc.proxy),
-				RootCAs:          shop.RootCAs,
+				RootCAs:          roots,
+				VerifyConnection: tc.verify,
 				BrowserProxyAuth: tc.browserAuth,
 			})
 			if err != nil {

@@ -667,6 +667,34 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 			Scheme: sc.Proxy,
 			Host:   pln.Addr().String(),
 		}
+
+		if sc.Proxy == server.ProxyHTTPS {
+			// The browser checks the proxy's certificate: one from the
+			// capture CA for the name it maps to the proxy's address.
+			proxyPort, err := tcpPort(pln)
+
+			var cert tls.Certificate
+			if err == nil {
+				cert, err = opts.ca.Issue([]string{server.ProxyHost}, time.Now())
+			}
+
+			if err != nil {
+				_ = ln.Close()
+				_ = pln.Close()
+
+				return nil, err
+			}
+
+			px.TLS = &tls.Config{
+				Certificates: []tls.Certificate{
+					cert,
+				},
+				NextProtos: sc.ProxyNextProtos(),
+				MinVersion: tls.VersionTLS12,
+			}
+			proxyURL.Host = net.JoinHostPort(server.ProxyHost, strconv.Itoa(proxyPort))
+		}
+
 		_ = ln.Close()
 		ln = px.Listener()
 	}
@@ -838,6 +866,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 
 	if c != nil && px != nil {
 		c.Proxy = px.Requests()
+		c.ProxyTLS = px.TLSConns()
 	}
 
 	if c != nil && len(conditions) > 0 {

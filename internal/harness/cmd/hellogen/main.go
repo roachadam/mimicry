@@ -1,9 +1,10 @@
 // Command hellogen derives the shape of a browser's ClientHello (record and
 // legacy versions, session ID length, key share lengths and X25519 key
 // reuse, ECH), how it cuts a new HTTP/2 connection's opening and an
-// HTTP/1.1 upload into TLS records, how it answers a server's GOAWAY and
-// how it sends a client certificate (tls.clientAuth) from its captures,
-// and writes them into the profile and the capture's JSON.
+// HTTP/1.1 upload into TLS records, how it answers a server's GOAWAY, how
+// it sends a client certificate (tls.clientAuth) and how it uses an
+// https:// proxy (proxy.https) from its captures, and writes them into the
+// profile and the capture's JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
@@ -143,6 +144,12 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("tls.clientAuth: %w", err)
 	}
 
+	if p.Proxy != nil {
+		if p.Proxy.HTTPS, err = proxyHTTPS(dir, p); err != nil {
+			return nil, nil, fmt.Errorf("proxy.https: %w", err)
+		}
+	}
+
 	if err := apply(&c.TLS, derived); err != nil {
 		return nil, nil, fmt.Errorf("capture: %w", err)
 	}
@@ -174,7 +181,9 @@ type shape struct {
 
 // derive parses every sample of the default page's .clienthello and
 // combines them, then folds in the GREASE ECH choices of every page
-// capture's connections.
+// capture's connections and of every connection to an https:// proxy
+// that carried a tunnel to a capture host (the browser's own traffic to
+// the proxy may send another hello: Firefox's background requests).
 func derive(dir string, p *profile.Spec) (*shape, error) {
 	path := filepath.Join(dir, capture.Source(p, capture.DefaultScenario)+".clienthello")
 
@@ -226,6 +235,37 @@ func derive(dir string, p *profile.Spec) (*shape, error) {
 			for j, conn := range page.Connections {
 				if err := sh.add(&conn); err != nil {
 					return nil, fmt.Errorf("%s: sample %d, connection %d: %w", f.Path, i+1, j+1, err)
+				}
+			}
+		}
+	}
+
+	proxies, err := capture.Files(dir, p, ".proxytls.json.gz")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range proxies {
+		loaded, err := capture.LoadProxyTLS(f.Path)
+		if err != nil {
+			return nil, err
+		}
+
+		reqs, err := capture.LoadProxyRequests(strings.TrimSuffix(f.Path, ".proxytls.json.gz") + ".proxytrace.json")
+		if err != nil {
+			return nil, err
+		}
+
+		for i, sample := range loaded {
+			for _, conn := range sample {
+				if i >= len(reqs) || !slices.ContainsFunc(reqs[i], func(r capture.ProxyRequest) bool {
+					return r.Conn == conn.Conn
+				}) {
+					continue
+				}
+
+				if err := sh.add(&conn.Connection); err != nil {
+					return nil, fmt.Errorf("%s: sample %d, proxy connection %d: %w", f.Path, i+1, conn.Conn, err)
 				}
 			}
 		}

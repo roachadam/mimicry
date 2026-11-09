@@ -642,7 +642,7 @@ func (r *refreshRun) checkLinux(p *plan, rep *preflightReport) {
 
 	trust := "Chromium browsers (Chrome, Edge) trust the capture CA in an NSS database under their throwaway profile (HOME is that profile for the run)"
 	if p.Browser == "firefox" {
-		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts"
+		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts and through an https:// proxy"
 	}
 
 	changed := "nothing outside the run's directory on " + m.String() + " is changed"
@@ -866,8 +866,9 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 
 	if shared && !iphone {
 		p.Manual = append(p.Manual, fmt.Sprintf("Safari on %s: no content blocker or other extension enabled, default privacy settings; it opens tabs in your own window", r.machine(p)))
-		if slices.ContainsFunc(set, func(s server.Planned) bool {
-			return s.Scenario.Proxy != ""
+		if slices.ContainsFunc(p.Captures, func(c planned) bool {
+			sc, err := server.ScenarioByName(c.Scenario)
+			return err == nil && sc.Proxy != ""
 		}) && rep.SafariProxy != "pac" {
 			p.Problems = append(p.Problems, fmt.Sprintf("the proxy scenarios need the system to send Safari to the capture tool's proxy script on %s (now: %s):\n    %s\n  and after the run:\n    %s",
 				r.machine(p), rep.SafariProxy,

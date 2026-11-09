@@ -50,6 +50,10 @@ type Capture struct {
 	// (proxy scenarios); SampleProxy holds every sample's (Combine).
 	Proxy       []ProxyRequest
 	SampleProxy [][]ProxyRequest
+	// ProxyTLS is the client's connections to a TLS (https://) capture
+	// proxy; SampleProxyTLS holds every sample's (Combine).
+	ProxyTLS       []ProxyTLS
+	SampleProxyTLS [][]ProxyTLS
 	// ProxyConn numbers the client's connection to the capture proxy that
 	// carried this connection (ProxyRequest.Conn), or 0 for a direct one.
 	ProxyConn int
@@ -393,6 +397,13 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		}
 	}
 
+	proxyTLS := c.SampleProxyTLS
+	if len(proxyTLS) == 0 && len(c.ProxyTLS) > 0 {
+		proxyTLS = [][]ProxyTLS{
+			c.ProxyTLS,
+		}
+	}
+
 	clientAuth := c.SampleClientAuth
 	if len(clientAuth) == 0 && len(c.ClientAuth) > 0 {
 		clientAuth = [][]ClientAuth{
@@ -415,6 +426,8 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		// Replayed pages are tens of MiB of repetitive JSON.
 		{prefix + ".pagetrace.json.gz", pages, len(pages) > 0},
 		{prefix + ".proxytrace.json", proxy, len(proxy) > 0},
+		// Every connection's ClientHello, many per page.
+		{prefix + ".proxytls.json.gz", proxyTLS, len(proxyTLS) > 0},
 		{prefix + ".clientauth.json", clientAuth, len(clientAuth) > 0},
 	} {
 		if !trace.present {

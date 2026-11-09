@@ -50,6 +50,7 @@ var suffixes = []string{
 	".h2trace.json",
 	".h1trace.json",
 	".proxytrace.json",
+	".proxytls.json.gz",
 	".clientauth.json",
 	".clienthello",
 	".json",

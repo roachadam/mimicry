@@ -50,8 +50,10 @@ func (e *CORSError) Error() string {
 }
 
 // ProxyError reports that a request never reached the server because of
-// its proxy: unreachable, a non-2xx CONNECT answer, a failed SOCKS5
-// handshake or login, or the deadline passing on the way. For a
+// its proxy: unreachable, a failed TLS handshake with an https proxy (its
+// certificate, Pins or VerifyConnection; the cause stays wrapped), a
+// non-2xx CONNECT answer, a failed SOCKS5 handshake or login, or the
+// deadline passing on the way. For a
 // plain-HTTP request sent to an HTTP proxy whole, only a final 407 counts;
 // other answers are the response. Failures inside an open tunnel are the
 // server's, not a ProxyError.

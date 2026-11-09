@@ -244,12 +244,12 @@ func readRetryHello(r io.Reader) ([]byte, error) {
 			return nil, err
 		}
 
-		_, msg, err := readClientHello(r)
+		_, msg, err := ReadClientHello(r)
 
 		return msg, err
 	}
 
-	_, msg, err := readClientHello(io.MultiReader(bytes.NewReader(header[:]), r))
+	_, msg, err := ReadClientHello(io.MultiReader(bytes.NewReader(header[:]), r))
 
 	return msg, err
 }

@@ -130,7 +130,12 @@ type Config struct {
 	Resolver *net.Resolver
 	// Proxy picks the proxy for each request, as in http.Transport. Nil,
 	// the default, connects directly. Supported schemes are "http",
-	// "socks5" and "socks5h"; a failed proxy returns a *ProxyError. See
+	// "https" (TLS to the proxy with the profile's hello, CONNECT over
+	// the HTTP/2 or HTTP/1.1 it picks; https:// requests only, and
+	// profiles without proxy.https, Safari's among them, refuse it),
+	// "socks5" and "socks5h"; a failed proxy returns a *ProxyError.
+	// RootCAs, Pins, VerifyConnection and KeyLogWriter apply to an https
+	// proxy's TLS too, for its host; GetClientCertificate does not. See
 	// docs/concepts/proxies.md.
 	Proxy func(*http.Request) (*url.URL, error)
 

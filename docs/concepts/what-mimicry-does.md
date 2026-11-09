@@ -334,9 +334,11 @@ never opens a socket by itself. See [WebSockets](websockets.md).
 
 ## Proxies
 
-**What happens.** With `Config.Proxy`, requests go through an HTTP or
-SOCKS5 proxy, using the browser's handshake. Credentials go with the first
-request. See [Proxies](proxies.md).
+**What happens.** With `Config.Proxy`, requests go through an HTTP, HTTPS
+or SOCKS5 proxy, using the browser's handshake (to an HTTPS proxy, its
+TLS hello, and HTTP/2 when the proxy picks it, every tunnel a stream of
+one connection). Credentials go with the first request. See
+[Proxies](proxies.md).
 
 **How to change it.** `Config.Proxy`, `Config.BrowserProxyAuth`,
 `Config.HTTP3OverSOCKS5` and `Config.MaxIdleProxies`, all described in

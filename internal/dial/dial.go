@@ -1,8 +1,9 @@
 // Package dial is the single path from an address to a connected socket,
-// directly or through an HTTP or SOCKS5 proxy, and to a UDP socket for
-// QUIC, directly or through a SOCKS5 UDP association. Every step honours
-// the context and its deadline (decision 0010); no other package opens
-// connections.
+// directly or through an HTTP, HTTPS or SOCKS5 proxy (the TLS to an https
+// proxy and its HTTP/2 streams are the engine's, through ProxyTLS and
+// TunnelH2), and to a UDP socket for QUIC, directly or through a SOCKS5
+// UDP association. Every step honours the context and its deadline
+// (decision 0010); no other package opens connections.
 package dial
 
 import (
@@ -62,6 +63,11 @@ type Dialer struct {
 	// DialContext opens them), QUIC's UDP sockets and SOCKS5 UDP relays.
 	// A remote address of a family with none is not used.
 	LocalAddrs []netip.Addr
+	// ProxyTLS runs the TLS handshake with an https proxy p on conn, its
+	// new connection, and returns the TLS connection: the engine's, with
+	// the profile's hello. Required for https proxies; on error conn is
+	// closed.
+	ProxyTLS func(ctx context.Context, conn net.Conn, p *url.URL) (net.Conn, error)
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -252,9 +258,11 @@ func (d *Dialer) setReadBuffer(uc *net.UDPConn) {
 	}
 }
 
-// Supported proxy URL schemes.
+// Supported proxy URL schemes. An https proxy is an HTTP proxy reached
+// over TLS (ProxyTLS).
 const (
 	SchemeHTTP    = "http"
+	SchemeHTTPS   = "https"
 	SchemeSOCKS5  = "socks5"
 	SchemeSOCKS5H = "socks5h"
 )
@@ -263,8 +271,8 @@ const (
 // engine checks that the profile describes the proxy protocol.
 func (d *Dialer) CheckProxy(p *url.URL) error {
 	switch {
-	case p.Scheme != SchemeHTTP && p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H:
-		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, socks5, socks5h)", p.Scheme)
+	case p.Scheme != SchemeHTTP && p.Scheme != SchemeHTTPS && p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H:
+		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, https, socks5, socks5h)", p.Scheme)
 	case p.Host == "":
 		return fmt.Errorf("mimicry: proxy URL %q has no host", p.Redacted())
 	}
@@ -310,10 +318,20 @@ func answerError(p *url.URL, a proxy.Answer, err error) error {
 	}
 }
 
-// DialProxy connects to the proxy p itself, for plain-HTTP requests sent
-// to it whole. A failure is a *ProxyError.
+// DialProxy connects to the proxy p itself: for plain-HTTP requests sent
+// to an http proxy whole, or an https proxy's connection, TLS done
+// (ProxyTLS), for the engine to send CONNECTs on over the protocol the
+// proxy picked. Timeout bounds both. A failure is a *ProxyError.
 func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
-	conn, err := d.Dial(ctx, proxyAddr(p))
+	if d.Timeout > 0 {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeout(ctx, d.Timeout)
+
+		defer cancel()
+	}
+
+	conn, err := d.dialProxy(ctx, p)
 	if err != nil {
 		return nil, proxyError(p, err)
 	}
@@ -321,9 +339,21 @@ func (d *Dialer) DialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
 	return conn, nil
 }
 
-// DialVia connects to addr through the proxy p: an HTTP proxy's CONNECT
-// tunnel or a SOCKS5 connection, as the profile's browser asks for them.
-// A failure before the tunnel is up is a *ProxyError.
+// dialProxy connects to p: TCP, then TLS for an https proxy.
+func (d *Dialer) dialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
+	conn, err := d.dial(ctx, proxyAddr(p))
+	if err != nil || p.Scheme != SchemeHTTPS {
+		return conn, err
+	}
+
+	return d.ProxyTLS(ctx, conn, p)
+}
+
+// DialVia connects to addr through the proxy p, an http or SOCKS5 one: an
+// HTTP proxy's CONNECT tunnel or a SOCKS5 connection, as the profile's
+// browser asks for them. An https proxy's tunnels are the engine's
+// (DialProxy, then ConnectOn or TunnelH2 by the protocol it picked). A
+// failure before the tunnel is up is a *ProxyError.
 func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -339,7 +369,7 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	}
 
 	if p.Scheme == SchemeHTTP {
-		return d.connect(ctx, conn, p, addr)
+		return d.ConnectOn(ctx, conn, p, addr)
 	}
 
 	methods, err := d.socksMethods(p)
@@ -520,28 +550,69 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 	return udp, nil
 }
 
-// connect opens a CONNECT tunnel on conn, closing it on failure. With
+// ConnectOn opens a CONNECT tunnel to addr over HTTP/1.1 on conn, a new
+// connection to the http or https proxy p, closing it on failure. With
 // credentials it sends them from the first CONNECT, or with BrowserAuth as
 // the profile says (after_challenge or on_challenge): a 407 is then
-// answered once, on a new connection if the proxy closed this one.
-func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
+// answered once, on a new connection if the proxy closed this one. A
+// failure is a *ProxyError.
+func (d *Dialer) ConnectOn(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
+	return d.tunnel(ctx, p, addr, d.Proxy.Connect, d.Proxy.ConnectAuth, &h1Exchange{
+		d:    d,
+		p:    p,
+		addr: addr,
+		conn: conn,
+	})
+}
+
+// ConnectStream sends one CONNECT as a new stream of an HTTP/2 connection
+// to a proxy, header its fields after the pseudo-header fields, and
+// returns the proxy's answer and, after a 2xx, the tunnel.
+type ConnectStream func(ctx context.Context, header []profile.Header) (proxy.Answer, net.Conn, error)
+
+// TunnelH2 opens a tunnel to addr through the https proxy p as a stream
+// of its HTTP/2 connection (open), with proxy.https's header lists and the
+// credential flow of ConnectOn, the 407 answered on a new stream of the
+// same connection. A failure is a *ProxyError wrapping open's error.
+func (d *Dialer) TunnelH2(ctx context.Context, p *url.URL, addr string, open ConnectStream) (net.Conn, error) {
+	return d.tunnel(ctx, p, addr, d.Proxy.HTTPS.Connect, d.Proxy.HTTPS.ConnectAuth, open)
+}
+
+// exchanger sends a tunnel's CONNECTs: over HTTP/1.1 on one connection
+// (h1Exchange), or as streams of an HTTP/2 connection (ConnectStream).
+type exchanger interface {
+	// connect sends one CONNECT carrying header and returns the proxy's
+	// answer and, after a 2xx, the tunnel.
+	connect(ctx context.Context, header []profile.Header) (proxy.Answer, net.Conn, error)
+	// again readies the CONNECT that answers a, a 407; on failure it
+	// holds nothing open.
+	again(ctx context.Context, a proxy.Answer) error
+	// abandon closes what the exchange holds once the tunnel failed.
+	abandon()
+}
+
+// tunnel is the browser's credential flow for a CONNECT to addr through
+// p, its lists plain and withAuth (without and with credentials), sent by
+// x.
+func (d *Dialer) tunnel(ctx context.Context, p *url.URL, addr string, plain, withAuth []profile.Header, x exchanger) (net.Conn, error) {
 	unasked := p.User != nil && (!d.BrowserAuth || d.askedConnect(p))
-	header := d.connectHeader(addr, d.Proxy.Connect, "")
+	header := d.connectHeader(addr, plain, "")
 
 	if unasked {
-		header = d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p))
+		header = d.connectHeader(addr, withAuth, Credentials(p))
 	}
 
-	answer, tunnel, err := proxy.Connect(ctx, conn, addr, header)
+	answer, tunnel, err := x.connect(ctx, header)
 	switch {
 	case err != nil:
-		_ = conn.Close()
+		x.abandon()
+
 		return nil, proxyError(p, err)
 
 	case answer.StatusCode/100 == 2:
 		return tunnel, nil
 	case answer.StatusCode != http.StatusProxyAuthRequired || unasked || p.User == nil:
-		_ = conn.Close()
+		x.abandon()
 
 		what := "CONNECT"
 
@@ -553,33 +624,92 @@ func (d *Dialer) connect(ctx context.Context, conn net.Conn, p *url.URL, addr st
 	}
 
 	if err := basicChallenge(answer.Header); err != nil {
-		_ = conn.Close()
+		x.abandon()
+
 		return nil, answerError(p, answer, err)
 	}
 
 	d.asked.Store(p.String(), true)
 
-	conn = tunnel
-	if answer.Close {
-		_ = conn.Close()
-		if conn, err = d.dial(ctx, proxyAddr(p)); err != nil {
-			return nil, proxyError(p, err)
-		}
+	if err := x.again(ctx, answer); err != nil {
+		return nil, proxyError(p, err)
 	}
 
-	answer, tunnel, err = proxy.Connect(ctx, conn, addr, d.connectHeader(addr, d.Proxy.ConnectAuth, Credentials(p)))
+	answer, tunnel, err = x.connect(ctx, d.connectHeader(addr, withAuth, Credentials(p)))
 	switch {
 	case err != nil:
-		_ = conn.Close()
+		x.abandon()
+
 		return nil, proxyError(p, err)
 
 	case answer.StatusCode/100 != 2:
-		_ = conn.Close()
+		x.abandon()
+
 		return nil, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
 	}
 
 	return tunnel, nil
 }
+
+// h1Exchange sends CONNECTs to addr over HTTP/1.1 on conn, a connection
+// to p.
+type h1Exchange struct {
+	d    *Dialer
+	p    *url.URL
+	addr string
+	conn net.Conn
+}
+
+func (x *h1Exchange) connect(ctx context.Context, header []profile.Header) (proxy.Answer, net.Conn, error) {
+	lines := make([]string, len(header))
+	for i, h := range header {
+		lines[i] = h.Name + ": " + h.Value
+	}
+
+	answer, tunnel, err := proxy.Connect(ctx, x.conn, x.addr, lines)
+	if tunnel != nil {
+		// What the proxy sent past a refusal is the next answer's.
+		x.conn = tunnel
+	}
+
+	return answer, tunnel, err
+}
+
+// again reconnects when the proxy closes the connection after its 407.
+func (x *h1Exchange) again(ctx context.Context, a proxy.Answer) error {
+	if !a.Close {
+		return nil
+	}
+
+	_ = x.conn.Close()
+
+	conn, err := x.d.dialProxy(ctx, x.p)
+	if err != nil {
+		return err
+	}
+
+	x.conn = conn
+
+	return nil
+}
+
+func (x *h1Exchange) abandon() {
+	_ = x.conn.Close()
+}
+
+func (s ConnectStream) connect(ctx context.Context, header []profile.Header) (proxy.Answer, net.Conn, error) {
+	return s(ctx, header)
+}
+
+// again does nothing: the next CONNECT is a new stream of the same
+// connection.
+func (ConnectStream) again(context.Context, proxy.Answer) error {
+	return nil
+}
+
+// abandon does nothing: a refused stream has ended, and the connection
+// is the engine's.
+func (ConnectStream) abandon() {}
 
 // askedConnect reports whether, the browser's way (BrowserAuth), a
 // CONNECT to p carries credentials unasked: p asked before and the
@@ -638,10 +768,10 @@ func Credentials(p *url.URL) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(p.User.Username()+":"+password))
 }
 
-// connectHeader is a CONNECT header list for addr: Host is addr,
-// User-Agent the profile's, Proxy-Authorization auth.
-func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) []string {
-	lines := make([]string, 0, len(list))
+// connectHeader is a CONNECT header list for addr, filled in: Host is
+// addr, User-Agent the profile's, Proxy-Authorization auth.
+func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) []profile.Header {
+	out := make([]profile.Header, 0, len(list))
 	for _, h := range list {
 		value := h.Value
 		switch strings.ToLower(h.Name) {
@@ -656,10 +786,13 @@ func (d *Dialer) connectHeader(addr string, list []profile.Header, auth string) 
 			value = auth
 		}
 
-		lines = append(lines, h.Name+": "+value)
+		out = append(out, profile.Header{
+			Name:  h.Name,
+			Value: value,
+		})
 	}
 
-	return lines
+	return out
 }
 
 // basicChallenge checks that a 407's header h offers Basic authentication,
@@ -681,8 +814,11 @@ func proxyAddr(p *url.URL) string {
 	}
 
 	port := "1080"
-	if p.Scheme == SchemeHTTP {
+	switch p.Scheme {
+	case SchemeHTTP:
 		port = "80"
+	case SchemeHTTPS:
+		port = "443"
 	}
 
 	return net.JoinHostPort(p.Hostname(), port)

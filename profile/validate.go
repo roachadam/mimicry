@@ -125,6 +125,7 @@ func (p *Spec) Validate() error {
 
 	if p.Proxy != nil {
 		c.checkProxy(p.Proxy, p.Headers)
+		c.checkProxyHTTPS(p)
 	}
 
 	c.checkRedirects(p.Redirects)
@@ -972,5 +973,69 @@ func (c *checker) checkProxyUserAgent(path string, connect, headers []Header) {
 		return h.Name == "user-agent" && h.Value != ""
 	}) {
 		c.add(path, "places User-Agent, but headers has no user-agent value to send")
+	}
+}
+
+// checkProxyHTTPS checks proxy.https: HTTP/2 CONNECT lists of lowercase
+// fields an HTTP/2 request may carry, the credentials list beside
+// connectAuth, a known reset code, and an http2 section and TLS
+// resumption for what it uses.
+func (c *checker) checkProxyHTTPS(p *Spec) {
+	h := p.Proxy.HTTPS
+	if h == nil {
+		return
+	}
+
+	if p.HTTP2 == nil {
+		c.add("proxy.https", "needs http2: a proxy that picks h2 carries the tunnels as streams")
+	}
+
+	for _, l := range []struct {
+		path    string
+		headers []Header
+	}{
+		{"proxy.https.connect", h.Connect},
+		{"proxy.https.connectAuth", h.ConnectAuth},
+	} {
+		seen := map[string]bool{}
+		for i, hd := range l.headers {
+			at := fmt.Sprintf("%s[%d]", l.path, i)
+
+			c.checkHeaderName(at, hd.Name)
+			c.checkHeaderValue(at, hd.Value)
+
+			if slices.Contains(connectionSpecific, hd.Name) {
+				c.add(at, "%s is not sent over HTTP/2", hd.Name)
+			}
+
+			if seen[hd.Name] {
+				c.add(at, "repeats %s", hd.Name)
+			}
+
+			seen[hd.Name] = true
+		}
+
+		c.checkProxyUserAgent(l.path, l.headers, p.Headers)
+	}
+
+	switch auth := slices.ContainsFunc(h.ConnectAuth, func(hd Header) bool {
+		return hd.Name == "proxy-authorization"
+	}); {
+	case h.ConnectAuth != nil && !auth:
+		c.add("proxy.https.connectAuth", "must place proxy-authorization")
+	case h.ConnectAuth != nil && p.Proxy.ConnectAuth == nil:
+		c.add("proxy.https.connectAuth", "needs proxy.connectAuth, the CONNECT over HTTP/1.1")
+	}
+
+	if h.Weight == 0 {
+		c.add("proxy.https.weight", "must be set")
+	}
+
+	if !slices.Contains(errorCodes, h.Reset) {
+		c.add("proxy.https.reset", "must be an RFC 9113 error code name: %s", strings.Join(errorCodes, ", "))
+	}
+
+	if h.Resume && p.TLS.Resumption == nil {
+		c.add("proxy.https.resume", "needs tls.resumption")
 	}
 }

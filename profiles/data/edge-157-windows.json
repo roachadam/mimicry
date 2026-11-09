@@ -10137,6 +10137,24 @@
       ],
       "address": "domain"
     },
+    "https": {
+      "connect": [
+        {
+          "name": "user-agent"
+        }
+      ],
+      "connectAuth": [
+        {
+          "name": "user-agent"
+        },
+        {
+          "name": "proxy-authorization"
+        }
+      ],
+      "weight": 146,
+      "reset": "CANCEL",
+      "resume": true
+    },
     "websocket": {
       "plain": "tunnel",
       "credentials": true
