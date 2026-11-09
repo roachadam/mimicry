@@ -62,9 +62,11 @@ var ErrUDPEnded = errors.New("h3: the proxy ended the CONNECT-UDP stream")
 // returns the proxy's response once its headers arrive and, for a 2xx, the
 // stream as a UDPConn whose reads report peer as their source; the stream
 // then outlives ctx. Any other response comes without one, its body the
-// caller's to read and close. A proxy that cannot carry it fails with
-// ErrNoConnectUDP before anything is sent.
-func (c *Conn) ConnectUDP(ctx context.Context, authority, path string, fields []profile.Header, peer netip.AddrPort) (*http.Response, *UDPConn, error) {
+// caller's to read and close. A proxy that cannot carry it, or whose
+// datagrams are too small for payloads of minPayload bytes (the
+// connection's packets it carries), fails with ErrNoConnectUDP before
+// anything is sent.
+func (c *Conn) ConnectUDP(ctx context.Context, authority, path string, fields []profile.Header, peer netip.AddrPort, minPayload int) (*http.Response, *UDPConn, error) {
 	hd, err := c.connectUDPHead(authority, path, fields)
 	if err != nil {
 		return nil, nil, err
@@ -83,7 +85,9 @@ func (c *Conn) ConnectUDP(ctx context.Context, authority, path string, fields []
 	ok := c.connectUDP
 	c.mu.Unlock()
 
-	if !ok || c.qc.MaxDatagramSize() == 0 {
+	// The quarter stream ID (one byte for the first streams) and the
+	// context ID go in front of each payload.
+	if !ok || c.qc.MaxDatagramSize() < minPayload+2 {
 		return nil, nil, ErrNoConnectUDP
 	}
 
@@ -392,6 +396,12 @@ func (u *UDPConn) ReadFrom(p []byte) (int, net.Addr, error) {
 		select {
 		case b = <-u.in:
 		case <-u.done:
+			// What arrived before the end is read first.
+			select {
+			case b = <-u.in:
+			default:
+			}
+
 		case <-expired:
 		case <-wake:
 		}

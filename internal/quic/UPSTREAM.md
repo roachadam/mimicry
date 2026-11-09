@@ -677,7 +677,12 @@ each pass's range).
     number), within the peer's limit. Received ones wait for
     `ReceiveDatagram` (1,024 at most; more are dropped). Without the
     field (every direct connection) DATAGRAM frames received are dropped
-    as before and none is sent.
+    as before and none is sent. A DATAGRAM frame larger than the
+    max_datagram_frame_size the client announced ends the connection
+    with PROTOCOL_VIOLATION (RFC 9221, section 3), with or without the
+    field. `config.go`'s `Config.MaxDatagramFrameSize` (and
+    `marshalTransportParameters`, `conn.go`'s server parameters) lets a
+    test's server announce one; it never takes DATAGRAM frames itself.
 
 ## Sockets
 

@@ -144,13 +144,16 @@ and what the proxy and the site then see.
 - Refusals remembered per CONNECT-UDP proxy URL (the dialer's
   `udpRefused`, as 0038's): a proxy whose connection cannot carry it
   (SETTINGS or transport parameters without datagrams or extended
-  CONNECT), or answering 400, 404, 405, 501, or 407 to credentials. Its
-  requests go on TCP from then on, without asking again. Other answers
-  (403, 5xx) may be about the target (Oxylabs refuses some) and fail that
-  attempt only; the origin is then marked broken as any failed QUIC
-  attempt. A proxy that never answers is not remembered either: each
-  attempt waits up to the race delay. Forgetting the TCP proxy (0040)
-  forgets its CONNECT-UDP proxy's state.
+  CONNECT, or a max_datagram_frame_size too small for the site
+  connection's datagrams with their two-byte prefix, which would make
+  every write fail), or answering 400, 404, 405, 501, or 407 to
+  credentials. Its requests go on TCP from then on, without asking again.
+  Other answers (403, 5xx) may be about the target (Oxylabs refuses some)
+  and fail that attempt only; the origin is then marked broken as any
+  failed QUIC attempt. A proxy that never answers is not remembered
+  either: each attempt waits up to the race delay. Forgetting the TCP
+  proxy (0040) forgets its CONNECT-UDP proxy's state once no other
+  remembered proxy maps to it.
 - When the proxy ends the stream or the connection, the socket's reads
   fail and the QUIC connection ends at once (`internal/quic` change 14).
 - Never a datagram around the proxy: a request through an HTTP proxy
@@ -185,6 +188,14 @@ and what the proxy and the site then see.
   the retry (the same), the refusal not remembered (`connect-udp-refused`:
   5 connections, want 1), the stream's end not ending the socket
   (`connect-udp-teardown`: 20 s, the case's limit).
+- Unit tests for what no interop row reaches (quic-go's server announces
+  a fixed max_datagram_frame_size of 16383; the harness never sweeps
+  proxies): `internal/h3`'s `TestConnectUDPNeedsRoomForTheDatagrams` (a
+  raw peer announcing 1250 is refused before any request, 1255 is not;
+  checking only for a nonzero limit fails it) and the engine's
+  `TestSharedConnectUDPProxyIsForgottenLast` (two proxies mapped to one
+  CONNECT-UDP proxy: its refusal outlives the first swept; forgetting it
+  with the first fails it).
 - A smoke run through the harness proxy, with taps on both legs
   (Chrome 156, Firefox 159, Edge 157 on macOS, loopback): the site's first
   flights through the proxy equal the direct ones, resumed included

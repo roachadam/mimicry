@@ -220,6 +220,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		initialMaxStreamsBidi:          c.streams.remoteLimit[bidiStream].max,
 		initialMaxStreamsUni:           c.streams.remoteLimit[uniStream].max,
 		activeConnIDLimit:              activeConnIDLimit,
+		maxDatagramFrameSize:           config.MaxDatagramFrameSize, // mimicry: tests' peers
 	}); err != nil {
 		return nil, err
 	}

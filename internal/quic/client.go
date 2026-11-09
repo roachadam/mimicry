@@ -621,7 +621,7 @@ var minAckDelayParams = []profile.TransportParameterID{
 // frames go to ReceiveDatagram on a connection that asked for them
 // (client_datagram.go) and are dropped otherwise; ACK_FREQUENCY and
 // IMMEDIATE_ACK are ignored (browser behaviour unmeasured).
-func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int {
+func (c *Conn) handleExtensionFrame(now time.Time, ptype packetType, b []byte) int {
 	cc := c.client
 	if cc == nil || ptype&(packetType0RTT|packetType1RTT) == 0 {
 		return -1
@@ -635,7 +635,7 @@ func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int
 	switch {
 	case (typ == frameTypeDatagram || typ == frameTypeDatagramWithLen) && cc.announces(paramMaxDatagramFrameSize):
 		if typ == frameTypeDatagram {
-			c.clientReceivedDatagram(b[n:])
+			c.clientReceivedDatagram(now, len(b), b[n:])
 
 			return len(b)
 		}
@@ -645,7 +645,7 @@ func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int
 			return -1
 		}
 
-		c.clientReceivedDatagram(payload)
+		c.clientReceivedDatagram(now, n+m, payload)
 
 		return n + m
 

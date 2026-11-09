@@ -169,6 +169,12 @@ func marshalTransportParameters(p transportParameters) []byte {
 		b = quicwire.AppendVarint(b, paramVersionInformation)
 		b = quicwire.AppendVarintBytes(b, v)
 	}
+
+	if v := p.maxDatagramFrameSize; v > 0 { // mimicry: set by tests' servers only (Config.MaxDatagramFrameSize)
+		b = quicwire.AppendVarint(b, paramMaxDatagramFrameSize)
+		b = quicwire.AppendVarint(b, uint64(quicwire.SizeVarint(uint64(v))))
+		b = quicwire.AppendVarint(b, uint64(v))
+	}
 	return b
 }
 

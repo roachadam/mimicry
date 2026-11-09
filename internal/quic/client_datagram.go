@@ -10,6 +10,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/roachadam/mimicry/internal/quic/quicwire"
 )
@@ -104,6 +105,7 @@ func (c *Conn) SendDatagram(b []byte) error {
 	}
 
 	d.out = append(d.out, bytes.Clone(b))
+
 	d.outBytes += len(b)
 	d.mu.Unlock()
 
@@ -138,10 +140,23 @@ func (c *Conn) clientPeerDatagrams(maxFrame int64) {
 	}
 }
 
-// clientReceivedDatagram hands the payload of a DATAGRAM frame to
-// ReceiveDatagram, or drops it when the connection did not ask for them
-// or the inbox is full.
-func (c *Conn) clientReceivedDatagram(b []byte) {
+// clientReceivedDatagram hands the payload of a DATAGRAM frame of size
+// bytes to ReceiveDatagram, or drops it when the connection did not ask
+// for them or the inbox is full. A frame larger than the
+// max_datagram_frame_size the client announced ends the connection with
+// PROTOCOL_VIOLATION (RFC 9221, section 3).
+func (c *Conn) clientReceivedDatagram(now time.Time, size int, b []byte) {
+	for _, tp := range c.client.p.TransportParameters {
+		if tp.ID == paramMaxDatagramFrameSize && tp.Value != nil && uint64(size) > *tp.Value {
+			c.abort(now, localTransportError{
+				code:   errProtocolViolation,
+				reason: "DATAGRAM frame larger than max_datagram_frame_size",
+			})
+
+			return
+		}
+	}
+
 	d := c.client.datagrams
 	if d == nil {
 		return
@@ -176,10 +191,12 @@ func (c *Conn) appendDatagramFrames() (waiting bool) {
 		}
 
 		sent++
+
 		d.outBytes -= len(b)
 	}
 
 	clear(d.out[:sent])
+
 	d.out = d.out[:copy(d.out, d.out[sent:])]
 
 	return waiting

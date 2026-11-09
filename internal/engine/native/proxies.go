@@ -298,7 +298,8 @@ func (e *Engine) sweepProxies() {
 // TLS and QUIC session tickets (from a shared store too, Config.Tickets,
 // whose other engines may lose a resumption through the proxy), its
 // origins' HTTP/3 state and what the dialer knows of it and of its
-// CONNECT-UDP proxy (a 407, a refused UDP association or CONNECT-UDP). A
+// CONNECT-UDP proxy (a 407, a refused UDP association or CONNECT-UDP),
+// unless another remembered proxy has that CONNECT-UDP proxy too. A
 // request through it later starts as through a new
 // proxy: full handshakes, and the browser's wait for the 407 again
 // (Config.BrowserProxyAuth). Advertised alternatives are not the proxy's
@@ -306,7 +307,7 @@ func (e *Engine) sweepProxies() {
 func (e *Engine) forgetProxy(s staleProxy) {
 	e.dialer.Forget(s.via)
 
-	if s.udp != nil {
+	if s.udp != nil && !e.udpInUse(s.udp.String()) {
 		e.dialer.Forget(s.udp.String())
 	}
 
@@ -330,4 +331,16 @@ func (e *Engine) forgetProxy(s staleProxy) {
 
 		delete(q.origins, k)
 	}
+}
+
+// udpInUse reports whether a remembered proxy has the CONNECT-UDP proxy
+// whose URL is udp. e.proxies.mu must be held.
+func (e *Engine) udpInUse(udp string) bool {
+	for _, pk := range e.proxies.byURL {
+		if pk.udp != nil && pk.udp.String() == udp {
+			return true
+		}
+	}
+
+	return false
 }

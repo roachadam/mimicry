@@ -91,7 +91,8 @@ func (e *Engine) listenConnectUDP(ctx context.Context, r route, port uint16) (ne
 	path := connectUDPPath(r.host, port)
 
 	pc, err := e.dialer.ConnectUDP(ctx, u, func(ctx context.Context, header []profile.Header) (proxy.Answer, net.PacketConn, error) {
-		resp, uc, err := hc.ConnectUDP(ctx, authority, path, header, peer)
+		// The site connection's datagrams must fit the proxy's.
+		resp, uc, err := hc.ConnectUDP(ctx, authority, path, header, peer, e.quicProfile.DatagramSize)
 		if errors.Is(err, h3.ErrNoConnectUDP) {
 			return proxy.Answer{}, nil, fmt.Errorf("%w: %w", dial.ErrNoConnectUDP, err)
 		}

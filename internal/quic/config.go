@@ -34,6 +34,11 @@ type Config struct {
 	// If negative, the limit is zero.
 	MaxUniRemoteStreams int64
 
+	// MaxDatagramFrameSize, when positive, is the max_datagram_frame_size
+	// a server announces (RFC 9221), for tests' peers; it never receives
+	// DATAGRAM frames. mimicry: client_datagram.go.
+	MaxDatagramFrameSize int64
+
 	// MaxStreamReadBufferSize is the maximum amount of data sent by the peer that a
 	// stream will buffer for reading.
 	// If zero, the default value of 1MiB is used.
