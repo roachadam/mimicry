@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
@@ -367,7 +368,8 @@ func connCredit(c *quictrace.Conn) []uint64 {
 // read from the client's ACKs (ackedData), ± its error and creditSlack.
 //
 //   - No raise runs ahead of the next ACK by more than the window (grown
-//     where the client's MAX_STREAM_DATA ran further: Safari 26).
+//     where the client's MAX_STREAM_DATA ran further: Safari 26), and the
+//     data of lost packets below it (lostData).
 //   - At least half the raises reach what was acked by then plus the window
 //     (Safari 27 sends a quarter to a third from older counts).
 //
@@ -392,16 +394,18 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 	}
 
 	slack := estimateErr + creditSlack
-	// next[k] is what the first ACK from packet k on acknowledged.
+	// ackAt[k] is the first packet from k on that carries an ACK (the last
+	// packet where none does), next[k] what it acknowledged.
+	ackAt := make([]int, len(pks))
 	next := make([]float64, len(pks))
-	after := acked[len(acked)-1]
+	at := len(pks) - 1
 
 	for k := len(pks) - 1; k >= 0; k-- {
 		if slices.ContainsFunc(pks[k].Frames, func(f quictrace.Frame) bool { return f.Type == quictrace.FrameAck }) {
-			after = acked[k]
+			at = k
 		}
 
-		next[k] = after
+		ackAt[k], next[k] = at, acked[at]
 	}
 
 	streamWindow := window
@@ -413,9 +417,11 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 		}
 	}
 
+	lost := lostData(c, pks, streamWindow)
+
 	var leads []float64
 
-	ahead, worst := 0, math.Inf(-1)
+	ahead, worst, holes := 0, math.Inf(-1), 0.0
 
 	for k, pk := range pks {
 		for _, f := range pk.Frames {
@@ -425,9 +431,10 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 
 			last = f.Max
 
-			over := float64(f.Max) - next[k] - streamWindow
+			hole := lost[ackAt[k]]
+			over := float64(f.Max) - next[k] - streamWindow - hole
 
-			worst = max(worst, over)
+			worst, holes = max(worst, over), max(holes, hole)
 
 			if over > slack {
 				ahead++
@@ -442,7 +449,7 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 	}
 
 	if ahead > 0 {
-		out = append(out, fmt.Sprintf("%d of %d MAX_DATA raises run ahead of what the next ACK acknowledged by more than the stream window (%.0f), up to %.0f more (%.0f allowed)", ahead, len(leads), streamWindow, worst, slack))
+		out = append(out, fmt.Sprintf("%d of %d MAX_DATA raises run ahead of what the next ACK acknowledged by more than the stream window (%.0f) and the data lost below it, up to %.0f more (%.0f allowed)", ahead, len(leads), streamWindow, worst, slack))
 	}
 
 	behind := median(leads)
@@ -450,7 +457,7 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 		out = append(out, fmt.Sprintf("the median of %d MAX_DATA raises falls %.0f short of what was acknowledged by then plus the window (%.0f; %.0f allowed)", len(leads), -behind, window, slack))
 	}
 
-	summary = fmt.Sprintf("%d MAX_DATA raises, at most %.0f past what the next ACK acknowledged plus the stream window (%.0f); the median %.0f past what was acknowledged by then plus %.0f (the estimate within %.0f)", len(leads), worst, streamWindow, behind, window, estimateErr)
+	summary = fmt.Sprintf("%d MAX_DATA raises, at most %.0f past what the next ACK acknowledged plus the stream window (%.0f) and the data lost below it (at most %.0f); the median %.0f past what was acknowledged by then plus %.0f (the estimate within %.0f)", len(leads), worst, streamWindow, holes, behind, window, estimateErr)
 
 	return out, summary
 }
@@ -459,6 +466,100 @@ func windowCreditViolations(c *quictrace.Conn) (out []string, summary string) {
 func median(vs []float64) float64 {
 	vs = slices.Sorted(slices.Values(vs))
 	return vs[len(vs)/2]
+}
+
+// lostData is, after each client 1-RTT packet in pks, how much stream data
+// may lie in gaps below the largest server packet its ACKs had
+// acknowledged: the data of the server packets there that the client never
+// acknowledged (lost; at most their size less the least overhead). Arrival,
+// as flow control counts it, is the largest offset received (RFC 9000,
+// section 4.1), so it runs ahead of what the ACKs show by such a gap until
+// the server resends its data. A lost packet no longer counts once the
+// server has sent more data from it on than window and the data lost below
+// that largest (all it can have resent by then): it sends new data no
+// further than window past the client's reading, which stops at the gap.
+// No browser sample lost a packet (none left a server data packet
+// unacknowledged), so which arrival the browser counts across a gap is not
+// measured (EVIDENCE.md); mimicry's runs lose hundreds on a loaded
+// machine's loopback.
+func lostData(c *quictrace.Conn, pks []quictrace.Packet, window float64) []float64 {
+	type dataPacket struct {
+		pn   uint64
+		data float64
+	}
+
+	var sent []dataPacket
+
+	for _, dg := range c.Server {
+		for _, pk := range dg.Packets {
+			if pk.Type == quictrace.Packet1RTT && pk.Size >= dataPacketSize {
+				sent = append(sent, dataPacket{
+					pn:   pk.PN,
+					data: float64(pk.Size - 1 - pk.DCIDLength - pk.PNLength - streamOverhead),
+				})
+			}
+		}
+	}
+
+	slices.SortFunc(sent, func(a, b dataPacket) int {
+		return cmp.Compare(a.pn, b.pn)
+	})
+
+	ackedPN := map[uint64]bool{}
+
+	var all pnSet
+
+	for _, pk := range pks {
+		for _, fr := range pk.Frames {
+			if fr.Type == quictrace.FrameAck {
+				for _, r := range fr.Ranges {
+					all.add(r[0], r[1], func(pn uint64) {
+						ackedPN[pn] = true
+					})
+				}
+			}
+		}
+	}
+
+	// total[i] is the data of sent[:i], lostTotal[i] that of its lost
+	// packets.
+	total := make([]float64, len(sent)+1)
+	lostTotal := make([]float64, len(sent)+1)
+
+	for i, p := range sent {
+		total[i+1], lostTotal[i+1] = total[i]+p.data, lostTotal[i]
+		if !ackedPN[p.pn] {
+			lostTotal[i+1] += p.data
+		}
+	}
+
+	out := make([]float64, len(pks))
+	if lostTotal[len(sent)] == 0 {
+		return out
+	}
+
+	var largest uint64
+
+	for k, pk := range pks {
+		for _, fr := range pk.Frames {
+			if fr.Type == quictrace.FrameAck {
+				for _, r := range fr.Ranges {
+					largest = max(largest, r[1])
+				}
+			}
+		}
+
+		// The lost packets below largest from which on the server sent at
+		// most window and the data it resent, which was lost below largest.
+		hi, _ := slices.BinarySearchFunc(sent, largest, func(p dataPacket, pn uint64) int {
+			return cmp.Compare(p.pn, pn)
+		})
+		lo, _ := slices.BinarySearch(total[:hi+1], total[hi]-window-lostTotal[hi])
+
+		out[k] = lostTotal[hi] - lostTotal[lo]
+	}
+
+	return out
 }
 
 // ackedData is, after each client 1-RTT packet in pks, how many stream bytes

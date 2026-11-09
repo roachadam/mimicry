@@ -70,6 +70,20 @@ func (s *pageSession) planEvery() {
 	s.client.Transport = s.planning
 }
 
+// transport is s's mimicry Transport, beneath planEvery's planning.
+func (s *pageSession) transport() *mimicry.Transport {
+	if s.planning != nil {
+		return s.planning.tr
+	}
+
+	tr, ok := s.client.Transport.(*mimicry.Transport)
+	if !ok {
+		s.t.Fatal("the page session's client has no mimicry Transport")
+	}
+
+	return tr
+}
+
 // wireRequest is one request as the capture server received it: the
 // protocol (as a response's Proto), method, authority and path, its
 // lines as sent (HTTP/2: every field, pseudo-headers first; HTTP/1.1:
