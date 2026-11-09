@@ -1166,6 +1166,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(r.host),
+		KeyLogWriter:     e.keyLog,
 	}
 	hello := e.plan.QUICHello()
 

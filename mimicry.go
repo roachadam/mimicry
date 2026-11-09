@@ -270,6 +270,16 @@ type Config struct {
 	// request before anything is sent. Default: none.
 	VerifyConnection func(tls.ConnectionState) error
 
+	// Debugging.
+
+	// KeyLogWriter, when set, receives the TLS secrets of every connection
+	// (TCP and QUIC, WebSockets included) in NSS key log format, so a
+	// packet capture can be decrypted in Wireshark, as Chrome and Firefox
+	// write them to SSLKEYLOGFILE. Nothing on the wire changes. Anyone
+	// with the log can read the traffic: use it for debugging only.
+	// mimicry never reads SSLKEYLOGFILE itself. Default: none.
+	KeyLogWriter io.Writer
+
 	// engine replaces the pure-Go engine (tests only).
 	engine engine
 }
@@ -429,6 +439,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			HTTP3ACKEvery:       cfg.HTTP3ACKEvery,
 			BrowserProxyAuth:    cfg.BrowserProxyAuth,
 			VerifyConnection:    t.verifier(cfg.VerifyConnection),
+			KeyLogWriter:        cfg.KeyLogWriter,
 			OnConnect: func(d time.Duration) {
 				rtt.Store(int64(d))
 			},

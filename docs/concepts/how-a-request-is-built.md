@@ -259,6 +259,40 @@ never a `*CORSError`, since that is the server's answer. A plan is a
 snapshot: a response that sets cookies, or a navigation in between,
 changes what goes out. See `ExampleTransport_Plan` for a full example.
 
+## 6. Seeing what was sent
+
+A plan shows the request; a packet capture shows everything else on the
+connection (the TLS handshake, frames, QUIC packets). It needs the TLS
+secrets to be readable: `Config.KeyLogWriter` writes them in the NSS key
+log format that Chrome and Firefox write to `SSLKEYLOGFILE`, for every
+connection, TCP and QUIC.
+
+```go
+keys, err := os.Create("keys.log")
+if err != nil {
+	log.Fatal(err)
+}
+defer keys.Close()
+
+client, err := mimicry.NewClient(mimicry.Config{
+	Profile:      profiles.ChromeMacOS(),
+	KeyLogWriter: keys,
+})
+```
+
+Capture the traffic (`sudo tcpdump -i any -w trace.pcap port 443`), then
+open the capture in Wireshark with Preferences ▸ Protocols ▸ TLS ▸
+(Pre)-Master-Secret log filename set to `keys.log`, or
+`tshark -r trace.pcap -o tls.keylog_file:keys.log`. HTTP/2 and HTTP/3 then
+show as frames and headers.
+
+Nothing on the wire changes. Anyone with the log can read the traffic it
+covers, so keep it like a password and leave it unset outside debugging.
+mimicry never reads `SSLKEYLOGFILE` itself
+([0061](../decisions/0061-tls-key-log.md)): a library that wrote secrets
+wherever its environment said could leak them from a process that never
+asked.
+
 ## Limits
 
 - **Headers you set are sent as set**, including names a page may not set
@@ -307,4 +341,5 @@ Background: decisions [0005](../decisions/0005-request-kinds-api.md),
 [0032](../decisions/0032-certificate-pinning.md),
 [0034](../decisions/0034-request-plans.md),
 [0046](../decisions/0046-response-decompression.md),
-[0057](../decisions/0057-url-parsing-measured.md).
+[0057](../decisions/0057-url-parsing-measured.md),
+[0061](../decisions/0061-tls-key-log.md).

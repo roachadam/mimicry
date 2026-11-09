@@ -139,6 +139,9 @@ type Config struct {
 	// coalesces onto another host's HTTP/2 connection. An error fails the
 	// handshake or keeps the request off that connection.
 	VerifyConnection func(host string, cs tls.ConnectionState) error
+	// KeyLogWriter, when set, receives every TLS and QUIC handshake's
+	// secrets (handshake.Config.KeyLogWriter).
+	KeyLogWriter io.Writer
 	// OnConnect, when set, is told each TCP connect's duration
 	// (dial.Dialer.OnConnect), which the rtt client hint estimates from.
 	OnConnect func(time.Duration)
@@ -157,6 +160,7 @@ type Engine struct {
 	quicProfile *profile.QUIC
 	clock       clockwork.Clock
 	rootCAs     *x509.CertPool
+	keyLog      io.Writer
 	dialer      *dial.Dialer
 	proxy       func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
@@ -259,6 +263,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		quicProfile: quicProfile,
 		clock:       clock,
 		rootCAs:     cfg.RootCAs,
+		keyLog:      cfg.KeyLogWriter,
 		dialer: &dial.Dialer{
 			Timeout:             timeout,
 			DialContext:         cfg.DialContext,
@@ -836,6 +841,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 		OmitSNI:          r.omitSNI,
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:     e.keyLog,
 	}
 	hello := e.plan.Hello()
 
