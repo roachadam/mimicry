@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
@@ -151,7 +153,22 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 			}
 		}
 
+		removePolicy := func() {}
+
+		// Root-owned, so refresh writes it, only around the step.
+		if m.wsl != "" && p.clientCertPolicy() != "" && slices.ContainsFunc(entries, clientCertEntry) {
+			remove, perr := writeClientCertPolicy(ctx, m, p.clientCertPolicy())
+			if perr != nil {
+				return perr
+			}
+
+			removePolicy = remove
+		}
+
 		err := m.stream(ctx, p.Target, logFile, m.bin("capture"), args...)
+
+		removePolicy()
+
 		if p.Host != "" {
 			// Whatever was written comes back, even after a failure.
 			if ferr := m.fetch(context.WithoutCancel(ctx), out, staged); ferr != nil {
@@ -180,6 +197,63 @@ func (r *refreshRun) capturePlan(ctx context.Context, p *plan) error {
 	}
 
 	return r.checkCaptures(ctx, p)
+}
+
+// clientCertEntry reports whether a -scenarios entry (name:samples) is a
+// client-certificate scenario.
+func clientCertEntry(entry string) bool {
+	name, _, _ := strings.Cut(entry, ":")
+	sc, err := server.ScenarioByName(name)
+
+	return err == nil && sc.ClientCert() != ""
+}
+
+// writeClientCertPolicy writes, as root in m's WSL distribution, the policy
+// file with which browser (chrome, edge) sends the client-certificate
+// scenarios' identity unasked (clientcert.LinuxPolicy), creating the
+// directories missing on its path, and returns what removes the file and
+// those directories again, which logs a failure for removal by hand. A
+// write that fails part way removes what it made before it returns.
+func writeClientCertPolicy(ctx context.Context, m *machine, browser string) (func(), error) {
+	file := clientcert.LinuxPolicyFiles[browser]
+	policy := base64.StdEncoding.EncodeToString(clientcert.LinuxPolicy(server.ClientCertHosts()))
+
+	var dirs []string
+	for d := filepath.Dir(file); d != "/" && d != "."; d = filepath.Dir(d) {
+		dirs = append([]string{shellQuote(d)}, dirs...)
+	}
+
+	// Prints each directory it creates; on a failure removes the file
+	// and those directories, deepest first, and exits 1.
+	write := `made=""; fail() { rm -f ` + shellQuote(file) + `; for d in $made; do rmdir "$d"; done; exit 1; }; ` +
+		"for d in " + strings.Join(dirs, " ") + `; do [ -d "$d" ] && continue; mkdir "$d" || fail; made="$d $made"; echo "$d"; done; ` +
+		"{ printf %s " + policy + " | base64 -d > " + shellQuote(file) + " && chmod 644 " + shellQuote(file) + "; } || fail"
+
+	cmd := ssh(ctx, m.host, wslLine(m.wsl, "root", write))
+
+	var stderr strings.Builder
+
+	cmd.Stderr = &stderr
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("writing %s as root in %s: %w: %s", file, m, err, strings.TrimSpace(stderr.String()))
+	}
+
+	steps := []string{
+		"rm -f " + shellQuote(file),
+	}
+	for _, d := range slices.Backward(strings.Fields(string(out))) {
+		steps = append(steps, "rmdir "+shellQuote(d))
+	}
+
+	remove := strings.Join(steps, "; ")
+
+	return func() {
+		if out, err := ssh(context.WithoutCancel(ctx), m.host, wslLine(m.wsl, "root", remove)).CombinedOutput(); err != nil {
+			log.Printf("removing %s as root in %s: %v: %s; remove it by hand", file, m, err, out)
+		}
+	}, nil
 }
 
 func parseSummary(data []byte) ([]summaryLine, error) {

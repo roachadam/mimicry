@@ -95,6 +95,10 @@ func Combine(samples []*Capture) (*Capture, error) {
 		if len(s.Proxy) > 0 {
 			first.SampleProxy = append(first.SampleProxy, s.Proxy)
 		}
+
+		if len(s.ClientAuth) > 0 {
+			first.SampleClientAuth = append(first.SampleClientAuth, s.ClientAuth)
+		}
 	}
 
 	return first, nil

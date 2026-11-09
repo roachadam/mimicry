@@ -59,6 +59,10 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		}
 	}
 
+	if t.ClientCert != nil {
+		prefs = append(prefs, firefoxClientCertPrefs()...)
+	}
+
 	if t.debugPort != 0 {
 		// Otherwise the remote agent applies automation prefs that change
 		// networking (speculative connections, captive-portal checks).

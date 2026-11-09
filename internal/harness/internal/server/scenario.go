@@ -75,6 +75,11 @@ type Scenario struct {
 	// h3, when set, also serves HTTP/3 over QUIC on the TLS port's UDP
 	// twin (see HTTP3), with these settings.
 	h3 *h3Server
+	// clientCert, when set, has the server ask every TLS connection for a
+	// client certificate (Server.ClientCAs) and record each handshake
+	// (capture.ClientAuth); it names the key of the identity the capture
+	// tool gives the browser (ClientKeyEC, ClientKeyRSA).
+	clientCert string
 }
 
 // request is what a scenario needs to know to answer a request.
@@ -275,6 +280,10 @@ var Scenarios = []*Scenario{
 	HRR,
 	ClientHints,
 	URLs,
+	ClientCertEC,
+	ClientCertRSA,
+	ClientCertECTLS12,
+	ClientCertRSATLS12,
 }
 
 // ScenarioByName finds a scenario.
@@ -303,6 +312,19 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy only"
 	case sc == CookiesEdge:
 		return "its lo-* steps navigate to http://localhost, which on the iPhone is the phone itself, so the page stops there"
+	case sc.clientCert != "":
+		return "nothing installs a client identity on the iPhone, and " + noSafariClientCert
+	}
+
+	return ""
+}
+
+// UnsupportedBy says why the browser the capture tool calls tool (on a
+// computer; on an iPhone see UnsupportedOnIOS) cannot take sc, "" when it
+// can.
+func (sc *Scenario) UnsupportedBy(tool string) string {
+	if sc.clientCert != "" && tool == "safari" {
+		return noSafariClientCert
 	}
 
 	return ""

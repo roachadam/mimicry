@@ -171,6 +171,9 @@ linters:
             - $gostd
             - github.com/jonboulle/clockwork
             - github.com/roachadam/mimicry/internal/fingerprint$
+            # ErrNotMeasured, for a client certificate the profile's
+            # tls.clientAuth does not describe.
+            - github.com/roachadam/mimicry/internal/headerorder$
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
         internal/harness/internal/browser:
@@ -193,6 +196,14 @@ linters:
             - github.com/roachadam/mimicry/internal/harness/internal/quictrace$
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/mimicry/profiles$
+        internal/harness/internal/clientcert:
+          files:
+            - ${config-path}/internal/harness/internal/clientcert/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - software.sslmate.com/src/go-pkcs12
         internal/harness/internal/diff:
           files:
             - ${config-path}/internal/harness/internal/diff/*.go
@@ -231,9 +242,18 @@ linters:
             - github.com/roachadam/mimicry/internal/harness/internal/h2trace$
             - github.com/roachadam/mimicry/internal/harness/internal/pageshape$
             - github.com/roachadam/mimicry/internal/harness/internal/quictrace$
+            - github.com/roachadam/mimicry/internal/harness/internal/tlsflight$
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/crypto
             - golang.org/x/net
+        internal/harness/internal/tlsflight:
+          files:
+            - ${config-path}/internal/harness/internal/tlsflight/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - golang.org/x/crypto
         internal/hpack:
           files:
             - ${config-path}/internal/hpack/*.go

@@ -566,7 +566,7 @@ func (s *h2conn) onData(f *http2.DataFrame, senders *sync.WaitGroup, emit func()
 // goroutine, since they wait for the client's flow-control credit.
 func (s *h2conn) respond(id uint32, st *request, senders *sync.WaitGroup, emit func()) {
 	delete(s.streams, id)
-	s.log.request(s.c)
+	s.log.request(s.c, st.path)
 	s.log.arrived(st.path)
 	s.scenario.noteWSResult(s.log, *st, s.host)
 
@@ -583,6 +583,7 @@ func (s *h2conn) respond(id uint32, st *request, senders *sync.WaitGroup, emit f
 	if done {
 		if s.scenario.multi != nil {
 			s.c.Page = s.log.page()
+			s.c.ClientAuth = s.log.clientAuthSnapshot()
 			s.c.Trace = nil
 			s.log.pageProfile(s.c)
 		}

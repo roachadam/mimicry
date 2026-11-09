@@ -74,6 +74,10 @@ a loaded cache fits either. (Safari never resumes over TCP.)
 - **Expiry.** TLS 1.3 tickets expire with their lifetime (7 days at most)
   or their server certificate, whichever is first; TLS 1.2 tickets with
   the certificate. Expired ones are neither written nor loaded.
+- **Client certificates.** A ticket from a session that sent a client
+  certificate is marked so (`clientCert`): a connection resuming it,
+  in this process or the next, carries that certificate's identity and
+  takes no other host's requests ([client certificates](client-certificates.md)).
 - **Versions.** The session encoding is uTLS's and may change between
   mimicry versions; `ReadJSON` then fails, and the identity starts with
   full handshakes.

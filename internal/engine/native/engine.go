@@ -22,6 +22,7 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -142,6 +143,10 @@ type Config struct {
 	// KeyLogWriter, when set, receives every TLS and QUIC handshake's
 	// secrets (handshake.Config.KeyLogWriter).
 	KeyLogWriter io.Writer
+	// ClientCertificate, when set, answers a server's request for a client
+	// certificate on a connection to host, TLS and QUIC alike
+	// (handshake.Config.ClientCertificate).
+	ClientCertificate func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	// OnConnect, when set, is told each TCP connect's duration
 	// (dial.Dialer.OnConnect), which the rtt client hint estimates from.
 	OnConnect func(time.Duration)
@@ -161,8 +166,13 @@ type Engine struct {
 	clock       clockwork.Clock
 	rootCAs     *x509.CertPool
 	keyLog      io.Writer
-	dialer      *dial.Dialer
-	proxy       func(*http.Request) (*url.URL, error)
+	clientCert  func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	// certRequested holds the host:port addresses whose servers asked
+	// for a client certificate, as Chrome's SSLClientAuthCache remembers
+	// its answer per host and port (tls.clientAuth.restart).
+	certRequested sync.Map
+	dialer        *dial.Dialer
+	proxy         func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// verify is Config.VerifyConnection.
@@ -264,6 +274,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		clock:       clock,
 		rootCAs:     cfg.RootCAs,
 		keyLog:      cfg.KeyLogWriter,
+		clientCert:  cfg.ClientCertificate,
 		dialer: &dial.Dialer{
 			Timeout:             timeout,
 			DialContext:         cfg.DialContext,
@@ -810,10 +821,48 @@ func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 	}
 }
 
+// clientCertFor is the handshake's ClientCertificate for a connection to
+// host, or nil.
+func (e *Engine) clientCertFor(host string) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	if e.clientCert == nil {
+		return nil
+	}
+
+	return func(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return e.clientCert(host, req)
+	}
+}
+
+// firstRequestFor is the handshake's FirstRequest for a connection to
+// addr (host:port), or nil without Config.ClientCertificate: true once,
+// for the first CertificateRequest from addr.
+func (e *Engine) firstRequestFor(addr string) func() bool {
+	if e.clientCert == nil {
+		return nil
+	}
+
+	return func() bool {
+		_, met := e.certRequested.LoadOrStore(addr, struct{}{})
+		return !met
+	}
+}
+
 // dial connects, through the route's proxy if it has one, and, for https,
 // performs the profile's TLS handshake, bounded by the dial timeout. It
-// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
+// returns the negotiated protocol ("h2", or HTTP/1.1 otherwise). A
+// connection the browser drops at its host's first CertificateRequest
+// (handshake.ErrRestart) is made again, as Chrome sends the request again
+// once it has chosen a certificate.
 func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
+	conn, proto, err := e.dialOnce(ctx, req, r)
+	if errors.Is(err, handshake.ErrRestart) {
+		return e.dialOnce(ctx, req, r)
+	}
+
+	return conn, proto, err
+}
+
+func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
 	var (
 		conn net.Conn
 		err  error
@@ -837,11 +886,14 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 	}
 
 	cfg := handshake.Config{
-		ServerName:       req.URL.Hostname(),
-		OmitSNI:          r.omitSNI,
-		RootCAs:          e.rootCAs,
-		VerifyConnection: e.verifyFor(req.URL.Hostname()),
-		KeyLogWriter:     e.keyLog,
+		ServerName:        req.URL.Hostname(),
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
+		ClientAuth:        e.profile.TLS.ClientAuth,
+		FirstRequest:      e.firstRequestFor(r.addr),
 	}
 	hello := e.plan.Hello()
 

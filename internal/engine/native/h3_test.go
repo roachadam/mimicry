@@ -2,6 +2,7 @@ package native
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"runtime"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 	"weak"
@@ -494,6 +496,106 @@ func TestQUICAttemptCountsOnlyOnceItSent(t *testing.T) {
 
 	if n, broken := failures(); n != 1 || broken {
 		t.Fatalf("after an attempt that sent its hello: %d failures, broken %v; want 1, not broken", n, broken)
+	}
+}
+
+// A QUIC server asking for a client certificate while one is configured
+// (no browser was captured answering over QUIC) ends the attempt without
+// asking Config.ClientCertificate and keeps the origin's requests on TCP,
+// where the certificate goes out as measured, but is no failure toward
+// Fallback.BrokenAfter (decision 0064).
+func TestQUICClientCertificateRequestStaysOnTCP(t *testing.T) {
+	var asked atomic.Int32
+
+	e := newTestEngine(t, options{
+		clientCert: func(string, *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			asked.Add(1)
+
+			return &tls.Certificate{}, nil
+		},
+	})
+
+	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cert := serverCert.Load()
+
+	ep, err := quic.NewEndpoint(pc, &quic.Config{
+		TLSConfig: &utls.Config{
+			Certificates: []utls.Certificate{{
+				Certificate: cert.Certificate,
+				PrivateKey:  cert.PrivateKey,
+			}},
+			NextProtos: []string{"h3"},
+			MinVersion: utls.VersionTLS13,
+			ClientAuth: utls.RequestClientCert,
+		},
+	})
+	if err != nil {
+		_ = pc.Close()
+
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_ = ep.Close(ctx)
+	})
+
+	go func() {
+		for {
+			if _, err := ep.Accept(context.Background()); err != nil {
+				return
+			}
+		}
+	}()
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://localhost/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := e.route(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q := e.quic
+	port := ep.LocalAddr().Port()
+	q.alts.Learn(r.alt, r.host, []string{fmt.Sprintf(`h3=":%d"; ma=3600`, port)})
+
+	q.mu.Lock()
+
+	a := e.startAttempt(e.originState(r), r, dialSpec{
+		port: port,
+	})
+
+	q.mu.Unlock()
+
+	<-a.done
+
+	q.mu.Lock()
+
+	o := e.originState(r)
+	failures, broken, clientAuth := o.failures, o.broken, o.clientAuth
+	_, h3 := e.alternative(o, r)
+
+	q.mu.Unlock()
+
+	if a.conn != nil || !clientAuth || h3 {
+		t.Errorf("connected %v, clientAuth %v, HTTP/3 still tried %v; want no connection and the origin on TCP", a.conn != nil, clientAuth, h3)
+	}
+
+	if failures != 0 || broken {
+		t.Errorf("%d failures, broken %v; want none: the path works", failures, broken)
+	}
+
+	if n := asked.Load(); n != 0 {
+		t.Errorf("Config.ClientCertificate asked %d times over QUIC; want never", n)
 	}
 }
 

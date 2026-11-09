@@ -16,6 +16,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/pageshape"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 	"github.com/roachadam/mimicry/internal/platform"
@@ -159,13 +160,16 @@ type preflightReport struct {
 	// Set on Windows and Linux only: Platform is "windows" or "linux",
 	// Admin whether the ssh user is an administrator (Windows; certutil
 	// needs it), Certutil its path, Missing everything that stops a
-	// capture there, and UnprivilegedPortStart the lowest port a user may
-	// bind (Linux; the urls scenario forwards 443).
+	// capture there, UnprivilegedPortStart the lowest port a user may
+	// bind (Linux; the urls scenario forwards 443), and
+	// ClientCertPolicies the browsers whose client-certificate policy
+	// file is in place, as the scenarios need it (Linux).
 	Platform              string   `json:"platform,omitempty"`
 	Admin                 bool     `json:"admin,omitempty"`
 	Certutil              string   `json:"certutil,omitempty"`
 	Missing               []string `json:"missing,omitempty"`
 	UnprivilegedPortStart int      `json:"unprivilegedPortStart,omitempty"`
+	ClientCertPolicies    []string `json:"clientCertPolicies,omitempty"`
 }
 
 // machine is where p's browser runs.
@@ -460,6 +464,23 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		}
 	}
 
+	if m.linux && p.clientCertPolicy() != "" {
+		file := clientcert.LinuxPolicyFiles[p.clientCertPolicy()]
+
+		switch {
+		case m.wsl != "":
+			p.Manual = append(p.Manual, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send; refresh writes %s as root in %s before each capture step and removes it after, even after a failure",
+				p.tool(), file, m))
+
+		case slices.Contains(rep.ClientCertPolicies, p.tool()):
+			p.Manual = append(p.Manual, fmt.Sprintf("%s holds the AutoSelectCertificateForUrls policy the client-certificate scenarios need; as root on %s, remove it after the run", file, m))
+
+		default:
+			p.Problems = append(p.Problems, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send, in %s, which only root may write and is missing or different; capture -scenarios <one of them> on %s prints it, and remove it after",
+				p.tool(), file, m))
+		}
+	}
+
 	// The first profile on a platform inherits nothing, unless the
 	// platform shares another's network stack (Safari on iOS, decision
 	// 0051): it then inherits what it does not capture from that
@@ -745,6 +766,10 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 
 		case shared && !iphone && sc.ProxyAuth:
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (docs/capturing.md, Proxy scenarios); the profile keeps or inherits what it has, capture it by hand", sc.Name))
+			continue
+
+		case sc.UnsupportedBy(p.tool()) != "":
+			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: %s", sc.Name, sc.UnsupportedBy(p.tool())))
 			continue
 
 		case sc.NeedsAioquic() && rep.Aioquic != "":
@@ -1169,6 +1194,24 @@ func planTargets(ps []*plan) string {
 	}
 
 	return strings.Join(names, " and ")
+}
+
+// clientCerts reports whether p captures a client-certificate scenario.
+func (p *plan) clientCerts() bool {
+	return slices.ContainsFunc(p.Captures, func(c planned) bool {
+		return clientCertEntry(c.Scenario)
+	})
+}
+
+// clientCertPolicy is the Chromium browser (chrome, edge) whose
+// client-certificate policy file p's captures need on Linux
+// (clientcert.LinuxPolicyFiles), "" when they need none.
+func (p *plan) clientCertPolicy() string {
+	if _, ok := clientcert.LinuxPolicyFiles[p.tool()]; !ok || !p.clientCerts() {
+		return ""
+	}
+
+	return p.tool()
 }
 
 // needsPort443 reports whether a scenario p captures names https://'s

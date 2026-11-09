@@ -53,6 +53,11 @@ type Capture struct {
 	// ProxyConn numbers the client's connection to the capture proxy that
 	// carried this connection (ProxyRequest.Conn), or 0 for a direct one.
 	ProxyConn int
+	// ClientAuth is every TLS connection of a client-certificate scenario's
+	// page, with how the client answered the server's CertificateRequest;
+	// SampleClientAuth holds every sample's (Combine).
+	ClientAuth       []ClientAuth
+	SampleClientAuth [][]ClientAuth
 	// Finished reports that the client asked for /done: a browser ran the
 	// capture page to the end. A browser's trace without it is truncated.
 	Finished bool
@@ -388,6 +393,13 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		}
 	}
 
+	clientAuth := c.SampleClientAuth
+	if len(clientAuth) == 0 && len(c.ClientAuth) > 0 {
+		clientAuth = [][]ClientAuth{
+			c.ClientAuth,
+		}
+	}
+
 	gz := ""
 	if c.Gzip {
 		gz = ".gz"
@@ -403,6 +415,7 @@ func outputsOf(dir string, c *Capture) ([]output, error) {
 		// Replayed pages are tens of MiB of repetitive JSON.
 		{prefix + ".pagetrace.json.gz", pages, len(pages) > 0},
 		{prefix + ".proxytrace.json", proxy, len(proxy) > 0},
+		{prefix + ".clientauth.json", clientAuth, len(clientAuth) > 0},
 	} {
 		if !trace.present {
 			continue

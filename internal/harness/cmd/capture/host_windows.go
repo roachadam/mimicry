@@ -162,6 +162,13 @@ func cleanUp(dataDir string) error {
 		log.Print(d)
 	}
 
+	dirs, derr := removeClientCertDirs()
+	for _, d := range dirs {
+		log.Print(d)
+	}
+
+	err = errors.Join(err, derr)
+
 	certutil, lookErr := exec.LookPath("certutil.exe")
 	if lookErr != nil {
 		return errors.Join(err, lookErr)
@@ -183,7 +190,7 @@ func cleanUp(dataDir string) error {
 		log.Printf("removed a capture CA (SHA-1 %s) from the machine's Root store", thumb)
 	}
 
-	return err
+	return errors.Join(err, removeClientCerts(ctx))
 }
 
 // startDNSStub starts nothing on Windows: only Safari needs the stub, and

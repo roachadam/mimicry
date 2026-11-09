@@ -31,18 +31,24 @@ type shared struct {
 	sent chan struct{}
 	// goAway: Expire sends GOAWAY before closing (expireGoAway).
 	goAway bool
+	// identified: it carries a client certificate (sent in its handshake
+	// or in the session it resumed), which Config.GetClientCertificate
+	// chose for its host: no other host's request goes on it, as Chrome
+	// (SpdySession::CanPool) and Firefox (IsAcceptableForHost) refuse.
+	identified bool
 }
 
 // newShared wraps hc, open on conn (a TLS connection) for r; goAway is
 // the engine's expireGoAway.
 func newShared(hc *h2.Conn, conn net.Conn, r route, goAway bool) *shared {
 	s := &shared{
-		Conn:   hc,
-		group:  r.group,
-		addr:   remoteAddr(conn),
-		tls:    handshake.ConnState(conn),
-		sent:   make(chan struct{}),
-		goAway: goAway,
+		Conn:       hc,
+		group:      r.group,
+		addr:       remoteAddr(conn),
+		tls:        handshake.ConnState(conn),
+		sent:       make(chan struct{}),
+		goAway:     goAway,
+		identified: handshake.ClientIdentified(conn),
 	}
 	if s.tls != nil && len(s.tls.PeerCertificates) > 0 {
 		s.leaf = s.tls.PeerCertificates[0]
@@ -76,8 +82,9 @@ func remoteAddr(conn net.Conn) netip.Addr {
 }
 
 // covering returns the pool's HTTP/2 connections a request on r could
-// coalesce onto: same group, known address, a certificate covering r's
-// host, accepted by Config.VerifyConnection for that host.
+// coalesce onto: same group, known address, no client certificate, a
+// certificate covering r's host, accepted by Config.VerifyConnection for
+// that host.
 func (e *Engine) covering(r route) []*shared {
 	if r.group == (group{}) {
 		return nil
@@ -85,7 +92,7 @@ func (e *Engine) covering(r route) []*shared {
 
 	var out []*shared
 	for _, c := range e.pool.SharedConns() {
-		if c.group == r.group && c.addr.IsValid() && c.leaf != nil && c.leaf.VerifyHostname(r.host) == nil && e.verifyShared(r.host, c) {
+		if c.group == r.group && c.addr.IsValid() && !c.identified && c.leaf != nil && c.leaf.VerifyHostname(r.host) == nil && e.verifyShared(r.host, c) {
 			out = append(out, c)
 		}
 	}

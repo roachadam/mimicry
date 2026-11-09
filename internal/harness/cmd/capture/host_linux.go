@@ -1,18 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/netip"
 	"os"
 	"os/exec"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
@@ -24,9 +28,31 @@ func prepareHost(ctx context.Context, _ *server.CA) (func(), error) {
 	return browser.EnsureDisplay(ctx)
 }
 
-// cleanUp is -cleanup, which only Windows runs need.
+// cleanUp is -cleanup. A run here changes nothing outside its browsers'
+// profiles, which go with them, but for the identities' temporary files,
+// which it removes, and the client-certificate policy files root wrote
+// (clientcert.LinuxPolicyFiles), which it names for root to remove.
 func cleanUp(string) error {
-	return errors.New("-cleanup is for Windows, where a run trusts the capture CA and registers scheduled tasks; on Linux each browser trusts it in its own profile, removed with it")
+	done, err := removeClientCertDirs()
+	for _, d := range done {
+		log.Print(d)
+	}
+
+	var left []string
+
+	for _, path := range clientcert.LinuxPolicyFiles {
+		if _, err := os.Stat(path); err == nil {
+			left = append(left, path)
+		}
+	}
+
+	if len(left) > 0 {
+		slices.Sort(left)
+
+		err = errors.Join(err, fmt.Errorf("a client-certificate policy file is left; as root:\n  rm %s", strings.Join(left, " ")))
+	}
+
+	return err
 }
 
 // startDNSStub does nothing: Chrome, Edge and Firefox map the capture hosts
@@ -98,6 +124,15 @@ func preflightPlatform(_ context.Context, r *preflightReport) error {
 			r.UnprivilegedPortStart = n
 		}
 	}
+
+	want := clientcert.LinuxPolicy(server.ClientCertHosts())
+	for name, path := range clientcert.LinuxPolicyFiles {
+		if data, err := os.ReadFile(path); err == nil && bytes.Equal(data, want) {
+			r.ClientCertPolicies = append(r.ClientCertPolicies, name)
+		}
+	}
+
+	slices.Sort(r.ClientCertPolicies)
 
 	if len(r.Browsers) == 0 {
 		r.Missing = append(r.Missing, "Google Chrome (google-chrome-stable, Google's .deb or .rpm), Microsoft Edge (microsoft-edge-stable, Microsoft's .deb or .rpm) or Firefox (Mozilla's build: packages.mozilla.org or the tarball, not a snap or a distribution's own build)")

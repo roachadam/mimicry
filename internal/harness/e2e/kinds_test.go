@@ -18,6 +18,7 @@ import (
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -512,6 +513,10 @@ type pageSession struct {
 	// server receives a request for it.
 	arrivalsMu sync.Mutex
 	arrivals   map[string]chan struct{}
+	// identity is the client identity of a client-certificate scenario
+	// (Scenario.ClientCert), issued by the CA its server names and given
+	// to the client as the browser held it; nil for other scenarios.
+	identity *clientcert.Identity
 }
 
 func startPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *pageSession {
@@ -553,6 +558,16 @@ func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config fu
 		},
 		OnRequest: s.arrived,
 		Logf:      t.Logf,
+	}
+
+	if key := sc.ClientCert(); key != "" {
+		ids, err := clientcert.New(time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		srv.ClientCAs = ids.Pool()
+		s.identity = ids.Identity(key)
 	}
 
 	if sc.PlainPort() {
@@ -612,6 +627,13 @@ func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config fu
 		},
 		Resolver: stubResolver(t),
 	}
+
+	if s.identity != nil {
+		cfg.GetClientCertificate = func(string, *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return s.identity.TLS(), nil
+		}
+	}
+
 	if config != nil {
 		config(&cfg)
 	}
@@ -731,6 +753,14 @@ func (s *pageSession) arrived(path string) {
 // plans of its requests where s plans them (planEvery).
 func (s *pageSession) finish(done string) *capture.Page {
 	s.t.Helper()
+
+	return s.finishCapture(done).Page
+}
+
+// finishCapture is finish returning the whole capture: the page, and a
+// client-certificate scenario's handshakes (capture.ClientAuth).
+func (s *pageSession) finishCapture(done string) *capture.Capture {
+	s.t.Helper()
 	s.send(http.MethodGet, done, mimicry.Request{}, nil, "")
 
 	for {
@@ -741,7 +771,7 @@ func (s *pageSession) finish(done string) *capture.Page {
 					s.checkPlans(c.Page)
 				}
 
-				return c.Page
+				return c
 			}
 
 		case <-time.After(10 * time.Second):

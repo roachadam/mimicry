@@ -48,12 +48,16 @@ type preflightReport struct {
 	// profile); Missing lists, as instructions, everything that keeps a
 	// capture from running here; UnprivilegedPortStart (Linux) is the
 	// lowest port a user may bind, which must be 443 at most for a
-	// scenario naming https://'s default port (Scenario.DefaultPort).
+	// scenario naming https://'s default port (Scenario.DefaultPort);
+	// ClientCertPolicies (Linux) are the Chromium browsers (chrome, edge)
+	// whose client-certificate policy file (clientcert.LinuxPolicyFiles)
+	// holds exactly what this run's scenarios need.
 	Platform              string   `json:"platform,omitempty"`
 	Admin                 bool     `json:"admin,omitempty"`
 	Certutil              string   `json:"certutil,omitempty"`
 	Missing               []string `json:"missing,omitempty"`
 	UnprivilegedPortStart int      `json:"unprivilegedPortStart,omitempty"`
+	ClientCertPolicies    []string `json:"clientCertPolicies,omitempty"`
 }
 
 // preflightBrowser is an installed browser.

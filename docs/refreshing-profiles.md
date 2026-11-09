@@ -274,6 +274,31 @@ or its Wayland socket, which Firefox prefers, hung; the tool uses Xvfb
 inside the distribution instead. Linux and Windows runs on one machine
 take turns.
 
+### Client-certificate scenarios
+
+A full refresh (or a browser's first on a platform) captures
+`client-cert-ec`, `client-cert-rsa` and their `-tls12` pair, from which
+`hellogen` derives `tls.clientAuth`; a quick one inherits them, and
+hellogen reads the inherited captures. Each needs the browser to hold an
+identity and send it unasked; the capture tool installs it for the
+scenario and removes it after ([Capturing](capturing.md#client-certificate-scenarios)):
+a temporary keychain and Chromium policy entries on macOS, the user's
+store and policy entries on Windows, the throwaway profile's NSS
+database elsewhere. Firefox on macOS needs NSS's `pk12util` (`brew
+install nss`). On Linux, Chrome's and Edge's policy file is root's: in
+WSL refresh writes it as root around each capture step that needs it and
+removes it after (and what it made of it, should the write fail); on a
+Linux machine of its own the preflight compares the file with what the
+scenarios need, and the plan refuses while it is missing or different
+(`capture -scenarios client-cert-ec` there prints it) and reminds you to
+remove it after the run once it is in place. After the run, however it
+ends, refresh runs `capture -cleanup` on each Mac that took one of these
+scenarios.
+Safari and the iPhone browsers are skipped (`Scenario.UnsupportedBy`):
+their profiles have no `tls.clientAuth`. On Windows Firefox took 7 to 11
+s over each handshake it answered from the user's store, so these pages
+take about 90 s a sample there.
+
 ### The iPhone
 
 Safari on iOS is captured from an iPhone (not an iPad, whose Safari sends

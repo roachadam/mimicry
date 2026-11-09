@@ -127,7 +127,7 @@ func serveHTTP1(conn net.Conn, rlog *recordLog, host string, c *capture.Capture,
 		index := -1
 		if !foreign {
 			index = log.add(req)
-			log.request(c)
+			log.request(c, ask.path)
 
 			// After /done the capture belongs to its receiver.
 			if !c.Finished {
@@ -227,6 +227,7 @@ func serveHTTP1(conn net.Conn, rlog *recordLog, host string, c *capture.Capture,
 		if target == "/done" && !c.Finished && !foreign && !challenged {
 			if sc.multi != nil {
 				c.Page = log.page()
+				c.ClientAuth = log.clientAuthSnapshot()
 				c.H1 = nil
 				log.pageProfile(c)
 			} else {

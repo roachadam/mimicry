@@ -63,6 +63,13 @@ type Target struct {
 	// with this title, once per URL, so the page gets user activation.
 	// Safari needs Accessibility access for it.
 	ClickTitle string
+	// ClientCert, when set, is the identity the browser holds for a server
+	// asking for a client certificate: Firefox imports it into its
+	// profile's own certificate database (on Windows it reads the user's
+	// store instead, where the capture tool put it), as Chrome and Edge do
+	// on Linux; on macOS and Windows they read the system's store, where
+	// the capture tool put it for the scenario.
+	ClientCert *ClientIdentity
 	// debugPort is Firefox's remote debugging port, for ProxyAuth or
 	// ClickTitle.
 	debugPort int
@@ -275,6 +282,11 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	}
 
 	if err := trustInProfile(ctx, b, dir, t); err != nil {
+		_ = os.RemoveAll(dir)
+		return nil, err
+	}
+
+	if err := importClientCert(ctx, b, dir, t); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, err
 	}

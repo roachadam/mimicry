@@ -42,6 +42,7 @@ it, use [`Transport.Plan`](how-a-request-is-built.md#5-seeing-it-before-it-is-se
 | [WebSockets](#websockets) | only when you call `DialWebSocket` | don't call it |
 | [Proxies](#proxies) | CONNECT or SOCKS5 handshakes | `Config.Proxy` |
 | [Certificate pins](#certificate-pins-and-checks) | none unless set | `Config.Pins`; `Config.VerifyConnection` |
+| [Client certificates](#client-certificates) | Chrome and Edge: one dropped connection per host and port that asks | `Config.GetClientCertificate` |
 | [The last navigation](#the-last-navigation) | none (header values) | `Request.From` |
 
 ## Redirects
@@ -354,6 +355,23 @@ host's certificates and sends no request.
 accepts, never what it sends.
 
 **How to change it.** Leave both fields nil (the default).
+
+## Client certificates
+
+**What happens.** Nothing, unless you set `Config.GetClientCertificate`.
+Then a server that asks gets your certificate, signed and resumed as the
+profile's browser does. With a Chrome or Edge profile, the first
+connection a host and port asks on is closed without an answer and the
+request goes again on a new connection, once per Transport. A connection
+carrying a certificate takes no other host's requests (no coalescing),
+and an origin asking over HTTP/3 gets its requests over TCP.
+
+**Why.** Chrome and Edge drop that connection while they choose a
+certificate, and a server that asks sees it. See
+[Client certificates](client-certificates.md).
+
+**How to change it.** Leave the field nil: a server that asks then gets
+an empty certificate list on the first connection.
 
 ## The last navigation
 

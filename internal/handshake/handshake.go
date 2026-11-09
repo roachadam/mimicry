@@ -18,6 +18,7 @@ import (
 	utls "github.com/roachadam/utls"
 
 	"github.com/roachadam/mimicry/internal/fingerprint"
+	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -45,7 +46,26 @@ type Config struct {
 	// KeyLogWriter, when set, receives the connection's TLS secrets in
 	// NSS key log format, TCP and QUIC alike (Config.KeyLogWriter).
 	KeyLogWriter io.Writer
+	// ClientCertificate, when set, answers a server's CertificateRequest
+	// (Config.GetClientCertificate, bound to the host); a nil certificate,
+	// or one with no chain, sends none. ClientAuth is the profile's: how
+	// the certificate is signed for, whether its session is kept, and
+	// whether the first request from a host drops its connection.
+	ClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
+	ClientAuth        *profile.ClientAuth
+	// FirstRequest reports whether this CertificateRequest is the first
+	// from the connection's host and port the client has met, and marks
+	// it met. With ClientCertificate set and tls.clientAuth.restart, Client
+	// then closes the connection with nothing sent and fails with
+	// ErrRestart, and ClientCertificate is not asked.
+	FirstRequest func() bool
 }
+
+// ErrRestart reports a connection Client closed at its host's first
+// CertificateRequest, sending nothing, as the profile's browser does
+// (tls.clientAuth.restart): the request goes again on a new connection,
+// which answers it.
+var ErrRestart = errors.New("handshake: connection dropped at the host's first CertificateRequest, to be made again")
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
 // connection and the negotiated ALPN protocol. It honours ctx; on error conn
@@ -57,7 +77,23 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		return nil, "", err
 	}
 
-	tlsConn := utls.UClient(conn, TLSConfig(cfg), utls.HelloCustom)
+	config := TLSConfig(cfg)
+	if get := config.GetClientCertificate; get != nil && cfg.FirstRequest != nil && cfg.ClientAuth != nil && cfg.ClientAuth.Restart {
+		config.GetClientCertificate = func(req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+			if !cfg.FirstRequest() {
+				return get(req)
+			}
+
+			// Closed before uTLS answers the error with an alert, which
+			// would carry TLS 1.3's buffered change_cipher_spec with it:
+			// the browser sends nothing more.
+			_ = conn.Close()
+
+			return nil, ErrRestart
+		}
+	}
+
+	tlsConn := utls.UClient(conn, config, utls.HelloCustom)
 	if err := tlsConn.ApplyPreset(spec); err != nil {
 		_ = conn.Close()
 		return nil, "", fmt.Errorf("handshake: applying ClientHello: %w", err)
@@ -68,13 +104,37 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		return nil, "", err
 	}
 
-	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
+	cs := tlsConn.ConnectionState()
+	c := &clientConn{
+		UConn:      tlsConn,
+		identified: len(cs.LocalCertificate) > 0 || (cs.DidResume && cfg.Ticket != nil && cfg.Ticket.identified),
+	}
+
+	return c, cs.NegotiatedProtocol, nil
+}
+
+// clientConn is a connection Client returned.
+type clientConn struct {
+	*utls.UConn
+	// identified: the client sent a certificate in the handshake, or
+	// resumed a session it sent one in.
+	identified bool
+}
+
+// ClientIdentified reports whether conn, a connection Client returned,
+// carries a client certificate: it sent one, or resumed a session one was
+// sent in. Such a connection serves its own host alone (no coalescing),
+// as Chrome's and Firefox's do; false for any other connection.
+func ClientIdentified(conn net.Conn) bool {
+	tc, ok := conn.(*clientConn)
+
+	return ok && tc.identified
 }
 
 // ConnState is the TLS state of conn, a connection Client returned, as
 // crypto/tls describes it; nil for any other connection.
 func ConnState(conn net.Conn) *tls.ConnectionState {
-	tc, ok := conn.(*utls.UConn)
+	tc, ok := conn.(*clientConn)
 	if !ok {
 		return nil
 	}
@@ -139,6 +199,12 @@ func TLSConfig(cfg Config) *utls.Config {
 		config.OmitEmptyPsk = true
 	}
 
+	if cfg.ClientCertificate != nil {
+		config.GetClientCertificate = func(req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+			return clientCertificate(cfg, cache, req)
+		}
+	}
+
 	if cache == nil && cfg.VerifyConnection == nil {
 		return config
 	}
@@ -154,15 +220,82 @@ func TLSConfig(cfg Config) *utls.Config {
 		}
 
 		// Tickets keep their server certificate's expiry, past which
-		// uTLS declines them.
-		if cache != nil && len(cs.PeerCertificates) > 0 {
-			cache.notAfter = cs.PeerCertificates[0].NotAfter
+		// uTLS declines them, and, from a resumed session, its client
+		// certificate's identity.
+		if cache != nil {
+			cache.resumed = cs.DidResume
+			if len(cs.PeerCertificates) > 0 {
+				cache.notAfter = cs.PeerCertificates[0].NotAfter
+			}
 		}
 
 		return nil
 	}
 
 	return config
+}
+
+// clientCertificate answers req with cfg.ClientCertificate's certificate,
+// signed for as cfg.ClientAuth says for req's TLS version and the key's
+// type. A certificate sent where the browser resumes no such session
+// drops the connection's key's ticket and keeps none from it (cache).
+func clientCertificate(cfg Config, cache *connCache, req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+	schemes := make([]tls.SignatureScheme, len(req.SignatureSchemes))
+	for i, s := range req.SignatureSchemes {
+		schemes[i] = tls.SignatureScheme(s)
+	}
+
+	c, err := cfg.ClientCertificate(&tls.CertificateRequestInfo{
+		AcceptableCAs:    req.AcceptableCAs,
+		SignatureSchemes: schemes,
+		Version:          req.Version,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if c == nil || len(c.Certificate) == 0 {
+		return &utls.Certificate{}, nil
+	}
+
+	if cfg.ClientAuth == nil {
+		return nil, fmt.Errorf("%w: the profile does not describe how its browser sends a client certificate (tls.clientAuth)", headerorder.ErrNotMeasured)
+	}
+
+	leaf := c.Leaf
+	if leaf == nil {
+		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
+			return nil, fmt.Errorf("tls: client certificate: %w", err)
+		}
+	}
+
+	scheme, ok := cfg.ClientAuth.Scheme(req.Version == utls.VersionTLS13, leaf.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: the profile does not describe how its browser signs with a %T client key in TLS %#04x (tls.clientAuth)", headerorder.ErrNotMeasured, leaf.PublicKey, req.Version)
+	}
+
+	if !slices.Contains(req.SignatureSchemes, utls.SignatureScheme(scheme)) {
+		return nil, fmt.Errorf("%w: the server's CertificateRequest does not allow %s, the scheme the profile's browser signs a %T client key with in TLS %#04x (tls.clientAuth)", headerorder.ErrNotMeasured, scheme, leaf.PublicKey, req.Version)
+	}
+
+	if cache != nil {
+		// Its tickets carry the certificate's identity.
+		cache.identified = true
+
+		if !cfg.ClientAuth.Resume {
+			cache.noKeep = true
+			cache.tickets.Drop(cache.key)
+		}
+	}
+
+	return &utls.Certificate{
+		Certificate:                  c.Certificate,
+		PrivateKey:                   c.PrivateKey,
+		Leaf:                         leaf,
+		OCSPStaple:                   c.OCSPStaple,
+		SignedCertificateTimestamps:  c.SignedCertificateTimestamps,
+		SupportedSignatureAlgorithms: []utls.SignatureScheme{utls.SignatureScheme(scheme)},
+	}, nil
 }
 
 // Spec turns a connection's ClientHello layout into a uTLS spec. GREASE

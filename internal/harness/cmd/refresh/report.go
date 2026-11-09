@@ -340,7 +340,7 @@ var sections = []struct {
 }{
 	{"identity", "Name, version, inheritance"},
 	{"captured", "From the new captures (cmd/refresh: tls base, http2 preface, headers, http1.headers)"},
-	{"generated", "Generated (hellogen: the hello's shape, tls.websocketH1, tls.quic, tls.helloRetry, tls.x25519Reuse, tls.trailingDotSni, http2.openingRecords, http2.goawayReply, http1.uploadRecords; h3gen: quic, http3; kindsgen: kinds, context, variants, emptyBody, clientHints, urls, http3 headers and priorities)"},
+	{"generated", "Generated (hellogen: the hello's shape, tls.websocketH1, tls.quic, tls.helloRetry, tls.x25519Reuse, tls.trailingDotSni, tls.clientAuth, http2.openingRecords, http2.goawayReply, http1.uploadRecords; h3gen: quic, http3; kindsgen: kinds, context, variants, emptyBody, clientHints, urls, http3 headers and priorities)"},
 	{"hand", "Hand-written, copied from the previous profile"},
 }
 
@@ -382,7 +382,7 @@ func sectionOf(path string) string {
 
 	case "tls":
 		switch second {
-		case "websocketH1", "quic", "helloRetry", "x25519Reuse", "trailingDotSni":
+		case "websocketH1", "quic", "helloRetry", "x25519Reuse", "trailingDotSni", "clientAuth":
 			return "generated"
 		case "resumption":
 			if strings.HasPrefix(rest, "resumption.echPayloadLengths") {

@@ -250,6 +250,65 @@ func TestValidate(t *testing.T) {
 			want: "needs a fixed extension order",
 		},
 		{
+			name: "clientAuth with PKCS#1 in TLS 1.3",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.TLS.ClientAuth = &ClientAuth{
+					TLS13: []Code{
+						0x0401,
+					},
+				}
+			},
+			path: "tls.clientAuth.tls13",
+			want: "signature scheme 0x0401 is RSA PKCS#1, which TLS 1.3 forbids in CertificateVerify",
+		},
+		{
+			name: "clientAuth with two schemes for one key type",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.TLS.ClientAuth = &ClientAuth{
+					TLS12: []Code{
+						0x0401,
+						0x0804,
+					},
+				}
+			},
+			path: "tls.clientAuth.tls12",
+			want: "two signature schemes for RSA keys",
+		},
+		{
+			name: "clientAuth with a scheme no client signs with",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.TLS.ClientAuth = &ClientAuth{
+					TLS12: []Code{
+						0x0201,
+					},
+				}
+			},
+			path: "tls.clientAuth.tls12",
+			want: "signature scheme 0x0201 is not one a client signs with",
+		},
+		{
+			name: "clientAuth without a scheme",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.TLS.ClientAuth = &ClientAuth{}
+			},
+			path: "tls.clientAuth",
+			want: "measures no signature scheme; leave it out instead",
+		},
+		{
+			name: "clientAuth resuming without resumption",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.TLS.Resumption = nil
+				p.TLS.ClientAuth = &ClientAuth{
+					TLS13: []Code{
+						0x0403,
+					},
+					Resume: true,
+				}
+			},
+			path: "tls.clientAuth.resume",
+			want: "needs tls.resumption: a profile that never resumes cannot resume a session with a client certificate",
+		},
+		{
 			name: "typed extension with the wrong field",
 			mutate: func(t *testing.T, p *Spec) {
 				t.Helper()

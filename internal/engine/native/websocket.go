@@ -210,8 +210,19 @@ func (e *Engine) openWebSocketH1(ctx context.Context, req *http.Request, r route
 
 // dialWebSocket connects a socket's own connection and, for https, sends
 // tls.websocketH1's hello, resuming as the route's other connections do.
-// The server must not pick h2, which the hello does not offer.
+// The server must not pick h2, which the hello does not offer. A
+// connection the browser drops at its host's first CertificateRequest
+// (handshake.ErrRestart) is made again.
 func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
+	conn, err := e.dialWebSocketOnce(ctx, req, r)
+	if errors.Is(err, handshake.ErrRestart) {
+		return e.dialWebSocketOnce(ctx, req, r)
+	}
+
+	return conn, err
+}
+
+func (e *Engine) dialWebSocketOnce(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
 	var (
 		conn net.Conn
 		err  error
@@ -240,11 +251,14 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 	}
 
 	cfg := handshake.Config{
-		ServerName:       req.URL.Hostname(),
-		OmitSNI:          r.omitSNI,
-		RootCAs:          e.rootCAs,
-		VerifyConnection: e.verifyFor(req.URL.Hostname()),
-		KeyLogWriter:     e.keyLog,
+		ServerName:        req.URL.Hostname(),
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
+		ClientAuth:        e.profile.TLS.ClientAuth,
+		FirstRequest:      e.firstRequestFor(r.addr),
 	}
 	hello := e.plan.Hello()
 

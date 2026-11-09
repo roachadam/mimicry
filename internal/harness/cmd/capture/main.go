@@ -65,6 +65,9 @@ type options struct {
 	// clients, with -listen, is the network a device is served on: its
 	// DNS stub and proxy refuse anyone else.
 	clients netip.Prefix
+	// clientCerts are the run's test client identities, nil when no
+	// scenario asks for a client certificate.
+	clientCerts *clientCerts
 }
 
 // samplesFor is how many samples sc takes.
@@ -103,7 +106,7 @@ func run() error {
 	flag.StringVar(&browser.FirefoxApp, "firefox-app", "", "the Firefox to capture instead of the installed one: an application on macOS, firefox.exe on Windows (an older release beside the installed one)")
 	flag.StringVar(&browser.DataDir, "browser-data", "", "directory for the browsers' throwaway profile directories (default: the system's temporary directory); on Windows both the browser, on the console user's desktop, and this tool use it")
 
-	cleanup := flag.Bool("cleanup", false, "Windows: remove what a killed run left (every capture CA in the machine's Root store, the tool's scheduled tasks, browser processes under -browser-data) and exit")
+	cleanup := flag.Bool("cleanup", false, "remove what a killed run left and exit: on Windows every capture CA in the machine's Root store, the tool's scheduled tasks, browser processes under -browser-data, and the client identities and their policy entries; on macOS the client identities' keychains (in the search list or not), their policy entries and leftover launchd jobs; everywhere the identities' temporary PKCS#12 files; on Linux it names a client-certificate policy file left for root to remove")
 
 	flag.Parse()
 
@@ -127,7 +130,14 @@ func run() error {
 		}
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	// A dropped ssh session (cmd/refresh on the second Mac) sends SIGHUP,
+	// and writes to its gone terminal would raise SIGPIPE: either would
+	// end the tool before it takes the client identity and the capture CA
+	// out again. SIGHUP cancels the run as an interrupt does; with SIGPIPE
+	// ignored, those writes fail and the clean-up still runs.
+	signal.Ignore(syscall.SIGPIPE)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 
 	if *caDir == "" {
@@ -241,6 +251,13 @@ func run() error {
 
 	defer release()
 
+	clientIDs, err := newClientCerts(scenarios)
+	if err != nil {
+		return err
+	}
+
+	defer clientIDs.close()
+
 	opts := options{
 		headless:     *headless,
 		samples:      *samples,
@@ -254,6 +271,7 @@ func run() error {
 		h3LocalRoots: *h3LocalRoots,
 		addr:         addr.String(),
 		clients:      clients,
+		clientCerts:  clientIDs,
 	}
 	if slices.Contains(scenarios, server.DefaultScenario) && opts.samplesFor(server.DefaultScenario) < 2 {
 		log.Printf("warning: one sample of the default scenario cannot tell whether a browser shuffles its extensions; its capture says %q", profile.ExtensionOrderFixed)
@@ -339,10 +357,30 @@ func run() error {
 		}
 
 		refused := 0
+
+		// Client-certificate scenarios for Safari, or where the browser's
+		// identity store cannot be reached.
+		bopts.scenarios = slices.DeleteFunc(slices.Clone(opts.scenarios), func(sc *server.Scenario) bool {
+			why := sc.UnsupportedBy(b.Name)
+			if why == "" && sc.ClientCert() != "" && !b.OnIPhone() {
+				why = clientCertRefusal(b)
+			}
+
+			if why == "" {
+				return false
+			}
+
+			log.Printf("%s: skipping scenario %s: %s", b.Name, sc.Name, why)
+
+			refused++
+
+			return true
+		})
+
 		if mode == safariProxyManual {
 			// A manual proxy sends SOCKS5 scenarios' URLs to the HTTP
 			// proxy, so their samples could only time out.
-			bopts.scenarios = slices.DeleteFunc(slices.Clone(opts.scenarios), func(sc *server.Scenario) bool {
+			bopts.scenarios = slices.DeleteFunc(slices.Clone(bopts.scenarios), func(sc *server.Scenario) bool {
 				if sc.Proxy != server.ProxySOCKS5 {
 					return false
 				}
@@ -410,7 +448,15 @@ func captureBrowser(ctx context.Context, b *browser.Browser, opts options) error
 		}
 
 		start := time.Now()
+
+		remove, err := opts.clientCerts.install(ctx, b, sc)
+		if err != nil {
+			return fmt.Errorf("scenario %s: %w", sc.Name, err)
+		}
+
 		c, err := captureScenario(ctx, b, sc, opts)
+
+		remove()
 
 		if errors.Is(err, capture.ErrExists) {
 			log.Printf("%s: scenario %s: %v; delete it to capture again", b.Name, sc.Name, err)
@@ -561,6 +607,11 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		},
 		PacketConn: pc,
 	}
+
+	if opts.clientCerts != nil {
+		srv.ClientCAs = opts.clientCerts.set.Pool()
+	}
+
 	// Behind a proxy the browser never dials this port, but the URL names
 	// it, so CONNECT and SOCKS5 requests carry a real-looking one.
 	port, err := tcpPort(ln)
@@ -707,6 +758,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		Proxy:      proxyURL,
 		Plain:      sc.Plain,
 		Scenario:   sc.Name,
+		ClientCert: opts.clientCerts.target(sc),
 	}
 	if sc.ProxyAuth {
 		t.ProxyAuth = url.UserPassword(server.ProxyUser, server.ProxyPassword)

@@ -54,6 +54,38 @@ type TLS struct {
 	// such a host over TLS is ErrNotMeasured. Host and :authority keep the
 	// dot either way.
 	TrailingDotSNI string `json:"trailingDotSni,omitempty"`
+	// ClientAuth is how the browser answers a server's CertificateRequest
+	// with a certificate of its own. hellogen derives it from the
+	// client-cert captures. Nil: not measured, and sending a client
+	// certificate (Config.GetClientCertificate) is ErrNotMeasured.
+	ClientAuth *ClientAuth `json:"clientAuth,omitempty"`
+}
+
+// ClientAuth is a browser's client authentication: what it signs its
+// CertificateVerify with, whether it resumes a session in which it sent a
+// certificate, and whether it drops the connection that first asks.
+// Browsers send their certificate alone, without the CA (Chrome, Edge,
+// Firefox); mimicry sends the chain the caller gives.
+type ClientAuth struct {
+	// TLS13 and TLS12 are the CertificateVerify signature schemes the
+	// browser signed with in each TLS version, one per key type measured
+	// (ECDSA P-256: 0x0403; RSA: 0x0804, or Chrome's 0x0401 in TLS 1.2).
+	// A key of a type with none is ErrNotMeasured.
+	TLS13 []Code `json:"tls13"`
+	TLS12 []Code `json:"tls12"`
+	// Resume: later connections resume a session in which the client
+	// sent a certificate, without sending it again (Chrome). False: such a
+	// session is never resumed, and each connection makes a full
+	// handshake with the certificate (Firefox).
+	Resume bool `json:"resume,omitempty"`
+	// Restart: the first CertificateRequest from a host and port closes
+	// its connection with nothing sent (no certificate, no alert), and the
+	// request goes again on a new connection, which answers it; later
+	// ones are answered at once (Chrome and Edge, which ask the
+	// certificate store between the two and remember the answer per host
+	// and port). False: every CertificateRequest is answered on its own
+	// connection (Firefox).
+	Restart bool `json:"restart,omitempty"`
 }
 
 // TLS.TrailingDotSNI values.

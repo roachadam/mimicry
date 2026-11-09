@@ -370,6 +370,19 @@ func (c *checker) checkTLS(t *TLS) {
 		}
 	}
 
+	if a := t.ClientAuth; a != nil {
+		c.checkClientAuthSchemes("tls.clientAuth.tls13", a.TLS13, true)
+		c.checkClientAuthSchemes("tls.clientAuth.tls12", a.TLS12, false)
+
+		if len(a.TLS13) == 0 && len(a.TLS12) == 0 {
+			c.add("tls.clientAuth", "measures no signature scheme; leave it out instead")
+		}
+
+		if a.Resume && t.Resumption == nil {
+			c.add("tls.clientAuth.resume", "needs tls.resumption: a profile that never resumes cannot resume a session with a client certificate")
+		}
+	}
+
 	if t.extension(ExtCookie) != nil {
 		c.add("tls.extensions", "the full ClientHello cannot carry cookie; tls.helloRetry places it in the second")
 	}

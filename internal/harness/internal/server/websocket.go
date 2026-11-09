@@ -612,7 +612,7 @@ func (b *wsBuffer) Read(p []byte) (int, error) {
 // and its socket runs on a goroutine of its own (senders).
 func (s *h2conn) onConnect(id uint32, st *request, index int, senders *sync.WaitGroup) error {
 	delete(s.streams, id)
-	s.log.request(s.c)
+	s.log.request(s.c, st.path)
 
 	if v, _ := s.scenario.settingFor(s.host, http2.SettingEnableConnectProtocol); v != 1 {
 		s.mu.Lock()

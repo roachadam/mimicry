@@ -125,6 +125,8 @@ type options struct {
 	// roots, when set, is what the engine trusts, serverCert left as it
 	// is; otherwise a new certificate becomes serverCert.
 	roots *x509.CertPool
+	// clientCert is Config.ClientCertificate.
+	clientCert func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -164,6 +166,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		BrowserDialDelay:    o.browserDialDelay,
 		Tickets:             o.tickets,
 		KeyLogWriter:        o.keyLog,
+		ClientCertificate:   o.clientCert,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)
