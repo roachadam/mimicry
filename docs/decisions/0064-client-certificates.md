@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-08
-- Commits: `9864806` and the commit that finished it (#108)
+- Commits: `15ceaf5`
 
 **Summary.** `Config.GetClientCertificate` answers a server's
 CertificateRequest the way the profile's browser does, from a new
