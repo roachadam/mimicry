@@ -698,19 +698,12 @@ func (s *pageSession) send(method, target string, r mimicry.Request, h http.Head
 
 // do is send, returning its error, for a goroutine other than the test's.
 func (s *pageSession) do(method, target string, r mimicry.Request, h http.Header, body string) error {
-	var rd io.Reader
-	if body != "" {
-		rd = strings.NewReader(body)
-	}
-
-	req, err := http.NewRequestWithContext(s.t.Context(), method, target, rd)
+	req, err := s.request(method, target, r, h, body)
 	if err != nil {
 		return err
 	}
 
-	maps.Copy(req.Header, h)
-
-	resp, err := s.client.Do(mimicry.With(req, r))
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -718,6 +711,23 @@ func (s *pageSession) do(method, target string, r mimicry.Request, h http.Header
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return resp.Body.Close()
+}
+
+// request is the request send makes.
+func (s *pageSession) request(method, target string, r mimicry.Request, h http.Header, body string) (*http.Request, error) {
+	var rd io.Reader
+	if body != "" {
+		rd = strings.NewReader(body)
+	}
+
+	req, err := http.NewRequestWithContext(s.t.Context(), method, target, rd)
+	if err != nil {
+		return nil, err
+	}
+
+	maps.Copy(req.Header, h)
+
+	return mimicry.With(req, r), nil
 }
 
 // expect returns a channel closed once the server has received a request

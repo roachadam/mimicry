@@ -138,9 +138,9 @@ func TestHTTP3MarkupMatchesBrowserWhenSlow(t *testing.T) {
 			}
 
 			s.send(http.MethodGet, page.String(), mimicry.Request{}, nil, "")
-			pause(t, firstPageDelay(want[0], host, steps))
 
 			markup, _ := pageSteps(steps, "/", sentOrder(want[0]))
+			headStart(s, want[0], steps, markup, page)
 			sendMarkup(s, markup, page, markupLag)
 
 			gotT := transports(finishH3Page(s, page))
@@ -216,7 +216,8 @@ func h3Steps(sc *server.Scenario) []server.H3Step {
 // firstPageDelay is how long after the first QUIC connection to host
 // started the browser's page sent its first request over it: the page's
 // parse and script start, which mimicry lacks. Waiting as long gives the
-// Alt-Svc connection the browser's head start. Zero where it went on TCP.
+// Alt-Svc connection the browser's head start (headStart). Zero where it
+// went on TCP.
 func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) time.Duration {
 	offset := map[string]int64{}
 
@@ -253,6 +254,63 @@ func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) t
 	}
 
 	return 0
+}
+
+// quicUpWait bounds how long headStart waits for mimicry's QUIC connection
+// to come up: a handshake on loopback takes milliseconds, a second or two
+// on a loaded machine. Past it the page goes on, and its comparison fails.
+const quicUpWait = 10 * time.Second
+
+// headStart gives the page at / the browser's head start before its first
+// request, the first of next: firstPageDelay, and then, where the browser
+// sent that request over HTTP/3, as long as mimicry would send it over TCP
+// (Transport.Plan; up to quicUpWait). The browser's connection was up long
+// before: Firefox's, validated in the background after the Alt-Svc, sent
+// its Finished 0–4 ms after it started and carried the page's first
+// request 49–253 ms after (every h3-discovery and h3-page sample). On a
+// loaded machine mimicry's handshake can outlast the head start, and its
+// requests then rightly go on TCP, as Firefox's would before validation:
+// the comparison is of where requests go with the connection in the
+// browser's state, not of how long a handshake takes on this machine.
+func headStart(s *pageSession, browser *capture.Page, steps, next []server.H3Step, page *url.URL) {
+	t := s.t
+	t.Helper()
+
+	pause(t, firstPageDelay(browser, steps[0].Host, steps))
+
+	if len(next) == 0 || transports(browser)[next[0].Path()].proto != "h3" {
+		return
+	}
+
+	st := next[0]
+	method, r, h := h3StepRequest(st, page)
+
+	req, err := s.request(method, s.url(st.Host, st.Path()), r, h, st.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Now()
+
+	for {
+		plan, err := s.transport().Plan(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// HTTP/3, or a race between QUIC and TCP that connecting decides.
+		if plan.Protocol == "HTTP/3.0" || plan.Protocol == "" {
+			return
+		}
+
+		if time.Since(start) > quicUpWait {
+			t.Logf("%s: mimicry still sends it over %s %v after the browser's head start, where the browser's went over HTTP/3", st.Path(), plan.Protocol, quicUpWait)
+
+			return
+		}
+
+		pause(t, time.Millisecond)
+	}
 }
 
 // h3ScriptTurn stands for the browser's script turn before fetch('/done'),
@@ -293,7 +351,7 @@ func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 	for path := "/"; path != ""; {
 		markup, scripted := pageSteps(steps, path, order)
 		if path == "/" {
-			pause(t, firstPageDelay(browser, host, steps))
+			headStart(s, browser, steps, slices.Concat(markup, scripted), page)
 		}
 
 		sendMarkup(s, markup, page, 0)
@@ -302,12 +360,12 @@ func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 		for _, st := range scripted {
 			pause(t, time.Duration(st.PauseMillis)*time.Millisecond)
 
+			sendScripted(s, browser, st, page)
+
 			if st.Kind == "navigate" {
 				// The page navigates by script, without user activation:
 				// location.href, or a form's submit().
 				target := s.url(st.Host, st.Path())
-				method, r, h := h3StepRequest(st, page)
-				s.send(method, target, r, h, st.Body)
 
 				// A redirect's next document is where it lands.
 				next = st.Path()
@@ -323,8 +381,6 @@ func runH3PageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 
 				break
 			}
-
-			sendH3Step(s, st, page)
 		}
 
 		path = next
@@ -619,13 +675,81 @@ func sentOrder(browser *capture.Page) map[string]int {
 	return out
 }
 
-// sendH3Step makes st's request through mimicry from page, as the page's
-// markup or script makes it.
-func sendH3Step(s *pageSession, st server.H3Step, page *url.URL) {
-	s.t.Helper()
+// earlyArrival bounds how long sendScripted holds the server's answer to a
+// new QUIC connection for a 0-RTT request to arrive: far longer than a
+// loaded machine takes to write it. Only a request that waits for the
+// handshake meets it; it then goes in 1-RTT, and the comparison fails.
+const earlyArrival = 5 * time.Second
+
+// sendScripted makes st's request through mimicry from page, as the page's
+// script makes it. Where the browser sent it in its connection's 0-RTT
+// flight (sentEarly), the server answers no QUIC client that appears
+// meanwhile (quicHold) until the request has reached it, for up to
+// earlyArrival. Across a network the server's handshake comes after a
+// client's first flight (Chrome's request left 0.1–0.4 ms after its
+// control stream, chrome-157-linux h3-discovery); on loopback it comes
+// within milliseconds, and mimicry writes the request on the request's
+// goroutine once the dial has sent the connection's first packets (well
+// under 2 ms later here), which on a loaded machine can wait longer for a
+// CPU than the server takes to answer: the request then rightly goes in
+// 1-RTT, as a client sends nothing in 0-RTT once its handshake is done.
+func sendScripted(s *pageSession, browser *capture.Page, st server.H3Step, page *url.URL) {
+	t := s.t
+	t.Helper()
 
 	method, r, h := h3StepRequest(st, page)
-	s.send(method, s.url(st.Host, st.Path()), r, h, st.Body)
+	target := s.url(st.Host, st.Path())
+
+	if !sentEarly(browser, st.Path()) {
+		s.send(method, target, r, h, st.Body)
+
+		return
+	}
+
+	s.quic.hold()
+
+	defer s.quic.release()
+
+	arrived := s.expect(st.Path())
+	done := make(chan error, 1)
+
+	go func() {
+		done <- s.do(method, target, r, h, st.Body)
+	}()
+
+	select {
+	case <-arrived:
+	case err := <-done:
+		// Answered or failed, the server's notice aside: as below.
+		done <- err
+	case <-time.After(earlyArrival):
+	case <-t.Context().Done():
+		t.Fatal(t.Context().Err())
+	}
+
+	s.quic.release()
+
+	if err := <-done; err != nil {
+		t.Fatalf("%s: %v", st.Path(), err)
+	}
+}
+
+// sentEarly reports whether browser sent its HTTP/3 request for path in a
+// 0-RTT packet.
+func sentEarly(browser *capture.Page, path string) bool {
+	for _, c := range browser.QUIC {
+		if c.H3 == nil {
+			continue
+		}
+
+		for _, r := range c.H3.Requests {
+			if r.Path == path {
+				return streamPacket(c, r.Stream) == quictrace.Packet0RTT
+			}
+		}
+	}
+
+	return false
 }
 
 // h3StepRequest is how the page at page makes st's request: its method,
