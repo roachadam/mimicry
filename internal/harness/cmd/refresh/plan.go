@@ -160,13 +160,16 @@ type preflightReport struct {
 	// Set on Windows and Linux only: Platform is "windows" or "linux",
 	// Admin whether the ssh user is an administrator (Windows; certutil
 	// needs it), Certutil its path, Missing everything that stops a
-	// capture there, and UnprivilegedPortStart the lowest port a user may
-	// bind (Linux; the urls scenario forwards 443).
+	// capture there, UnprivilegedPortStart the lowest port a user may
+	// bind (Linux; the urls scenario forwards 443), and
+	// ClientCertPolicies the browsers whose client-certificate policy
+	// file is in place, as the scenarios need it (Linux).
 	Platform              string   `json:"platform,omitempty"`
 	Admin                 bool     `json:"admin,omitempty"`
 	Certutil              string   `json:"certutil,omitempty"`
 	Missing               []string `json:"missing,omitempty"`
 	UnprivilegedPortStart int      `json:"unprivilegedPortStart,omitempty"`
+	ClientCertPolicies    []string `json:"clientCertPolicies,omitempty"`
 }
 
 // machine is where p's browser runs.
@@ -463,11 +466,17 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 
 	if m.linux && p.clientCertPolicy() != "" {
 		file := clientcert.LinuxPolicyFiles[p.clientCertPolicy()]
-		if m.wsl != "" {
+
+		switch {
+		case m.wsl != "":
 			p.Manual = append(p.Manual, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send; refresh writes %s as root in %s before each capture step and removes it after, even after a failure",
 				p.tool(), file, m))
-		} else {
-			p.Problems = append(p.Problems, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send, in %s, which only root may write; capture -scenarios <one of them> on %s prints it, and remove it after",
+
+		case slices.Contains(rep.ClientCertPolicies, p.tool()):
+			p.Manual = append(p.Manual, fmt.Sprintf("%s holds the AutoSelectCertificateForUrls policy the client-certificate scenarios need; as root on %s, remove it after the run", file, m))
+
+		default:
+			p.Problems = append(p.Problems, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send, in %s, which only root may write and is missing or different; capture -scenarios <one of them> on %s prints it, and remove it after",
 				p.tool(), file, m))
 		}
 	}
@@ -1187,19 +1196,18 @@ func planTargets(ps []*plan) string {
 	return strings.Join(names, " and ")
 }
 
+// clientCerts reports whether p captures a client-certificate scenario.
+func (p *plan) clientCerts() bool {
+	return slices.ContainsFunc(p.Captures, func(c planned) bool {
+		return clientCertEntry(c.Scenario)
+	})
+}
+
 // clientCertPolicy is the Chromium browser (chrome, edge) whose
 // client-certificate policy file p's captures need on Linux
 // (clientcert.LinuxPolicyFiles), "" when they need none.
 func (p *plan) clientCertPolicy() string {
-	if _, ok := clientcert.LinuxPolicyFiles[p.tool()]; !ok {
-		return ""
-	}
-
-	if !slices.ContainsFunc(p.Captures, func(c planned) bool {
-		sc, err := server.ScenarioByName(c.Scenario)
-
-		return err == nil && sc.ClientCert() != ""
-	}) {
+	if _, ok := clientcert.LinuxPolicyFiles[p.tool()]; !ok || !p.clientCerts() {
 		return ""
 	}
 

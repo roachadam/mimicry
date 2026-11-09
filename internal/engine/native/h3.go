@@ -78,6 +78,37 @@ type quicConn struct {
 	// tls is the connection's TLS state once its handshake is complete,
 	// which responses carry (state).
 	tls atomic.Pointer[tls.ConnectionState]
+	// certAsked is set when the server asked for a client certificate,
+	// with Config.GetClientCertificate set; nil without it.
+	certAsked *atomic.Bool
+}
+
+// errClientAuthOverQUIC fails a QUIC handshake whose server asked for a
+// client certificate while Config.GetClientCertificate is set: no browser
+// was captured answering one over QUIC. The request goes on TCP, where the
+// certificate is sent as measured, and so do the origin's later ones; it
+// is not a QUIC failure (Fallback.BrokenAfter).
+var errClientAuthOverQUIC = errors.New("mimicry: the server asked for a client certificate over HTTP/3, which no browser was captured answering; its requests go on TCP")
+
+// quicClientCert is a QUIC handshake's ClientCertificate: it sets asked
+// and stops the handshake (errClientAuthOverQUIC) without asking
+// Config.GetClientCertificate; nil without one (asked nil).
+func quicClientCert(asked *atomic.Bool) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	if asked == nil {
+		return nil
+	}
+
+	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		asked.Store(true)
+
+		return nil, errClientAuthOverQUIC
+	}
+}
+
+// askedCert reports whether c's server asked for a client certificate
+// (certAsked).
+func (c *quicConn) askedCert() bool {
+	return c.certAsked != nil && c.certAsked.Load()
 }
 
 // state is c's TLS state, kept once the handshake is complete.
@@ -151,6 +182,10 @@ type origin struct {
 	// broken: Fallback.BrokenAfter attempts in a row failed. The origin's
 	// requests stay on TCP for the engine's life.
 	broken bool
+	// clientAuth: it asked for a client certificate over QUIC
+	// (errClientAuthOverQUIC). Its requests stay on TCP for the engine's
+	// life, as when broken, but no failure was counted.
+	clientAuth bool
 	// failures counts the failed attempts in a row that count towards
 	// BrokenAfter.
 	failures int
@@ -259,7 +294,7 @@ func (e *Engine) h3Dialing(key string) bool {
 // now: advertised, unexpired and, with o its origin state (nil: none yet),
 // not broken. e.quic.mu must be held.
 func (e *Engine) alternative(o *origin, r route) (uint16, bool) {
-	if o != nil && o.broken {
+	if o != nil && (o.broken || o.clientAuth) {
 		return 0, false
 	}
 
@@ -1010,8 +1045,12 @@ func (e *Engine) runAttempt(ctx context.Context, o *origin, r route, a *attempt,
 		// An attempt dropped before its first datagram (the race over
 		// while a loaded process built its hello) put nothing on the
 		// network: it says nothing of the path and does not count
-		// (decision 0028's amendment).
-		if sent.Load() {
+		// (decision 0028's amendment). One the server asked for a
+		// client certificate does not either: the path works.
+		switch {
+		case errors.Is(err, errClientAuthOverQUIC):
+			o.clientAuth = true
+		case sent.Load():
 			e.failed(o, a.resumed)
 		}
 
@@ -1096,7 +1135,8 @@ func (e *Engine) watchHandshake(o *origin, r route, c *quicConn) {
 
 	e.quic.mu.Lock()
 
-	if err == nil {
+	switch {
+	case err == nil:
 		overdue := e.overdue(c)
 
 		c.handshook.Store(true)
@@ -1105,7 +1145,13 @@ func (e *Engine) watchHandshake(o *origin, r route, c *quicConn) {
 		if s, ok := e.pool.Shared(r.key); ok && overdue && e.profile.HTTP3.Discovery.GoAwayTCP {
 			e.goAwayTCP(r, s)
 		}
-	} else {
+
+	case c.askedCert():
+		// Resumed, then asked for a certificate: not a failure either
+		// (errClientAuthOverQUIC).
+		o.clientAuth = true
+
+	default:
 		e.failed(o, true)
 	}
 
@@ -1161,15 +1207,22 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 
 	defer cancel()
 
+	// No browser was captured answering a CertificateRequest over QUIC:
+	// with Config.GetClientCertificate set the handshake stops there,
+	// without asking it, and the origin's requests go on TCP, where the
+	// certificate goes out as measured (errClientAuthOverQUIC).
+	var asked *atomic.Bool
+	if e.clientCert != nil {
+		asked = new(atomic.Bool)
+	}
+
 	cfg := handshake.Config{
-		ServerName:       r.host,
-		OmitSNI:          r.omitSNI,
-		RootCAs:          e.rootCAs,
-		VerifyConnection: e.verifyFor(r.host),
-		KeyLogWriter:     e.keyLog,
-		// No browser was captured sending a client certificate over QUIC:
-		// without tls.clientAuth one is ErrNotMeasured, and none is sent.
-		ClientCertificate: e.clientCertFor(r.host),
+		ServerName:        r.host,
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(r.host),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: quicClientCert(asked),
 	}
 	hello := e.plan.QUICHello()
 
@@ -1230,6 +1283,10 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	}
 
 	if err != nil {
+		if asked != nil && asked.Load() {
+			return nil, fmt.Errorf("%w: %w", errClientAuthOverQUIC, err)
+		}
+
 		return nil, err
 	}
 
@@ -1248,6 +1305,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		qc:        qc,
 		resumed:   cfg.Ticket != nil,
 		handshake: make(chan struct{}),
+		certAsked: asked,
 	}
 	fb := e.profile.HTTP3.Discovery.Fallback
 

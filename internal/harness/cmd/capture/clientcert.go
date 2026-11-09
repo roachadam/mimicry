@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
@@ -51,7 +53,7 @@ func newClientCerts(scenarios []*server.Scenario) (*clientCerts, error) {
 		return nil, err
 	}
 
-	dir, err := os.MkdirTemp("", "mimicry-client-cert-")
+	dir, err := os.MkdirTemp("", clientCertDirPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +82,40 @@ func (c *clientCerts) close() {
 	if c != nil {
 		_ = os.RemoveAll(c.dir)
 	}
+}
+
+// clientCertDirPrefix names the temporary directories holding a run's
+// PKCS#12 files (newClientCerts).
+const clientCertDirPrefix = "mimicry-client-cert-"
+
+// removeClientCertDirs removes the PKCS#12 directories a killed run left
+// in the temporary directory, for -cleanup, and says what it removed.
+func removeClientCertDirs() ([]string, error) {
+	entries, err := os.ReadDir(os.TempDir())
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		done []string
+		errs []error
+	)
+
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), clientCertDirPrefix) {
+			continue
+		}
+
+		path := filepath.Join(os.TempDir(), e.Name())
+		if err := os.RemoveAll(path); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		done = append(done, "removed the client identities' files in "+path)
+	}
+
+	return done, errors.Join(errs...)
 }
 
 // target is the identity a browser holds for sc, nil when sc asks for

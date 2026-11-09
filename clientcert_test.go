@@ -1,6 +1,8 @@
-package mimicry
+package mimicry_test
 
 import (
+	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -20,94 +22,135 @@ import (
 	"testing"
 	"time"
 
+	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/internal/testutil"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
 // A client certificate goes out only as the profile describes
-// (tls.clientAuth), against a server that asks every connection for one:
-// a profile without tls.clientAuth, or a key type it never measured
-// (P-384), fails with ErrNotMeasured; a nil certificate sends an empty
-// Certificate; and with tls.clientAuth.resume false the session it went
-// in is never resumed (a full handshake with the certificate each time),
-// with true it is, sending none. Two requests, each on its own connection.
+// (tls.clientAuth), to the host it was chosen for, against an HTTP/2
+// server that asks every connection for one and whose certificate covers
+// two hosts: a profile without tls.clientAuth, or a key type it never
+// measured (P-384), fails with ErrNotMeasured; a nil certificate sends an
+// empty Certificate; and a connection that carries a certificate never
+// takes another host's request (no coalescing), which gets a connection
+// and a certificate of its own, as Chrome and Firefox keep them apart.
 func TestClientCertificate(t *testing.T) {
 	p256 := clientIdentity(t, elliptic.P256())
 	p384 := clientIdentity(t, elliptic.P384())
-
-	resume := func(r bool) profile.Profile {
-		return profiles.ChromeMacOS().With(func(s *profile.Spec) {
-			s.TLS.ClientAuth.Resume = r
-		})
-	}
 
 	for _, tc := range []struct {
 		name    string
 		profile profile.Profile
 		cert    *tls.Certificate
-		// want is what the server saw of each request's connection;
-		// none: the first fails with ErrNotMeasured.
-		want []string
+		// hosts are requested in turn; "" moves to a new Transport,
+		// given the tickets saved as JSON.
+		hosts []string
+		// want is what the server saw of each request: its host, the
+		// connection it came on (numbered among those carrying requests)
+		// and the client certificates of that connection; none: the
+		// first request fails with ErrNotMeasured. asked are the hosts
+		// GetClientCertificate was asked for.
+		want  []string
+		asked []string
 	}{
 		{
 			name:    "no tls.clientAuth",
 			profile: profiles.SafariMacOS(),
 			cert:    p256,
+			hosts: []string{
+				"a.test",
+			},
 		},
 		{
 			name:    "unmeasured key type",
 			profile: profiles.ChromeMacOS(),
 			cert:    p384,
+			hosts: []string{
+				"a.test",
+			},
 		},
 		{
 			name:    "nil certificate",
 			profile: profiles.ChromeMacOS(),
+			hosts: []string{
+				"a.test",
+			},
 			want: []string{
-				"full handshake, 0 certificates",
-				"resumed",
+				"a.test on connection 1, 0 certificates",
+			},
+			asked: []string{
+				"a.test",
 			},
 		},
 		{
-			name:    "never resumed",
-			profile: resume(false),
+			name:    "no coalescing onto a connection with a certificate",
+			profile: profiles.ChromeMacOS(),
 			cert:    p256,
+			hosts: []string{
+				"a.test",
+				"b.test",
+			},
 			want: []string{
-				"full handshake, 1 certificates",
-				"full handshake, 1 certificates",
+				"a.test on connection 1, 1 certificates",
+				"b.test on connection 2, 1 certificates",
+			},
+			asked: []string{
+				"a.test",
+				"b.test",
 			},
 		},
 		{
-			name:    "resumed",
-			profile: resume(true),
+			name:    "no coalescing onto a session resumed with a certificate",
+			profile: profiles.ChromeMacOS(),
 			cert:    p256,
+			hosts: []string{
+				"a.test",
+				"",
+				"a.test",
+				"b.test",
+			},
 			want: []string{
-				"full handshake, 1 certificates",
-				"resumed",
+				"a.test on connection 1, 1 certificates",
+				"a.test on connection 2, 1 certificates, resumed",
+				"b.test on connection 3, 1 certificates",
+			},
+			asked: []string{
+				"a.test",
+				"b.test",
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var (
-				mu   sync.Mutex
-				seen []string
+				mu    sync.Mutex
+				seen  []string
+				conns = map[string]int{}
+				asked []string
 			)
 
-			cert, pool := testutil.Certificate(t, "localhost")
-			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			cert, pool := testutil.Certificate(t, "a.test", "b.test")
+			srv := httptest.NewUnstartedServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				mu.Lock()
 				defer mu.Unlock()
 
-				if r.TLS.DidResume {
-					seen = append(seen, "resumed")
-				} else {
-					seen = append(seen, fmt.Sprintf("full handshake, %d certificates", len(r.TLS.PeerCertificates)))
+				if conns[r.RemoteAddr] == 0 {
+					conns[r.RemoteAddr] = len(conns) + 1
 				}
 
-				// Each request on a connection of its own.
-				w.Header().Set("Connection", "close")
+				host, _, _ := net.SplitHostPort(r.Host)
+
+				resumed := ""
+				if r.TLS.DidResume {
+					// The server restores the certificate from the ticket.
+					resumed = ", resumed"
+				}
+
+				seen = append(seen, fmt.Sprintf("%s on connection %d, %d certificates%s", host, conns[r.RemoteAddr], len(r.TLS.PeerCertificates), resumed))
 			}))
 
+			srv.EnableHTTP2 = true
 			srv.TLS = &tls.Config{
 				Certificates: []tls.Certificate{
 					cert,
@@ -121,32 +164,67 @@ func TestClientCertificate(t *testing.T) {
 
 			_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
 
-			tr, err := NewTransport(Config{
-				Profile: tc.profile,
-				RootCAs: pool,
-				GetClientCertificate: func(string, *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-					return tc.cert, nil
-				},
-			})
-			if err != nil {
-				t.Fatal(err)
+			resolver := loopbackDNS(t)
+			transport := func(tickets *mimicry.TicketCache) *http.Client {
+				tr, err := mimicry.NewTransport(mimicry.Config{
+					Profile: tc.profile,
+					RootCAs: pool,
+					// Both hosts are the server, and look up to its
+					// address (Chrome coalesces on lookup).
+					DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+						return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
+					},
+					Resolver: resolver,
+					Tickets:  tickets,
+					GetClientCertificate: func(host string, _ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+						mu.Lock()
+						defer mu.Unlock()
+
+						asked = append(asked, host)
+
+						return tc.cert, nil
+					},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				t.Cleanup(tr.CloseIdleConnections)
+
+				return &http.Client{
+					Transport: tr,
+				}
 			}
 
-			t.Cleanup(tr.CloseIdleConnections)
+			tickets := mimicry.NewTicketCache()
+			client := transport(tickets)
 
-			client := &http.Client{
-				Transport: tr,
-			}
+			for _, host := range tc.hosts {
+				if host == "" {
+					// A new Transport, given the tickets saved as JSON.
+					var saved bytes.Buffer
+					if err := tickets.WriteJSON(&saved); err != nil {
+						t.Fatal(err)
+					}
 
-			for range max(len(tc.want), 1) {
-				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://localhost:"+port+"/", nil)
+					tickets = mimicry.NewTicketCache()
+					if err := tickets.ReadJSON(&saved); err != nil {
+						t.Fatal(err)
+					}
+
+					client = transport(tickets)
+
+					continue
+				}
+
+				req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://"+host+":"+port+"/", nil)
 				if err != nil {
 					t.Fatal(err)
 				}
 
 				resp, err := client.Do(req)
 				if tc.want == nil {
-					if !errors.Is(err, ErrNotMeasured) {
+					if !errors.Is(err, mimicry.ErrNotMeasured) {
 						t.Fatalf("got %v, want ErrNotMeasured", err)
 					}
 
@@ -165,6 +243,10 @@ func TestClientCertificate(t *testing.T) {
 
 			if !slices.Equal(seen, tc.want) {
 				t.Errorf("the server saw %q, want %q", seen, tc.want)
+			}
+
+			if !slices.Equal(asked, tc.asked) {
+				t.Errorf("GetClientCertificate asked for %q, want %q", asked, tc.asked)
 			}
 		})
 	}

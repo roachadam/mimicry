@@ -34,7 +34,12 @@ func cleanUp(string) error {
 		log.Print(d)
 	}
 
-	return err
+	dirs, derr := removeClientCertDirs()
+	for _, d := range dirs {
+		log.Print(d)
+	}
+
+	return errors.Join(err, derr)
 }
 
 // startDNSStub answers *.test lookups with addr until ctx ends. Safari here

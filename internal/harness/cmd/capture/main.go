@@ -106,7 +106,7 @@ func run() error {
 	flag.StringVar(&browser.FirefoxApp, "firefox-app", "", "the Firefox to capture instead of the installed one: an application on macOS, firefox.exe on Windows (an older release beside the installed one)")
 	flag.StringVar(&browser.DataDir, "browser-data", "", "directory for the browsers' throwaway profile directories (default: the system's temporary directory); on Windows both the browser, on the console user's desktop, and this tool use it")
 
-	cleanup := flag.Bool("cleanup", false, "remove what a killed run left and exit: on Windows every capture CA in the machine's Root store, the tool's scheduled tasks, browser processes under -browser-data, and the client identities and their policy entries; on macOS the client identities' keychains and policy entries; on Linux it names a client-certificate policy file left for root to remove")
+	cleanup := flag.Bool("cleanup", false, "remove what a killed run left and exit: on Windows every capture CA in the machine's Root store, the tool's scheduled tasks, browser processes under -browser-data, and the client identities and their policy entries; on macOS the client identities' keychains (in the search list or not), their policy entries and leftover launchd jobs; everywhere the identities' temporary PKCS#12 files; on Linux it names a client-certificate policy file left for root to remove")
 
 	flag.Parse()
 
@@ -130,7 +130,14 @@ func run() error {
 		}
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	// A dropped ssh session (cmd/refresh on the second Mac) sends SIGHUP,
+	// and writes to its gone terminal would raise SIGPIPE: either would
+	// end the tool before it takes the client identity and the capture CA
+	// out again. SIGHUP cancels the run as an interrupt does; with SIGPIPE
+	// ignored, those writes fail and the clean-up still runs.
+	signal.Ignore(syscall.SIGPIPE)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 
 	if *caDir == "" {

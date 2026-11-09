@@ -20,9 +20,10 @@ transport, err := mimicry.NewTransport(mimicry.Config{
 })
 ```
 
-The callback has crypto/tls's shape, with the host the connection is for.
-It runs once per handshake that is asked for a certificate, and not on a
-resumed one (the server does not ask). Its error fails the request.
+The callback has crypto/tls's shape, with the host the connection is for
+(`req.Context()` is nil). It runs once per handshake that is asked for a
+certificate, and not on a resumed one (the server does not ask). Its
+error fails the request.
 
 ## What goes out
 
@@ -36,7 +37,9 @@ resumed one (the server does not ask). Its error fails the request.
   (`tls.clientAuth`): ECDSA P-256 with `ecdsa_secp256r1_sha256`
   everywhere; RSA with `rsa_pss_rsae_sha256`, except that Chrome and Edge
   sign with PKCS#1 v1.5 (`rsa_pkcs1_sha256`) in TLS 1.2. Whatever the
-  server lists first does not change it.
+  server lists first does not change it; a server whose request does not
+  allow that scheme fails the request with `ErrNotMeasured` (no capture
+  shows what a browser does then).
 - **No certificate.** A nil certificate, or one with no chain, sends an
   empty Certificate message, as a browser holding none. Without
   `GetClientCertificate` every server that asks gets that.
@@ -64,6 +67,17 @@ certificate store is the slow one); mimicry dials again at once.
   Transport with a Firefox profile drops the host's tickets once it sends
   a certificate and keeps none from that connection.
 
+## One host per connection
+
+A connection that sent a certificate, or resumed a session one was sent
+in, carries the identity `GetClientCertificate` chose for its host. It
+takes no other host's requests: HTTP/2 coalescing skips it, and the other
+host gets a connection, and a certificate, of its own. Chrome and Firefox
+keep such connections apart too (their source: Chrome's
+`SpdySession::CanPool`, Firefox's `IsAcceptableForHost`; not captured).
+A saved `TicketCache` keeps the mark with the ticket
+([saving an identity](sessions.md)).
+
 ## Limits
 
 - **Measured profiles only.** A profile without `tls.clientAuth` (Safari,
@@ -74,9 +88,11 @@ certificate store is the slow one); mimicry dials again at once.
 - **Key types.** Only ECDSA P-256 and RSA (measured with 2048-bit keys)
   have a measured scheme; any other key (P-384, P-521, Ed25519) is
   `ErrNotMeasured`.
-- **HTTP/3.** No browser was captured sending a client certificate over
-  QUIC: a certificate asked for there is `ErrNotMeasured`. Set
-  `DisableHTTP3` for such a host.
+- **HTTP/3.** No browser was captured answering a CertificateRequest over
+  QUIC. A server asking there makes that request go over TCP, where the
+  certificate is sent as measured, and the origin's later requests stay on
+  TCP; `GetClientCertificate` is not asked over HTTP/3, and it does not
+  count as a QUIC failure.
 - **Firefox's speculative connections.** Firefox opens extra connections
   that carry no request, some answering with an empty Certificate; mimicry
   opens none.

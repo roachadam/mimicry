@@ -1,6 +1,6 @@
 # 0023: Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser
 
-- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit); amended 2026-10-30 (no preconnects); amended 2026-11-01 (Firefox on Windows's unused connection)
+- Status: Accepted; amended 2026-10-28 by [0037](0037-coalescing-opt-out.md) (options to disable coalescing and change the HTTP/1.1 limit); amended 2026-10-30 (no preconnects); amended 2026-11-01 (Firefox on Windows's unused connection); amended 2026-11-09 by [0064](0064-client-certificates.md) (no coalescing onto a connection with a client certificate)
 - Date: 2026-10-24
 - Commits: `62d9b2a`
 
@@ -97,3 +97,11 @@ above: a connection count per page, and an extra handshake per page load
 for every caller. The e2e tests leave it out of the browser's pages
 (`unusedOpenings`), and the resumption count it changes is pinned
 (`resumeCountGaps`). Reopen with Chrome's preconnect.
+
+## Amendment 2026-11-09: client certificates
+
+A connection that sent a client certificate, or resumed a session one was
+sent in, takes no other host's requests: the certificate was chosen for
+its host (`Config.GetClientCertificate`). Chrome's and Firefox's source
+refuse the same; no capture had two hosts on one certificate
+([decision 0064](0064-client-certificates.md)).

@@ -362,7 +362,9 @@ accepts, never what it sends.
 Then a server that asks gets your certificate, signed and resumed as the
 profile's browser does. With a Chrome or Edge profile, the first
 connection a host and port asks on is closed without an answer and the
-request goes again on a new connection, once per Transport.
+request goes again on a new connection, once per Transport. A connection
+carrying a certificate takes no other host's requests (no coalescing),
+and an origin asking over HTTP/3 gets its requests over TCP.
 
 **Why.** Chrome and Edge drop that connection while they choose a
 certificate, and a server that asks sees it. See

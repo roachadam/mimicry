@@ -11,10 +11,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -254,27 +256,49 @@ func plistStrings(values []string) []string {
 }
 
 // cleanUpClientCerts removes what a killed run left of its client
-// identities: keychains in the search list, and policy entries.
+// identities: the one-shot launchd jobs still loaded (inSession), the
+// keychains (in the search list, or made before newKeychain added them
+// to it), and the policy entries. One step failing does not stop the
+// others.
 func cleanUpClientCerts(ctx context.Context) ([]string, error) {
 	var (
 		done []string
 		errs []error
 	)
 
-	list, err := searchList(ctx)
-	if err != nil {
-		return nil, err
-	}
+	jobs, jerr := bootOutJobs(ctx)
+
+	done = append(done, jobs...)
+	errs = append(errs, jerr)
+
+	keychains := map[string]bool{}
+
+	list, lerr := searchList(ctx)
+
+	errs = append(errs, lerr)
 
 	for _, kc := range list {
-		if !strings.HasPrefix(filepath.Base(kc), keychainPrefix) {
-			continue
+		if strings.HasPrefix(filepath.Base(kc), keychainPrefix) {
+			keychains[kc] = true
 		}
+	}
 
+	made, gerr := filepath.Glob(filepath.Join(os.TempDir(), keychainPrefix+"*.keychain-db"))
+
+	errs = append(errs, gerr)
+
+	for _, kc := range made {
+		keychains[kc] = true
+	}
+
+	for _, kc := range slices.Sorted(maps.Keys(keychains)) {
 		if err := deleteKeychain(ctx, kc); err != nil {
-			errs = append(errs, err)
+			// Not in the search list: the file alone is left.
+			if rerr := os.Remove(kc); rerr != nil {
+				errs = append(errs, err)
 
-			continue
+				continue
+			}
 		}
 
 		done = append(done, "deleted the keychain "+kc)
@@ -282,6 +306,55 @@ func cleanUpClientCerts(ctx context.Context) ([]string, error) {
 
 	for _, domain := range policyDomains {
 		if err := removeAutoSelect(ctx, domain); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	return done, errors.Join(errs...)
+}
+
+// sessionJobPrefix begins the labels of inSession's launchd jobs, and
+// sessionDirPrefix the names of their temporary directories.
+const (
+	sessionJobPrefix = "org.mimicry.capture."
+	sessionDirPrefix = "mimicry-session-"
+)
+
+// sessionJob finds the labels of inSession's jobs in launchctl print's
+// description of the GUI domain.
+var sessionJob = regexp.MustCompile(regexp.QuoteMeta(sessionJobPrefix) + `[\w.-]+`)
+
+// bootOutJobs boots out of the user's GUI domain the one-shot jobs a
+// killed run left loaded (inSession), and removes their directories.
+func bootOutJobs(ctx context.Context) ([]string, error) {
+	domain := "gui/" + strconv.Itoa(os.Getuid())
+
+	var (
+		done []string
+		errs []error
+	)
+
+	out, err := exec.CommandContext(ctx, "launchctl", "print", domain).Output() //nolint:gosec // the user's own domain
+	if err != nil {
+		// No GUI session: nothing of ours can be loaded there.
+		out = nil
+	}
+
+	for _, label := range slices.Compact(slices.Sorted(slices.Values(sessionJob.FindAllString(string(out), -1)))) {
+		if b, err := exec.CommandContext(ctx, "launchctl", "bootout", domain+"/"+label).CombinedOutput(); err != nil { //nolint:gosec // our own job
+			errs = append(errs, fmt.Errorf("launchctl bootout %s/%s: %w: %s", domain, label, err, strings.TrimSpace(string(b))))
+			continue
+		}
+
+		done = append(done, "booted out the launchd job "+label)
+	}
+
+	dirs, gerr := filepath.Glob(filepath.Join(os.TempDir(), sessionDirPrefix+"*"))
+
+	errs = append(errs, gerr)
+
+	for _, d := range dirs {
+		if err := os.RemoveAll(d); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -329,7 +402,7 @@ func inSession(ctx context.Context, name string, args ...string) ([]byte, error)
 		return out, nil
 	}
 
-	dir, err := os.MkdirTemp("", "mimicry-session-")
+	dir, err := os.MkdirTemp("", sessionDirPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +411,7 @@ func inSession(ctx context.Context, name string, args ...string) ([]byte, error)
 		_ = os.RemoveAll(dir)
 	}()
 
-	label := "org.mimicry.capture." + filepath.Base(dir)
+	label := sessionJobPrefix + filepath.Base(dir)
 	files := map[string]string{
 		"OUT":    filepath.Join(dir, "out"),
 		"ERR":    filepath.Join(dir, "err"),

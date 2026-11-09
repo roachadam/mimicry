@@ -10,9 +10,11 @@ profile field, `tls.clientAuth`, that hellogen derives from four capture
 scenarios: the CertificateVerify scheme per key type and TLS version,
 whether a session with a certificate is resumed (Chrome, Edge) or never
 (Firefox), and whether the first connection a host and port asks on is
-dropped and the request sent again (Chrome, Edge). A profile without the
-field, an unmeasured key type and HTTP/3 make a certificate
-`ErrNotMeasured`.
+dropped and the request sent again (Chrome, Edge). A connection carrying
+a certificate serves its own host alone. A profile without the field, an
+unmeasured key type, or a server not allowing the browser's scheme make
+a certificate `ErrNotMeasured`; a server asking over HTTP/3 sends the
+request, and the origin's later ones, over TCP.
 
 ## Problem
 
@@ -54,24 +56,48 @@ A profile field, `tls.clientAuth`, derived by hellogen from the
 
 - `tls13`, `tls12`: the CertificateVerify scheme of every connection that
   signed one, per version and the certificate's key; samples that
-  disagree fail generation. A key type with no scheme is `ErrNotMeasured`.
-  The handshake offers uTLS only that scheme
-  (`SupportedSignatureAlgorithms`), so the server's preference cannot
-  change it.
+  disagree fail generation. A key type with no scheme is `ErrNotMeasured`,
+  and so is a CertificateRequest that does not allow the scheme (no
+  capture shows what a browser does then). The handshake offers uTLS only
+  that scheme (`SupportedSignatureAlgorithms`), so the server's preference
+  cannot change it.
 - `resume`: whether a connection after one that sent the certificate
   offered a session; every sample must agree. False: sending a
   certificate drops the host's tickets and keeps none from the connection.
-- `restart`: true when no first connection to a host that was asked for
-  a certificate answered, in any sample, and a later connection carried
-  the requests. A Transport then closes the first connection a host and
-  port asks on before uTLS answers (closing the socket first, since uTLS
-  would send an `internal_error` alert and, in TLS 1.3, its buffered
-  change_cipher_spec), and dials the request again, which answers
-  (`handshake.ErrRestart`, `native.Engine.dial`). `GetClientCertificate`
-  is asked on the second connection only. A first connection that
-  answered (Firefox does) makes it false: the browser can answer at once,
-  and its dropped connections are speculative ones that never carried a
-  request.
+- `restart`: per sample, true when the first connection to each host that
+  was asked for a certificate sent nothing and closed, a later connection
+  to it carried the requests, and no connection answered a
+  CertificateRequest without the certificate; every sample must agree. A
+  first connection that answered, or an empty Certificate anywhere
+  (Firefox's speculative connections), shows a browser that answers at
+  once, its dropped connections being speculative ones that never carried
+  a request: every Firefox sample shows one of the two, no Chrome or Edge
+  sample either. With `restart`, a Transport closes the first connection
+  a host and port asks on before uTLS answers (closing the socket first,
+  since uTLS would send an `internal_error` alert and, in TLS 1.3, its
+  buffered change_cipher_spec), and dials the request again, which
+  answers (`handshake.ErrRestart`, `native.Engine.dial`).
+  `GetClientCertificate` is asked on the second connection only.
+
+A connection that sent a certificate, or resumed a session one was sent
+in, takes no other host's requests: HTTP/2 coalescing skips it
+(`native.shared.identified`), since the certificate was chosen for its
+host. A ticket keeps the mark (`handshake.Ticket`), saved tickets
+included (`clientCert` in a `TicketCache`'s JSON). This follows the
+browsers' source (Chrome's `SpdySession::CanPool` refuses a session that
+sent a client certificate, Firefox's `IsAcceptableForHost` one with
+`mSentClientCert`); no capture had two hosts on one certificate, so it is
+a lead, not evidence, chosen because the other way sends one host's
+identity to another.
+
+No browser was captured answering a CertificateRequest over QUIC. With
+`GetClientCertificate` set, a QUIC handshake asked for one stops there,
+without asking the callback (`errClientAuthOverQUIC`); the request goes
+over TCP, where the certificate is sent as measured, and the origin's
+later requests stay on TCP for the Transport's life. It is not a QUIC
+failure: `Fallback.BrokenAfter` does not count it. Failing the request
+with `ErrNotMeasured` was rejected: no browser was measured either way,
+and TCP is what the caller needs.
 
 Without `GetClientCertificate` nothing changes: a server asking gets an
 empty Certificate and no connection is dropped (no capture shows a
@@ -126,7 +152,15 @@ and is not captured (`Scenario.UnsupportedBy`).
   connections without the certificate), and when TLS 1.2 takes the TLS 1.3
   scheme (Chrome's RSA `0x0804`). `TestClientCertificate` (root) covers
   `ErrNotMeasured` (no `tls.clientAuth`, a P-384 key), the empty
-  Certificate, and `resume` both ways against a Go server.
+  Certificate, and a second host kept off a connection that sent a
+  certificate or resumed one, through a saved `TicketCache` (it fails
+  when coalescing ignores the mark, when a resumed connection does not
+  inherit it, or when the JSON drops it).
+  `TestClientCertificateSchemeNotAllowed` (`internal/handshake`) covers
+  a request not allowing the scheme, and
+  `TestQUICClientCertificateRequestStaysOnTCP` (`internal/engine/native`)
+  the QUIC request: no failure counted, the origin on TCP, the callback
+  not asked.
 
 ## Consequences
 
@@ -136,8 +170,8 @@ and is not captured (`Scenario.UnsupportedBy`).
 - Profiles without captures (Chrome 155, Firefox 158, Safari, the
   iPhones) cannot send a certificate; refreshing a profile captures the
   four scenarios with the rest (`docs/refreshing-profiles.md`).
-- Keys other than P-256 and RSA, and client certificates over HTTP/3,
-  fail until captured.
+- Keys other than P-256 and RSA fail until captured; client certificates
+  over HTTP/3 go over TCP instead.
 
 ## Revisit when
 

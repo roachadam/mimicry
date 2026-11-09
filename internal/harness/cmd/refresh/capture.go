@@ -212,7 +212,8 @@ func clientCertEntry(entry string) bool {
 // file with which browser (chrome, edge) sends the client-certificate
 // scenarios' identity unasked (clientcert.LinuxPolicy), creating the
 // directories missing on its path, and returns what removes the file and
-// those directories again, which logs a failure for removal by hand.
+// those directories again, which logs a failure for removal by hand. A
+// write that fails part way removes what it made before it returns.
 func writeClientCertPolicy(ctx context.Context, m *machine, browser string) (func(), error) {
 	file := clientcert.LinuxPolicyFiles[browser]
 	policy := base64.StdEncoding.EncodeToString(clientcert.LinuxPolicy(server.ClientCertHosts()))
@@ -222,13 +223,21 @@ func writeClientCertPolicy(ctx context.Context, m *machine, browser string) (fun
 		dirs = append([]string{shellQuote(d)}, dirs...)
 	}
 
-	// Prints each directory it creates.
-	write := "for d in " + strings.Join(dirs, " ") + `; do [ -d "$d" ] || { mkdir "$d" && echo "$d"; } || exit 1; done; ` +
-		"printf %s " + policy + " | base64 -d > " + shellQuote(file) + " && chmod 644 " + shellQuote(file)
+	// Prints each directory it creates; on a failure removes the file
+	// and those directories, deepest first, and exits 1.
+	write := `made=""; fail() { rm -f ` + shellQuote(file) + `; for d in $made; do rmdir "$d"; done; exit 1; }; ` +
+		"for d in " + strings.Join(dirs, " ") + `; do [ -d "$d" ] && continue; mkdir "$d" || fail; made="$d $made"; echo "$d"; done; ` +
+		"{ printf %s " + policy + " | base64 -d > " + shellQuote(file) + " && chmod 644 " + shellQuote(file) + "; } || fail"
 
-	out, err := ssh(ctx, m.host, wslLine(m.wsl, "root", write)).Output()
+	cmd := ssh(ctx, m.host, wslLine(m.wsl, "root", write))
+
+	var stderr strings.Builder
+
+	cmd.Stderr = &stderr
+
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("writing %s as root in %s: %w: %s", file, m, err, out)
+		return nil, fmt.Errorf("writing %s as root in %s: %w: %s", file, m, err, strings.TrimSpace(stderr.String()))
 	}
 
 	steps := []string{

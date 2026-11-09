@@ -162,6 +162,13 @@ func cleanUp(dataDir string) error {
 		log.Print(d)
 	}
 
+	dirs, derr := removeClientCertDirs()
+	for _, d := range dirs {
+		log.Print(d)
+	}
+
+	err = errors.Join(err, derr)
+
 	certutil, lookErr := exec.LookPath("certutil.exe")
 	if lookErr != nil {
 		return errors.Join(err, lookErr)

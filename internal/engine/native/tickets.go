@@ -65,8 +65,12 @@ type savedTicket struct {
 	// QUIC: received on an HTTP/3 connection.
 	QUIC    bool      `json:"quic,omitempty"`
 	Expires time.Time `json:"expires,omitzero"`
-	Ticket  []byte    `json:"ticket"`
-	State   []byte    `json:"state"`
+	// ClientCert: a client certificate was sent in the session, so a
+	// connection resuming it carries that identity and serves its own
+	// host alone.
+	ClientCert bool   `json:"clientCert,omitempty"`
+	Ticket     []byte `json:"ticket"`
+	State      []byte `json:"state"`
 }
 
 // WriteTickets writes the tickets of s usable at now as a JSON array, by
@@ -82,10 +86,11 @@ func WriteTickets(w io.Writer, s *handshake.Store, now time.Time) error {
 	entries := make([]savedTicket, 0, len(saved))
 	for _, sv := range saved {
 		e := savedTicket{
-			Browser: browser,
-			Expires: sv.Expires,
-			Ticket:  sv.Ticket,
-			State:   sv.State,
+			Browser:    browser,
+			Expires:    sv.Expires,
+			ClientCert: sv.Identified,
+			Ticket:     sv.Ticket,
+			State:      sv.State,
 		}
 
 		key, quic := strings.CutSuffix(sv.Key, h3Suffix)
@@ -152,10 +157,11 @@ func ReadTickets(r io.Reader, s *handshake.Store, now time.Time) error {
 		}
 
 		saved[i] = handshake.Saved{
-			Key:     key,
-			Expires: e.Expires,
-			Ticket:  e.Ticket,
-			State:   e.State,
+			Key:        key,
+			Expires:    e.Expires,
+			Ticket:     e.Ticket,
+			State:      e.State,
+			Identified: e.ClientCert,
 		}
 	}
 

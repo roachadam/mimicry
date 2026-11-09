@@ -287,8 +287,13 @@ store and policy entries on Windows, the throwaway profile's NSS
 database elsewhere. Firefox on macOS needs NSS's `pk12util` (`brew
 install nss`). On Linux, Chrome's and Edge's policy file is root's: in
 WSL refresh writes it as root around each capture step that needs it and
-removes it after; on a Linux machine of its own the plan refuses until
-you write it (`capture -scenarios client-cert-ec` there prints it).
+removes it after (and what it made of it, should the write fail); on a
+Linux machine of its own the preflight compares the file with what the
+scenarios need, and the plan refuses while it is missing or different
+(`capture -scenarios client-cert-ec` there prints it) and reminds you to
+remove it after the run once it is in place. After the run, however it
+ends, refresh runs `capture -cleanup` on each Mac that took one of these
+scenarios.
 Safari and the iPhone browsers are skipped (`Scenario.UnsupportedBy`):
 their profiles have no `tls.clientAuth`. On Windows Firefox took 7 to 11
 s over each handshake it answered from the user's store, so these pages

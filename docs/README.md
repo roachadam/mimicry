@@ -95,7 +95,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0010](decisions/0010-dial-context.md) | `Config.DialContext` for the TCP connection | Accepted |
 | [0011](decisions/0011-connection-partitioning.md) | Partition connections only where a rule is measured | Amended |
 | [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Amended by 0062 |
-| [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Amended by 0037 |
+| [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Amended by 0037, 0064 |
 | [0032](decisions/0032-certificate-pinning.md) | Certificate pinning and VerifyConnection on every handshake | Accepted |
 | [0037](decisions/0037-coalescing-opt-out.md) | Options to disable HTTP/2 coalescing and change the per-host limit | Accepted |
 | [0040](decisions/0040-idle-connection-cleanup.md) | Idle connections close after a timeout | Amended |

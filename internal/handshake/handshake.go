@@ -104,13 +104,37 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 		return nil, "", err
 	}
 
-	return tlsConn, tlsConn.ConnectionState().NegotiatedProtocol, nil
+	cs := tlsConn.ConnectionState()
+	c := &clientConn{
+		UConn:      tlsConn,
+		identified: len(cs.LocalCertificate) > 0 || (cs.DidResume && cfg.Ticket != nil && cfg.Ticket.identified),
+	}
+
+	return c, cs.NegotiatedProtocol, nil
+}
+
+// clientConn is a connection Client returned.
+type clientConn struct {
+	*utls.UConn
+	// identified: the client sent a certificate in the handshake, or
+	// resumed a session it sent one in.
+	identified bool
+}
+
+// ClientIdentified reports whether conn, a connection Client returned,
+// carries a client certificate: it sent one, or resumed a session one was
+// sent in. Such a connection serves its own host alone (no coalescing),
+// as Chrome's and Firefox's do; false for any other connection.
+func ClientIdentified(conn net.Conn) bool {
+	tc, ok := conn.(*clientConn)
+
+	return ok && tc.identified
 }
 
 // ConnState is the TLS state of conn, a connection Client returned, as
 // crypto/tls describes it; nil for any other connection.
 func ConnState(conn net.Conn) *tls.ConnectionState {
-	tc, ok := conn.(*utls.UConn)
+	tc, ok := conn.(*clientConn)
 	if !ok {
 		return nil
 	}
@@ -196,9 +220,13 @@ func TLSConfig(cfg Config) *utls.Config {
 		}
 
 		// Tickets keep their server certificate's expiry, past which
-		// uTLS declines them.
-		if cache != nil && len(cs.PeerCertificates) > 0 {
-			cache.notAfter = cs.PeerCertificates[0].NotAfter
+		// uTLS declines them, and, from a resumed session, its client
+		// certificate's identity.
+		if cache != nil {
+			cache.resumed = cs.DidResume
+			if len(cs.PeerCertificates) > 0 {
+				cache.notAfter = cs.PeerCertificates[0].NotAfter
+			}
 		}
 
 		return nil
@@ -246,9 +274,18 @@ func clientCertificate(cfg Config, cache *connCache, req *utls.CertificateReques
 		return nil, fmt.Errorf("%w: the profile does not describe how its browser signs with a %T client key in TLS %#04x (tls.clientAuth)", headerorder.ErrNotMeasured, leaf.PublicKey, req.Version)
 	}
 
-	if cache != nil && !cfg.ClientAuth.Resume {
-		cache.noKeep = true
-		cache.tickets.Drop(cache.key)
+	if !slices.Contains(req.SignatureSchemes, utls.SignatureScheme(scheme)) {
+		return nil, fmt.Errorf("%w: the server's CertificateRequest does not allow %s, the scheme the profile's browser signs a %T client key with in TLS %#04x (tls.clientAuth)", headerorder.ErrNotMeasured, scheme, leaf.PublicKey, req.Version)
+	}
+
+	if cache != nil {
+		// Its tickets carry the certificate's identity.
+		cache.identified = true
+
+		if !cfg.ClientAuth.Resume {
+			cache.noKeep = true
+			cache.tickets.Drop(cache.key)
+		}
 	}
 
 	return &utls.Certificate{

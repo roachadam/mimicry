@@ -675,10 +675,18 @@ it ends:
   step and removes it after.
 
 Firefox gets `security.default_personal_cert` "Select Automatically": the
-first matching identity, no dialog. `capture -cleanup` removes whatever a
-killed run left: on macOS the keychains and policy entries, on Windows the
-identities, the CA and the policy entries (it finds them by the CA's
-name); on Linux it names a policy file left for root to remove. Safari
+first matching identity, no dialog. The tool takes the identity out when
+it is interrupted, terminated or loses its ssh session (SIGHUP; SIGPIPE
+is ignored so that writes to a gone terminal do not end it first).
+`capture -cleanup` removes whatever a killed run left, each step
+whatever the others do: everywhere the PKCS#12 files' temporary
+directories; on macOS the one-shot launchd jobs still loaded
+(`org.mimicry.capture.*`, booted out), the keychains (in the search list,
+or still only in the temporary directory) and the policy entries; on
+Windows the identities, the CA and the policy entries (it finds them by
+the CA's name); on Linux it names a policy file left for root to remove.
+`cmd/refresh` runs it on every Mac a plan captured a client-certificate
+scenario on, however the run ends. Safari
 (on macOS and the iPhone) is refused (`Scenario.UnsupportedBy`,
 `UnsupportedOnIOS`): Safari 27 sent an empty Certificate with the
 identity in a temporary keychain, an identity preference for the host and
@@ -735,9 +743,10 @@ does not describe:
    from every connection of the four `client-cert-*` captures: the
    CertificateVerify scheme per TLS version and key type (samples must
    agree), `resume` (a later connection offered to resume a session the
-   certificate went in) and `restart` (no first connection to a host
-   answered the request; a later one carried it), left out for a profile
-   without the captures (decision 0064).
+   certificate went in) and `restart` (per sample: no first connection to
+   a host answered the request, a later one carried it, and no connection
+   answered with an empty Certificate; samples must agree), left out for
+   a profile without the captures (decision 0064).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.

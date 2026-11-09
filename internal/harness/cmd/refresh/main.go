@@ -23,6 +23,7 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"flag"
@@ -167,6 +168,7 @@ func run() error {
 
 		r.Keep = cfg.keep
 		defer r.cleanWindows(ctx)
+		defer r.cleanMacs(ctx)
 
 		return r.finish(ctx, cfg)
 	}
@@ -192,8 +194,9 @@ func run() error {
 		FirefoxApp: cfg.firefoxApp,
 	}
 	// The Windows PCs' working directories go, and the capture CA with
-	// them, however the run ends.
+	// them, however the run ends; so do the Macs' client identities.
 	defer r.cleanWindows(ctx)
+	defer r.cleanMacs(ctx)
 
 	if err := r.preflight(ctx, cfg); err != nil {
 		return err
@@ -253,6 +256,32 @@ func (r *refreshRun) cleanWindows(ctx context.Context) {
 			dir := `$env:USERPROFILE\` + strings.ReplaceAll(m.dir, "/", `\`)
 			log.Printf("cleaning up on %s failed (%v); there, in an administrator PowerShell:\n    cd %s; .\\capture.exe -cleanup -browser-data browser-data; cd ~; Remove-Item -Recurse -Force %s",
 				m, err, dir, dir)
+		}
+	}
+}
+
+// cleanMacs runs capture -cleanup once on each Mac whose plans captured a
+// client-certificate scenario, after an interruption too, logging to
+// cleanup-<host>.log in staging: a capture killed with its ssh session
+// (the second Mac) leaves a keychain, policy entries or a launchd job
+// behind, which the next run's browsers would read.
+func (r *refreshRun) cleanMacs(ctx context.Context) {
+	ctx = context.WithoutCancel(ctx)
+
+	done := map[string]bool{}
+
+	for _, p := range r.Plans {
+		m := r.machine(p)
+		if m.goos() != "darwin" || m.iphone || p.Started.IsZero() || !p.clientCerts() || done[m.host] {
+			continue
+		}
+
+		done[m.host] = true
+
+		log.Printf("removing client identities left on %s", m)
+
+		if err := m.stream(ctx, "cleanup", filepath.Join(r.Dir, "cleanup-"+cmp.Or(m.host, "local")+".log"), m.bin("capture"), "-cleanup"); err != nil {
+			log.Printf("removing client identities on %s failed (%v); there, in the working directory: ./capture -cleanup", m, err)
 		}
 	}
 }

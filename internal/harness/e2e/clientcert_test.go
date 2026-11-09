@@ -132,7 +132,10 @@ func checkClientAuth(t *testing.T, source string, want [][]capture.ClientAuth, g
 		t.Errorf("connections per host (carrying requests/offering a session/resumed/sending the certificate):\n got %s\nwant one of %q", g, samples)
 	}
 
-	gotDrops := clientAuthDrops(got)
+	gotDrops, gotLate := clientAuthDrops(got)
+	if gotLate > 0 {
+		t.Errorf("%d connections dropped at the CertificateRequest after their host's first that carried requests; only the first may be", gotLate)
+	}
 
 	if clientCertSpeculative[source] {
 		if len(gotDrops) > 0 {
@@ -151,7 +154,10 @@ func checkClientAuth(t *testing.T, source string, want [][]capture.ClientAuth, g
 	}
 
 	for i, sample := range want {
-		drops := clientAuthDrops(sample)
+		drops, late := clientAuthDrops(sample)
+		if late > 0 {
+			t.Errorf("sample %d dropped %d connections at the CertificateRequest after their host's first that carried requests, which mimicry never does", i+1, late)
+		}
 
 		for _, host := range clientCertPreconnects[source] {
 			if drops[host] != gotDrops[host]+1 {
@@ -241,17 +247,29 @@ func clientAuthCounts(conns []capture.ClientAuth) string {
 }
 
 // clientAuthDrops counts, per host, the connections of conns that sent
-// nothing after the server's CertificateRequest and carried no request.
-func clientAuthDrops(conns []capture.ClientAuth) map[string]int {
-	out := map[string]int{}
+// nothing after the server's CertificateRequest and carried no request,
+// before the host's first connection that carried requests; late counts
+// those after it.
+func clientAuthDrops(conns []capture.ClientAuth) (before map[string]int, late int) {
+	before = map[string]int{}
 
-	for _, c := range conns {
-		if c.Request != nil && len(c.Flight) == 0 && len(c.Requests) == 0 {
-			out[c.Host]++
+	used := map[string]bool{}
+
+	for _, c := range slices.SortedStableFunc(slices.Values(conns), func(a, b capture.ClientAuth) int {
+		return cmp.Compare(a.Millis, b.Millis)
+	}) {
+		switch {
+		case len(c.Requests) > 0:
+			used[c.Host] = true
+		case c.Request == nil || len(c.Flight) > 0:
+		case used[c.Host]:
+			late++
+		default:
+			before[c.Host]++
 		}
 	}
 
-	return out
+	return before, late
 }
 
 // clientCertMissing are the profiles with no client-certificate capture,

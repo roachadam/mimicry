@@ -85,6 +85,8 @@ type ticket struct {
 	// expires is the TLS 1.3 ticket's lifetime end or the server
 	// certificate's expiry, whichever comes first; zero if unknown.
 	expires time.Time
+	// identified: a client certificate was sent in the session.
+	identified bool
 }
 
 // minSweep is the store size below which keep does not sweep.
@@ -111,6 +113,9 @@ func (s *Store) Tickets(tls12 string, clock clockwork.Clock) *Tickets {
 type Ticket struct {
 	state *utls.ClientSessionState
 	tls13 bool
+	// identified: a client certificate was sent in the session, so a
+	// connection resuming it carries that identity (ClientIdentified).
+	identified bool
 }
 
 // TLS13 reports a TLS 1.3 ticket, which the ClientHello offers in
@@ -174,8 +179,9 @@ func (t *Tickets) Take(key string) *Ticket {
 	}
 
 	return &Ticket{
-		state: tk.state,
-		tls13: tk.tls13,
+		state:      tk.state,
+		tls13:      tk.tls13,
+		identified: tk.identified,
 	}
 }
 
@@ -204,16 +210,18 @@ func (s ticket) expired(now time.Time) bool {
 }
 
 // keep stores a ticket the server sent on a connection that resumed with
-// used (nil: a full handshake) and whose certificate expires at notAfter.
-func (t *Tickets) keep(key string, s *utls.ClientSessionState, used *Ticket, notAfter time.Time) {
+// used (nil: a full handshake) and whose certificate expires at notAfter;
+// identified: a client certificate was sent in its session.
+func (t *Tickets) keep(key string, s *utls.ClientSessionState, used *Ticket, notAfter time.Time, identified bool) {
 	_, state, err := s.ResumptionState()
 	if err != nil || state == nil {
 		return
 	}
 
 	tk := ticket{
-		state:   s,
-		expires: notAfter,
+		state:      s,
+		expires:    notAfter,
+		identified: identified,
 	}
 
 	switch state.Version() {
@@ -261,14 +269,16 @@ func (s *Store) putLocked(key string, tk ticket, now time.Time) {
 }
 
 // Saved is a stored ticket as Export gives it and Import takes it: its
-// key, when it stops being usable (zero: unknown), and the session as
-// uTLS encodes it (ClientSessionState.ResumptionState: the ticket, and the
-// SessionState's Bytes, the secrets included).
+// key, when it stops being usable (zero: unknown), the session as uTLS
+// encodes it (ClientSessionState.ResumptionState: the ticket, and the
+// SessionState's Bytes, the secrets included), and whether a client
+// certificate was sent in it.
 type Saved struct {
-	Key     string
-	Expires time.Time
-	Ticket  []byte
-	State   []byte
+	Key        string
+	Expires    time.Time
+	Ticket     []byte
+	State      []byte
+	Identified bool
 }
 
 // Export returns the tickets usable at now.
@@ -304,10 +314,11 @@ func (s *Store) Export(now time.Time) ([]Saved, error) {
 		}
 
 		saved = append(saved, Saved{
-			Key:     e.key,
-			Expires: e.tk.expires,
-			Ticket:  ticket,
-			State:   b,
+			Key:        e.key,
+			Expires:    e.tk.expires,
+			Ticket:     ticket,
+			State:      b,
+			Identified: e.tk.identified,
 		})
 	}
 
@@ -357,7 +368,8 @@ func parseSaved(sv Saved) (ticket, error) {
 	}
 
 	tk := ticket{
-		expires: sv.Expires,
+		expires:    sv.Expires,
+		identified: sv.Identified,
 	}
 
 	switch state.Version() {
@@ -400,12 +412,16 @@ type connCache struct {
 	tickets *Tickets
 	key     string
 	// notAfter is the server certificate's expiry, set when the handshake
-	// verifies it, before any ticket arrives.
+	// verifies it, before any ticket arrives; resumed reports that it
+	// resumed ticket, also set then.
 	notAfter time.Time
+	resumed  bool
 	// noKeep: the connection sent a client certificate, and the browser
 	// resumes no such session (profile.ClientAuth.Resume false), so its
-	// tickets are not kept. Set during the handshake, before any ticket.
-	noKeep bool
+	// tickets are not kept. identified: it sent one. Both set during the
+	// handshake, before any ticket.
+	noKeep     bool
+	identified bool
 }
 
 func (c *connCache) Get(string) (*utls.ClientSessionState, bool) {
@@ -418,6 +434,7 @@ func (c *connCache) Get(string) (*utls.ClientSessionState, bool) {
 
 func (c *connCache) Put(_ string, s *utls.ClientSessionState) {
 	if s != nil && !c.noKeep {
-		c.tickets.keep(c.key, s, c.ticket, c.notAfter)
+		identified := c.identified || (c.resumed && c.ticket != nil && c.ticket.identified)
+		c.tickets.keep(c.key, s, c.ticket, c.notAfter, identified)
 	}
 }
