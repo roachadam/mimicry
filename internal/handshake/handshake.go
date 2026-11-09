@@ -18,6 +18,7 @@ import (
 	utls "github.com/roachadam/utls"
 
 	"github.com/roachadam/mimicry/internal/fingerprint"
+	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -45,6 +46,12 @@ type Config struct {
 	// KeyLogWriter, when set, receives the connection's TLS secrets in
 	// NSS key log format, TCP and QUIC alike (Config.KeyLogWriter).
 	KeyLogWriter io.Writer
+	// ClientCertificate, when set, answers a server's CertificateRequest
+	// (Config.GetClientCertificate, bound to the host); a nil certificate,
+	// or one with no chain, sends none. ClientAuth is the profile's: how
+	// the certificate is signed for, and whether its session is kept.
+	ClientCertificate func(*tls.CertificateRequestInfo) (*tls.Certificate, error)
+	ClientAuth        *profile.ClientAuth
 }
 
 // Client performs the TLS handshake on conn with hello and returns the TLS
@@ -139,6 +146,12 @@ func TLSConfig(cfg Config) *utls.Config {
 		config.OmitEmptyPsk = true
 	}
 
+	if cfg.ClientCertificate != nil {
+		config.GetClientCertificate = func(req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+			return clientCertificate(cfg, cache, req)
+		}
+	}
+
 	if cache == nil && cfg.VerifyConnection == nil {
 		return config
 	}
@@ -163,6 +176,60 @@ func TLSConfig(cfg Config) *utls.Config {
 	}
 
 	return config
+}
+
+// clientCertificate answers req with cfg.ClientCertificate's certificate,
+// signed for as cfg.ClientAuth says for req's TLS version and the key's
+// type. A certificate sent where the browser resumes no such session
+// drops the connection's key's ticket and keeps none from it (cache).
+func clientCertificate(cfg Config, cache *connCache, req *utls.CertificateRequestInfo) (*utls.Certificate, error) {
+	schemes := make([]tls.SignatureScheme, len(req.SignatureSchemes))
+	for i, s := range req.SignatureSchemes {
+		schemes[i] = tls.SignatureScheme(s)
+	}
+
+	c, err := cfg.ClientCertificate(&tls.CertificateRequestInfo{
+		AcceptableCAs:    req.AcceptableCAs,
+		SignatureSchemes: schemes,
+		Version:          req.Version,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if c == nil || len(c.Certificate) == 0 {
+		return &utls.Certificate{}, nil
+	}
+
+	if cfg.ClientAuth == nil {
+		return nil, fmt.Errorf("%w: the profile does not describe how its browser sends a client certificate (tls.clientAuth)", headerorder.ErrNotMeasured)
+	}
+
+	leaf := c.Leaf
+	if leaf == nil {
+		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
+			return nil, fmt.Errorf("tls: client certificate: %w", err)
+		}
+	}
+
+	scheme, ok := cfg.ClientAuth.Scheme(req.Version == utls.VersionTLS13, leaf.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: the profile does not describe how its browser signs with a %T client key in TLS %#04x (tls.clientAuth)", headerorder.ErrNotMeasured, leaf.PublicKey, req.Version)
+	}
+
+	if cache != nil && !cfg.ClientAuth.Resume {
+		cache.noKeep = true
+		cache.tickets.Drop(cache.key)
+	}
+
+	return &utls.Certificate{
+		Certificate:                  c.Certificate,
+		PrivateKey:                   c.PrivateKey,
+		Leaf:                         leaf,
+		OCSPStaple:                   c.OCSPStaple,
+		SignedCertificateTimestamps:  c.SignedCertificateTimestamps,
+		SupportedSignatureAlgorithms: []utls.SignatureScheme{utls.SignatureScheme(scheme)},
+	}, nil
 }
 
 // Spec turns a connection's ClientHello layout into a uTLS spec. GREASE

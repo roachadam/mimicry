@@ -25,9 +25,16 @@ func prepareHost(context.Context, *server.CA) (func(), error) {
 	return func() {}, nil
 }
 
-// cleanUp is -cleanup, which only Windows runs need.
+// cleanUp is -cleanup: here it removes what a killed run left of its
+// client identities (installClientCert). It does nothing, successfully,
+// when nothing is left.
 func cleanUp(string) error {
-	return errors.New("-cleanup is for Windows, where a run trusts the capture CA and registers scheduled tasks; nothing here needs it")
+	done, err := cleanUpClientCerts(context.Background())
+	for _, d := range done {
+		log.Print(d)
+	}
+
+	return err
 }
 
 // startDNSStub answers *.test lookups with addr until ctx ends. Safari here

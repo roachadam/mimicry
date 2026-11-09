@@ -16,6 +16,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/pageshape"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 	"github.com/roachadam/mimicry/internal/platform"
@@ -460,6 +461,17 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		}
 	}
 
+	if m.linux && p.clientCertPolicy() != "" {
+		file := clientcert.LinuxPolicyFiles[p.clientCertPolicy()]
+		if m.wsl != "" {
+			p.Manual = append(p.Manual, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send; refresh writes %s as root in %s before each capture step and removes it after, even after a failure",
+				p.tool(), file, m))
+		} else {
+			p.Problems = append(p.Problems, fmt.Sprintf("a client-certificate scenario needs the AutoSelectCertificateForUrls policy, or %s asks which identity to send, in %s, which only root may write; capture -scenarios <one of them> on %s prints it, and remove it after",
+				p.tool(), file, m))
+		}
+	}
+
 	// The first profile on a platform inherits nothing, unless the
 	// platform shares another's network stack (Safari on iOS, decision
 	// 0051): it then inherits what it does not capture from that
@@ -745,6 +757,10 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 
 		case shared && !iphone && sc.ProxyAuth:
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari's proxy credentials need the com.apple.proxy.http.global device profile and a person typing them (docs/capturing.md, Proxy scenarios); the profile keeps or inherits what it has, capture it by hand", sc.Name))
+			continue
+
+		case sc.UnsupportedBy(p.tool()) != "":
+			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: %s", sc.Name, sc.UnsupportedBy(p.tool())))
 			continue
 
 		case sc.NeedsAioquic() && rep.Aioquic != "":
@@ -1169,6 +1185,25 @@ func planTargets(ps []*plan) string {
 	}
 
 	return strings.Join(names, " and ")
+}
+
+// clientCertPolicy is the Chromium browser (chrome, edge) whose
+// client-certificate policy file p's captures need on Linux
+// (clientcert.LinuxPolicyFiles), "" when they need none.
+func (p *plan) clientCertPolicy() string {
+	if _, ok := clientcert.LinuxPolicyFiles[p.tool()]; !ok {
+		return ""
+	}
+
+	if !slices.ContainsFunc(p.Captures, func(c planned) bool {
+		sc, err := server.ScenarioByName(c.Scenario)
+
+		return err == nil && sc.ClientCert() != ""
+	}) {
+		return ""
+	}
+
+	return p.tool()
 }
 
 // needsPort443 reports whether a scenario p captures names https://'s

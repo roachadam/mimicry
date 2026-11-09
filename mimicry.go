@@ -269,6 +269,18 @@ type Config struct {
 	// sends no SNI for it (tls.trailingDotSni omit). An error fails the
 	// request before anything is sent. Default: none.
 	VerifyConnection func(tls.ConnectionState) error
+	// GetClientCertificate, when set, answers a server that asks for a
+	// client certificate (mutual TLS) on a connection to host, as
+	// crypto/tls's GetClientCertificate does: a nil certificate, or one
+	// with no chain, sends none. Browsers send their certificate alone,
+	// without its CA; mimicry sends the chain given. It is signed as the
+	// profile's browser signs (tls.clientAuth), and a session it was sent
+	// in is resumed only where the browser resumes one. A profile without
+	// tls.clientAuth, a key type it did not measure, or a server asking
+	// over HTTP/3 makes a certificate ErrNotMeasured. Default: none, and
+	// a server asking gets an empty certificate list, as from a browser
+	// with none. See docs/concepts/client-certificates.md.
+	GetClientCertificate func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 
 	// Debugging.
 
@@ -440,6 +452,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			BrowserProxyAuth:    cfg.BrowserProxyAuth,
 			VerifyConnection:    t.verifier(cfg.VerifyConnection),
 			KeyLogWriter:        cfg.KeyLogWriter,
+			ClientCertificate:   cfg.GetClientCertificate,
 			OnConnect: func(d time.Duration) {
 				rtt.Store(int64(d))
 			},

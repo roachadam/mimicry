@@ -9,10 +9,12 @@ import (
 	"os/exec"
 	"os/user"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
+	"github.com/roachadam/mimicry/internal/harness/internal/clientcert"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
 )
 
@@ -24,9 +26,26 @@ func prepareHost(ctx context.Context, _ *server.CA) (func(), error) {
 	return browser.EnsureDisplay(ctx)
 }
 
-// cleanUp is -cleanup, which only Windows runs need.
+// cleanUp is -cleanup. A run here changes nothing outside its browsers'
+// profiles, which go with them, but for the client-certificate policy
+// files root wrote (clientcert.LinuxPolicyFiles), which it names for root
+// to remove.
 func cleanUp(string) error {
-	return errors.New("-cleanup is for Windows, where a run trusts the capture CA and registers scheduled tasks; on Linux each browser trusts it in its own profile, removed with it")
+	var left []string
+
+	for _, path := range clientcert.LinuxPolicyFiles {
+		if _, err := os.Stat(path); err == nil {
+			left = append(left, path)
+		}
+	}
+
+	if len(left) > 0 {
+		slices.Sort(left)
+
+		return fmt.Errorf("a client-certificate policy file is left; as root:\n  rm %s", strings.Join(left, " "))
+	}
+
+	return nil
 }
 
 // startDNSStub does nothing: Chrome, Edge and Firefox map the capture hosts

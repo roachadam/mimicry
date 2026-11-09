@@ -1167,6 +1167,9 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 		RootCAs:          e.rootCAs,
 		VerifyConnection: e.verifyFor(r.host),
 		KeyLogWriter:     e.keyLog,
+		// No browser was captured sending a client certificate over QUIC:
+		// without tls.clientAuth one is ErrNotMeasured, and none is sent.
+		ClientCertificate: e.clientCertFor(r.host),
 	}
 	hello := e.plan.QUICHello()
 

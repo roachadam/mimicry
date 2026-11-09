@@ -240,11 +240,13 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 	}
 
 	cfg := handshake.Config{
-		ServerName:       req.URL.Hostname(),
-		OmitSNI:          r.omitSNI,
-		RootCAs:          e.rootCAs,
-		VerifyConnection: e.verifyFor(req.URL.Hostname()),
-		KeyLogWriter:     e.keyLog,
+		ServerName:        req.URL.Hostname(),
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
+		ClientAuth:        e.profile.TLS.ClientAuth,
 	}
 	hello := e.plan.Hello()
 

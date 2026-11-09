@@ -608,6 +608,83 @@ TLS refuses before anything else, as a connection with `refused` set
 Inheriting works only from older versions, so a browser's newest
 profiles need their own capture.
 
+### Client-certificate scenarios
+
+`client-cert-ec`, `client-cert-rsa`, `client-cert-ec-tls12` and
+`client-cert-rsa-tls12` serve the resume page (new connections to three
+hosts, sequential and parallel, HTTP/2 and HTTP/1.1) from a server that
+asks every connection for a client certificate (`RequestClientCert`,
+naming the run's test client CA), TLS 1.3 or, in the `-tls12` pair, TLS
+1.2 at most, while the browser holds one identity: an EC P-256 or an
+RSA-2048 key, one per scenario so nothing is left to choose. Besides the
+page (`.pagetrace.json.gz`, whose `connections` leave out failed
+handshakes), each writes `<name>.<scenario>.clientauth.json`: per sample,
+every TLS connection in handshake order (`capture.ClientAuth`): its page
+connection number (0 for a handshake that failed: a client giving up on
+it), host, when its ClientHello arrived and how long the handshake took
+(`handshakeMs`, where choosing and signing shows), version and suite,
+what the ClientHello offered to resume (`pskIdentities`, `ticket`) and
+whether the server resumed it, the server's CertificateRequest (its
+`signature_algorithms`, `signature_algorithms_cert` and CAs, as sent),
+the client's messages after its ClientHello in order (`flight`: an empty
+Certificate is `certificate` with no `certificates`), each certificate
+sent (subject, issuer, key, whether a CA), the CertificateVerify scheme,
+and the paths of the requests the connection carried. The server reads
+its own TLS 1.3 key log to decrypt both sides' handshake flights
+(`internal/tlsflight`); TLS 1.2's are in the clear up to
+ChangeCipherSpec. A resumed handshake has no CertificateRequest: the
+server restores the certificate from the ticket.
+
+The identities come from a client CA made for the run, in memory, and
+forgotten with it (`internal/clientcert`): "mimicry capture client CA
+(test)", constrained to client authentication and to no DNS name or IP
+address, never installed as a trust anchor. The tool puts the scenario's
+identity (a PKCS#12 file holding it and the untrusted CA) where the
+browser reads identities, and takes it out after the scenario, however
+it ends:
+
+- **Chrome and Edge on macOS**: a temporary keychain in the user's
+  search list (`mimicry-client-cert-*.keychain-db` in the temporary
+  directory), its key open to the browser's code-signing team
+  (`set-key-partition-list`), plus `AutoSelectCertificateForUrls`
+  entries in the browser's policy domain (`defaults write
+  com.google.Chrome`, `com.microsoft.Edge`) for the page's hosts,
+  filtered on the CA's name; without the policy Chromium asks which
+  identity to send even when one fits. Entries of the user's own stay.
+  Over ssh (the second Mac) these commands run in the logged-in user's
+  session through one-shot launchd jobs: a keychain unlocked from ssh
+  stays locked to the browser, which then asks for its password on
+  screen (2026-11-08, Edge 157 on macOS 26).
+- **Chrome, Edge and Firefox on Windows**: the user's store
+  (`Cert:\CurrentUser\My`, the CA among the user's intermediate CAs),
+  plus the policy entries for Chrome and Edge under
+  `HKCU\Software\Policies\Google\Chrome` and `Microsoft\Edge`
+  (`AutoSelectCertificateForUrls`); Firefox reads the store through its
+  `osclientcerts` module (`security.osclientcerts.autoload`, its
+  default there). On the PC measured, each handshake Firefox answered
+  with the identity took 7 to 11 s; the page's wait allows for it.
+- **Firefox on macOS and Linux**: its throwaway profile's own NSS
+  database (`pk12util`, so NSS's tools are needed on macOS too: `brew
+  install nss`), with `osclientcerts` off so no identity of the user's
+  keychain is offered.
+- **Chrome and Edge on Linux**: the throwaway profile's NSS database
+  (HOME is the profile), and the policy in a managed policy file only
+  root may write (`/etc/opt/chrome/policies/managed/mimicry-client-cert.json`,
+  `/etc/opt/edge/...`): the tool refuses the scenarios without it and
+  prints it; `cmd/refresh` writes it as root in WSL around the capture
+  step and removes it after.
+
+Firefox gets `security.default_personal_cert` "Select Automatically": the
+first matching identity, no dialog. `capture -cleanup` removes whatever a
+killed run left: on macOS the keychains and policy entries, on Windows the
+identities, the CA and the policy entries (it finds them by the CA's
+name); on Linux it names a policy file left for root to remove. Safari
+(on macOS and the iPhone) is refused (`Scenario.UnsupportedBy`,
+`UnsupportedOnIOS`): Safari 27 sent an empty Certificate with the
+identity in a temporary keychain, an identity preference for the host and
+the CA trusted, and stalled with it in the login keychain, probably on a
+hidden prompt (2026-11-08).
+
 ## Deriving a profile
 
 A built-in profile is a JSON file in `profiles/data/`; its accessors are

@@ -402,6 +402,10 @@ type connCache struct {
 	// notAfter is the server certificate's expiry, set when the handshake
 	// verifies it, before any ticket arrives.
 	notAfter time.Time
+	// noKeep: the connection sent a client certificate, and the browser
+	// resumes no such session (profile.ClientAuth.Resume false), so its
+	// tickets are not kept. Set during the handshake, before any ticket.
+	noKeep bool
 }
 
 func (c *connCache) Get(string) (*utls.ClientSessionState, bool) {
@@ -413,7 +417,7 @@ func (c *connCache) Get(string) (*utls.ClientSessionState, bool) {
 }
 
 func (c *connCache) Put(_ string, s *utls.ClientSessionState) {
-	if s != nil {
+	if s != nil && !c.noKeep {
 		c.tickets.keep(c.key, s, c.ticket, c.notAfter)
 	}
 }

@@ -183,7 +183,7 @@ func cleanUp(dataDir string) error {
 		log.Printf("removed a capture CA (SHA-1 %s) from the machine's Root store", thumb)
 	}
 
-	return err
+	return errors.Join(err, removeClientCerts(ctx))
 }
 
 // startDNSStub starts nothing on Windows: only Safari needs the stub, and

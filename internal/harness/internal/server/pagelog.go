@@ -24,6 +24,11 @@ type pageLog struct {
 	firstRecords []byte
 	// index finds a connection's entry in connections by its capture.
 	index map[*capture.Capture]int
+	// clientAuths are the handshakes of a client-certificate scenario's
+	// connections, and authIndex finds a connection's entry by its
+	// capture.
+	clientAuths []capture.ClientAuth
+	authIndex   map[*capture.Capture]int
 	// settled has a channel per websocket, closed once its transport ended
 	// or the server stopped reading it.
 	start      time.Time
@@ -118,15 +123,52 @@ func (l *pageLog) newConn() int {
 	return l.conns
 }
 
-// request counts a request on the connection c captures: a connection
-// with none was opened speculatively and never used.
-func (l *pageLog) request(c *capture.Capture) {
+// request counts a request for path on the connection c captures: a
+// connection with none was opened speculatively and never used.
+func (l *pageLog) request(c *capture.Capture, path string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	if i, ok := l.index[c]; ok {
 		l.connections[i].Requests++
 	}
+
+	if i, ok := l.authIndex[c]; ok {
+		l.clientAuths[i].Requests = append(l.clientAuths[i].Requests, path)
+	}
+}
+
+// clientAuth records the handshake of the connection c captures, under
+// the number connection gave it.
+func (l *pageLog) clientAuth(c *capture.Capture, a capture.ClientAuth) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if i, ok := l.index[c]; ok {
+		a.Conn = i + 1
+	}
+
+	if l.authIndex == nil {
+		l.authIndex = map[*capture.Capture]int{}
+	}
+
+	l.clientAuths = append(l.clientAuths, a)
+	l.authIndex[c] = len(l.clientAuths) - 1
+}
+
+// clientAuthSnapshot is every recorded handshake so far, in the order the
+// handshakes completed.
+func (l *pageLog) clientAuthSnapshot() []capture.ClientAuth {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	out := make([]capture.ClientAuth, len(l.clientAuths))
+	for i, a := range l.clientAuths {
+		a.Requests = slices.Clone(a.Requests)
+		out[i] = a
+	}
+
+	return out
 }
 
 // add appends an HTTP/1.1 request and returns its index.

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"net"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
+	"github.com/roachadam/mimicry/internal/harness/internal/tlsflight"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -56,6 +58,14 @@ type Server struct {
 	// aioquic scenarios that is once its process is up; datagrams wait in
 	// the socket until then.
 	OnQUICReady func()
+	// ClientCAs are the CAs a client-certificate scenario's server names in
+	// its CertificateRequest (Scenario.ClientCert): the run's test client
+	// CA, which issued the identity the browser holds.
+	ClientCAs *x509.CertPool
+
+	// flightKeys is the key log of a client-certificate scenario's TLS
+	// server, which recordClientAuth reads TLS 1.3 flights with.
+	flightKeys *tlsflight.KeyLog
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the
@@ -195,6 +205,17 @@ func (s *Server) tlsConfig(sc *Scenario, issue func([]string) (tls.Certificate, 
 	cfg.MinVersion = tls.VersionTLS12
 	if sc.maxVersion != 0 {
 		cfg.MaxVersion = sc.maxVersion
+	}
+
+	if sc.clientCert != "" {
+		if s.ClientCAs == nil {
+			return nil, errors.New("scenario " + sc.Name + " asks for a client certificate and needs Server.ClientCAs")
+		}
+
+		s.flightKeys = &tlsflight.KeyLog{}
+		cfg.ClientAuth = tls.RequestClientCert
+		cfg.ClientCAs = s.ClientCAs
+		cfg.KeyLogWriter = s.flightKeys
 	}
 
 	if sc.multi == nil {
@@ -340,9 +361,26 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		Conn: conn,
 		all:  sc.recordUploads,
 	}
+
+	// A client-certificate scenario keeps both sides' handshake bytes, and
+	// its client's flight may take several records before application
+	// data (recordClientAuth tells rlog how many).
+	var (
+		tap   *flightTap
+		under net.Conn = rlog
+	)
+
+	if sc.clientCert != "" {
+		rlog.flight = true
+		tap = &flightTap{
+			Conn: rlog,
+		}
+		under = tap
+	}
+
 	tlsConn := tls.Server(&replayConn{
-		Conn: rlog,
-		r:    io.MultiReader(bytes.NewReader(raw), rlog),
+		Conn: under,
+		r:    io.MultiReader(bytes.NewReader(raw), under),
 	}, cfg)
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
@@ -354,6 +392,12 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 			log.refused(name, msg, t, helloAt, "server name ending in a dot, which Go's crypto/tls refuses (RFC 6066)")
 		}
 
+		if tap != nil {
+			// Chromium drops a connection on a CertificateRequest it has
+			// no answer for yet, and retries on a new one.
+			recordClientAuth(log, c, tap, raw, s.flightKeys, tls.ConnectionState{}, err, nil, helloAt)
+		}
+
 		return err
 	}
 
@@ -362,7 +406,13 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 	c.Protocol = state.NegotiatedProtocol
 	log.connection(c, state.ServerName, state.DidResume, helloAt)
 
-	if state.Version != tls.VersionTLS13 {
+	if tap != nil {
+		recordClientAuth(log, c, tap, raw, s.flightKeys, state, nil, rlog, helloAt)
+	}
+
+	if state.Version != tls.VersionTLS13 || rlog.flight {
+		// recordLog reads TLS 1.3 only; a client flight that could not
+		// be read leaves its records unaccounted for.
 		rlog = nil
 	}
 

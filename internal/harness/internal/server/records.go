@@ -41,6 +41,13 @@ type recordLog struct {
 	left   int
 	// finished: the client's Finished went by.
 	finished bool
+	// flight: the client's handshake flight may take several records (a
+	// client certificate's, Scenario.clientCert), so application data
+	// records wait in early, at most flightRecords, until
+	// handshakeRecords says how many were the flight's.
+	flight  bool
+	early   []int
+	earlyAt []time.Time
 	// records are the application data records' content lengths, in order.
 	records []int
 	at      []time.Time
@@ -79,18 +86,51 @@ func (l *recordLog) scan(b []byte) {
 			continue
 		}
 
+		if l.flight {
+			if len(l.early) < flightRecords {
+				l.early = append(l.early, l.left-tls13Overhead)
+				l.earlyAt = append(l.earlyAt, time.Now())
+			}
+
+			continue
+		}
+
 		if !l.finished {
 			l.finished = true
 
 			continue
 		}
 
-		if l.all {
-			l.records = append(l.records, l.left-tls13Overhead)
-			l.at = append(l.at, time.Now())
-		} else if len(l.records) < openingRecords {
-			l.records = append(l.records, l.left-tls13Overhead)
-		}
+		l.keep(l.left-tls13Overhead, time.Now())
+	}
+}
+
+// flightRecords bounds the records a flight-mode recordLog holds before
+// handshakeRecords: a client's handshake flight and its opening.
+const flightRecords = 64
+
+// handshakeRecords tells a flight-mode recordLog that the client's
+// encrypted handshake flight took the first n application data records:
+// the rest are its application data.
+func (l *recordLog) handshakeRecords(n int) {
+	early, at := l.early, l.earlyAt
+
+	l.flight, l.finished = false, true
+	l.early, l.earlyAt = nil, nil
+
+	for i := min(n, len(early)); i < len(early); i++ {
+		l.keep(early[i], at[i])
+	}
+}
+
+// keep records an application data record of size bytes whose header
+// arrived at at.
+func (l *recordLog) keep(size int, at time.Time) {
+	if l.all {
+		l.records = append(l.records, size)
+		l.at = append(l.at, at)
+	} else if len(l.records) < openingRecords {
+		l.records = append(l.records, size)
 	}
 }
 

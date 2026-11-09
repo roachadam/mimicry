@@ -142,6 +142,10 @@ type Config struct {
 	// KeyLogWriter, when set, receives every TLS and QUIC handshake's
 	// secrets (handshake.Config.KeyLogWriter).
 	KeyLogWriter io.Writer
+	// ClientCertificate, when set, answers a server's request for a client
+	// certificate on a connection to host, TLS and QUIC alike
+	// (handshake.Config.ClientCertificate).
+	ClientCertificate func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	// OnConnect, when set, is told each TCP connect's duration
 	// (dial.Dialer.OnConnect), which the rtt client hint estimates from.
 	OnConnect func(time.Duration)
@@ -161,6 +165,7 @@ type Engine struct {
 	clock       clockwork.Clock
 	rootCAs     *x509.CertPool
 	keyLog      io.Writer
+	clientCert  func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	dialer      *dial.Dialer
 	proxy       func(*http.Request) (*url.URL, error)
 	// lookup returns a host's addresses, for coalescing on lookup.
@@ -264,6 +269,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		clock:       clock,
 		rootCAs:     cfg.RootCAs,
 		keyLog:      cfg.KeyLogWriter,
+		clientCert:  cfg.ClientCertificate,
 		dialer: &dial.Dialer{
 			Timeout:             timeout,
 			DialContext:         cfg.DialContext,
@@ -810,6 +816,18 @@ func (e *Engine) verifyFor(host string) func(tls.ConnectionState) error {
 	}
 }
 
+// clientCertFor is the handshake's ClientCertificate for a connection to
+// host, or nil.
+func (e *Engine) clientCertFor(host string) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
+	if e.clientCert == nil {
+		return nil
+	}
+
+	return func(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+		return e.clientCert(host, req)
+	}
+}
+
 // dial connects, through the route's proxy if it has one, and, for https,
 // performs the profile's TLS handshake, bounded by the dial timeout. It
 // returns the negotiated protocol ("h2", or HTTP/1.1 otherwise).
@@ -837,11 +855,13 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 	}
 
 	cfg := handshake.Config{
-		ServerName:       req.URL.Hostname(),
-		OmitSNI:          r.omitSNI,
-		RootCAs:          e.rootCAs,
-		VerifyConnection: e.verifyFor(req.URL.Hostname()),
-		KeyLogWriter:     e.keyLog,
+		ServerName:        req.URL.Hostname(),
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
+		ClientAuth:        e.profile.TLS.ClientAuth,
 	}
 	hello := e.plan.Hello()
 

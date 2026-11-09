@@ -370,6 +370,11 @@ func (c *checker) checkTLS(t *TLS) {
 		}
 	}
 
+	if a := t.ClientAuth; a != nil {
+		c.checkClientAuthSchemes("tls.clientAuth.tls13", a.TLS13, true)
+		c.checkClientAuthSchemes("tls.clientAuth.tls12", a.TLS12, false)
+	}
+
 	if t.extension(ExtCookie) != nil {
 		c.add("tls.extensions", "the full ClientHello cannot carry cookie; tls.helloRetry places it in the second")
 	}
