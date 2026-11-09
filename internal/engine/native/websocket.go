@@ -248,7 +248,7 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 	hello := e.plan.Hello()
 
 	if e.resumes(r) {
-		cfg.Tickets, cfg.TicketKey = e.tickets, r.key
+		cfg.Tickets, cfg.TicketKey = e.tickets, ticketKey(r.key)
 		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil && cfg.Ticket.TLS13() {
 			hello = e.plan.ResumedHello()
 		}

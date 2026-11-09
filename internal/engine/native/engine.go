@@ -78,6 +78,11 @@ type Config struct {
 	// AltSvc keeps the origins' HTTP/3 alternatives, shared with every
 	// engine given the same cache; nil gives the engine one of its own.
 	AltSvc *altsvc.Cache
+	// Tickets keeps the TLS and QUIC session tickets, shared with every
+	// engine given the same store; nil gives the engine one of its own. A
+	// shared store keeps a swept proxy's tickets (forgetProxy) until they
+	// expire: another engine may still use that proxy.
+	Tickets *handshake.Store
 	// BrowserFallback keeps the browser's timing where QUIC fails: requests
 	// wait on an unanswered 0-RTT connection until it gives up
 	// (ZeroRTTHolds, Fallback.Hold), and on a failed attempt until the race
@@ -158,9 +163,11 @@ type Engine struct {
 	lookup func(ctx context.Context, host string) ([]netip.Addr, error)
 	// verify is Config.VerifyConnection.
 	verify func(host string, cs tls.ConnectionState) error
-	// tickets keeps TLS session tickets when the profile resumes.
-	tickets *handshake.Tickets
-	pool    *pool.Pool[*shared, *h1.Conn]
+	// tickets keeps TLS session tickets when the profile resumes;
+	// sharedTickets: in Config.Tickets.
+	tickets       *handshake.Tickets
+	sharedTickets bool
+	pool          *pool.Pool[*shared, *h1.Conn]
 	// quic is the engine's HTTP/3; nil when the profile has none (or
 	// Config.DisableHTTP3).
 	quic *quicState
@@ -280,8 +287,15 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		}),
 	}
 
+	store := cfg.Tickets
+	if store == nil {
+		store = handshake.NewStore()
+	}
+
+	e.sharedTickets = cfg.Tickets != nil
+
 	if plan.Resumes() {
-		e.tickets = handshake.NewTickets(p.TLS.Resumption.TLS12, clock)
+		e.tickets = store.Tickets(p.TLS.Resumption.TLS12, clock)
 	}
 
 	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
@@ -299,7 +313,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 				KeyTimeout:  idleTimeout,
 			}),
 			// QUIC sessions are TLS 1.3 only.
-			tickets: handshake.NewTickets("", clock),
+			tickets: store.Tickets("", clock),
 		}
 	}
 
@@ -825,7 +839,7 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 		// Tickets are kept per connection pool, partition and proxy
 		// included: a browser's credential-less connections do not resume
 		// its others'.
-		cfg.Tickets, cfg.TicketKey = e.tickets, r.key
+		cfg.Tickets, cfg.TicketKey = e.tickets, ticketKey(r.key)
 		if cfg.Ticket = e.tickets.Take(cfg.TicketKey); cfg.Ticket != nil && cfg.Ticket.TLS13() {
 			// A TLS 1.2 ticket goes in the full hello's session_ticket.
 			hello = e.plan.ResumedHello()

@@ -321,7 +321,10 @@ the handshake completes.
 slower.
 
 **How to change it.** No option for TCP. `Config.DisableHTTP3` removes
-0-RTT.
+0-RTT. Tickets stay with their Transport unless `Config.Tickets` shares
+them, which also lets you save them for another process
+([saving an identity](sessions.md)); a relaunched Chrome or Firefox starts
+without any.
 
 ## WebSockets
 

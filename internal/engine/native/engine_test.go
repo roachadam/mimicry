@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"net"
@@ -19,6 +20,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
 
+	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/testutil"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
@@ -115,15 +117,24 @@ type options struct {
 	maxIdleProxies      int
 	browserProxyAuth    bool
 	http3OverSOCKS5     bool
-	// browserDialDelay is Config.BrowserDialDelay.
+	// browserDialDelay is Config.BrowserDialDelay, tickets Config.Tickets.
 	browserDialDelay bool
+	tickets          *handshake.Store
+	// roots, when set, is what the engine trusts, serverCert left as it
+	// is; otherwise a new certificate becomes serverCert.
+	roots *x509.CertPool
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
 	t.Helper()
 
-	cert, roots := testutil.Certificate(t, "localhost")
-	serverCert.Store(&cert)
+	roots := o.roots
+	if roots == nil {
+		var cert tls.Certificate
+
+		cert, roots = testutil.Certificate(t, "localhost")
+		serverCert.Store(&cert)
+	}
 
 	p := o.profile
 	if p == nil {
@@ -149,6 +160,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		BrowserProxyAuth:    o.browserProxyAuth,
 		HTTP3OverSOCKS5:     o.http3OverSOCKS5,
 		BrowserDialDelay:    o.browserDialDelay,
+		Tickets:             o.tickets,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

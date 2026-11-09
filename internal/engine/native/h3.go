@@ -612,13 +612,13 @@ func (e *Engine) takeTicket(r route) *handshake.Ticket {
 		return nil
 	}
 
-	return e.quic.tickets.Take(h3Key(r))
+	return e.quic.tickets.Take(ticketKey(h3Key(r)))
 }
 
 // hasTicket reports whether takeTicket would return a ticket for r,
 // taking none.
 func (e *Engine) hasTicket(r route) bool {
-	return e.resumesQUIC() && e.quic.tickets.Has(h3Key(r))
+	return e.resumesQUIC() && e.quic.tickets.Has(ticketKey(h3Key(r)))
 }
 
 // resumesQUIC reports whether the profile resumes QUIC connections: with
@@ -631,7 +631,7 @@ func (e *Engine) resumesQUIC() bool {
 // dropTicket forgets r's QUIC session ticket: a fresh validation follows a
 // failed one (Firefox).
 func (e *Engine) dropTicket(r route) {
-	_ = e.quic.tickets.Take(h3Key(r))
+	_ = e.quic.tickets.Take(ticketKey(h3Key(r)))
 }
 
 // drawMillis draws a delay from r, in milliseconds; zero for nil.
@@ -1170,7 +1170,7 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 	hello := e.plan.QUICHello()
 
 	if e.resumesQUIC() {
-		cfg.Tickets, cfg.TicketKey = q.tickets, key
+		cfg.Tickets, cfg.TicketKey = q.tickets, ticketKey(key)
 		if cfg.Ticket = spec.ticket; cfg.Ticket != nil {
 			hello = e.plan.ResumedQUICHello(cfg.Ticket.EarlyData())
 		} else {
