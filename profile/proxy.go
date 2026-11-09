@@ -34,10 +34,14 @@ type Proxy struct {
 	// SOCKS5 is the browser's SOCKS5 handshake. Nil: not measured, so a
 	// SOCKS5 proxy is an error.
 	SOCKS5 *SOCKS5 `json:"socks5,omitempty"`
-	// ConnectNoResume: TLS connections through an HTTP proxy's CONNECT
-	// tunnel offer no earlier session; through SOCKS5, and directly, they
-	// resume as TLS.Resumption says (Firefox).
+	// ConnectNoResume: TLS connections through a CONNECT tunnel, an
+	// http:// or an https:// proxy's, offer no earlier session; through
+	// SOCKS5, and directly, they resume as TLS.Resumption says (Firefox).
 	ConnectNoResume bool `json:"connectNoResume,omitempty"`
+	// HTTPS is how the browser uses an https:// proxy, reached over TLS.
+	// Nil: not measured, and an https:// proxy is an error. hellogen
+	// derives it from the proxy-https captures.
+	HTTPS *ProxyHTTPS `json:"https,omitempty"`
 	// WebSocket is how the browser opens WebSockets through a proxy. Nil:
 	// not measured, and a WebSocket through a proxy is an error.
 	WebSocket *ProxyWebSocket `json:"websocket,omitempty"`
@@ -55,6 +59,37 @@ type ProxyWebSocket struct {
 	// CredentialsAlways. False: a WebSocket through a proxy URL with
 	// credentials is an error. Requires ConnectAuth.
 	Credentials bool `json:"credentials,omitempty"`
+}
+
+// ProxyHTTPS is how a browser uses an https:// proxy. The TLS connection
+// to the proxy sends the profile's ClientHello, server_name the proxy's
+// host, and its ALPN offer (h2, http/1.1). Over HTTP/1.1 each tunnel takes
+// a connection to the proxy of its own, its CONNECT Proxy.Connect's or
+// Proxy.ConnectAuth's, as to an http:// proxy. Over HTTP/2 every tunnel
+// is a stream of one connection, which is the profile's http2 section;
+// a CONNECT's pseudo-header fields are :method and :authority, in
+// http2.pseudoHeaderOrder's order. See docs/decisions/0065.
+type ProxyHTTPS struct {
+	// Connect are an HTTP/2 CONNECT's header fields after its
+	// pseudo-header fields, in order, named as sent (lowercase). An
+	// empty user-agent takes the user agent in the profile's headers.
+	Connect []Header `json:"connect"`
+	// ConnectAuth are those of a CONNECT carrying credentials,
+	// proxy-authorization included. Nil: not measured, and an https://
+	// proxy URL with credentials is an error.
+	ConnectAuth []Header `json:"connectAuth,omitempty"`
+	// Weight is a CONNECT stream's HEADERS priority weight, as on the
+	// wire, in place of http2.headersPriority's (Chrome: 146, its lowest
+	// priority; Firefox: 21). Its dependency and exclusivity are as for
+	// any request.
+	Weight uint8 `json:"weight"`
+	// Reset is the error code, by its RFC 9113 name, of the RST_STREAM
+	// that ends a tunnel's stream when its connection closes ("CANCEL").
+	Reset string `json:"reset"`
+	// Resume: a new TLS connection to the proxy resumes a session from
+	// an earlier one, as TLS.Resumption says (Chrome). False: each is a
+	// full handshake (Firefox, nearly always; profiles/EVIDENCE.md).
+	Resume bool `json:"resume,omitempty"`
 }
 
 // PlainWebSocket is how a ws:// socket goes through an HTTP proxy: a

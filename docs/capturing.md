@@ -807,7 +807,16 @@ does not describe:
    certificate went in) and `restart` (per sample: no first connection to
    a host answered the request, a later one carried it, and no connection
    answered with an empty Certificate; samples must agree), left out for
-   a profile without the captures (decision 0064).
+   a profile without the captures (decision 0064); and `proxy.https`,
+   how the browser uses an `https://` proxy, from the four `proxy-https*`
+   captures: the HTTP/2 CONNECT's fields, its HEADERS weight, the code
+   that resets a tunnel's stream, and whether TLS to the proxy resumes
+   (over HTTP/1.1, at least half of each sample's later tunnel
+   connections resumed: true; at most a quarter: false), refusing hellos
+   to the proxy that are not the profile's, HTTP/2 openings that are not
+   its `http2` section's, HTTP/1.1 CONNECTs that are not `proxy.connect`'s
+   and tunnels that contradict `proxy.connectNoResume`; left out for a
+   profile without the captures (decision 0065).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.

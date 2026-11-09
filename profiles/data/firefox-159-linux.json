@@ -9790,6 +9790,23 @@
       "address": "domain"
     },
     "connectNoResume": true,
+    "https": {
+      "connect": [
+        {
+          "name": "user-agent"
+        }
+      ],
+      "connectAuth": [
+        {
+          "name": "user-agent"
+        },
+        {
+          "name": "proxy-authorization"
+        }
+      ],
+      "weight": 21,
+      "reset": "CANCEL"
+    },
     "websocket": {
       "plain": "tunnel",
       "credentials": true

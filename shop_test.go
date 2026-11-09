@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -276,6 +277,8 @@ type proxy struct {
 	// refuse, when set, is the status line answering every CONNECT that
 	// passes the credentials check.
 	refuse string
+	// srv is an https:// proxy's server (startHTTPSProxy).
+	srv *httptest.Server
 }
 
 // startProxy starts a proxy in front of s that asks for user and pass, or
@@ -423,7 +426,76 @@ func (p *proxy) Refuse(status string) {
 
 // Close stops the proxy.
 func (p *proxy) Close() {
+	if p.srv != nil {
+		p.srv.Close()
+
+		return
+	}
+
 	_ = p.ln.Close()
+}
+
+// startHTTPSProxy starts an https:// proxy (Go's server over TLS, with
+// httptest's certificate for 127.0.0.1, returned) that asks for user and
+// pass, or for nothing when user is empty, offering h2 unless h1only. It
+// only refuses: a CONNECT it would let through gets 502.
+func startHTTPSProxy(user, pass string, h1only bool) (*proxy, *x509.Certificate) {
+	p := &proxy{
+		user: user,
+		pass: pass,
+	}
+
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, pw, ok := parseProxyAuth(r.Header.Get("Proxy-Authorization"))
+		who := "without credentials"
+
+		if ok {
+			who = "as " + u
+		}
+
+		line := fmt.Sprintf("%s %s %s %s", r.Proto, r.Method, r.Host, who)
+		if p.user != "" && (!ok || u != p.user || pw != p.pass) {
+			p.record(line + ": 407")
+			w.Header().Set("Proxy-Authenticate", `Basic realm="proxy"`)
+			w.WriteHeader(http.StatusProxyAuthRequired)
+
+			return
+		}
+
+		p.mu.Lock()
+
+		refuse := p.refuse
+		p.mu.Unlock()
+
+		code, _, _ := strings.Cut(refuse, " ")
+
+		status, err := strconv.Atoi(code)
+		if err != nil {
+			status = http.StatusBadGateway
+		}
+
+		p.record(fmt.Sprintf("%s: %d", line, status))
+		w.WriteHeader(status)
+	}))
+
+	srv.EnableHTTP2 = !h1only
+	if h1only {
+		srv.TLS = &tls.Config{
+			NextProtos: []string{
+				"http/1.1",
+			},
+		}
+	}
+
+	srv.StartTLS()
+
+	p.srv, p.ln = srv, srv.Listener
+	p.URL = &url.URL{
+		Scheme: "https",
+		Host:   srv.Listener.Addr().String(),
+	}
+
+	return p, srv.Certificate()
 }
 
 // echoWebSocket answers a WebSocket handshake on HTTP/1.1 and echoes each text

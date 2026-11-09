@@ -1,9 +1,40 @@
 package capture
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/roachadam/mimicry/internal/harness/internal/h2trace"
 	"github.com/roachadam/mimicry/profile"
 )
+
+// LoadProxyRequests reads a proxy scenario's trace written by Write
+// (<name>.<scenario>.proxytrace.json): every sample's requests, in order.
+func LoadProxyRequests(path string) ([][]ProxyRequest, error) {
+	return loadSamples[ProxyRequest](path)
+}
+
+// LoadProxyTLS reads an https:// proxy scenario's connections to the
+// proxy written by Write (<name>.<scenario>.proxytls.json.gz): every
+// sample's, in the order their handshakes ended.
+func LoadProxyTLS(path string) ([][]ProxyTLS, error) {
+	return loadSamples[ProxyTLS](path)
+}
+
+// loadSamples reads a JSON array of samples, gzipped if path says so.
+func loadSamples[T any](path string) ([][]T, error) {
+	data, err := ReadTrace(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var samples [][]T
+	if err := json.Unmarshal(data, &samples); err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+
+	return samples, nil
+}
 
 // ProxyRequest is how a client asked its proxy for one connection.
 type ProxyRequest struct {

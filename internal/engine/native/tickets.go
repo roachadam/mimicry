@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -22,6 +23,9 @@ const (
 	h3Suffix = " h3"
 	// proxyHashPrefix starts a proxy's hash in a ticket key.
 	proxyHashPrefix = "sha256:"
+	// proxyKeyPrefix starts the pool and ticket keys of the connections
+	// to an https proxy itself (proxyKey).
+	proxyKeyPrefix = "proxy" + viaSep
 )
 
 // ticketKey is the session ticket key of the pool key key: key with its
@@ -55,13 +59,16 @@ type savedTicket struct {
 	// Browser is the browser whose engines received it (the store's,
 	// handshake.Store.Bind), if known.
 	Browser string `json:"browser,omitempty"`
-	// Origin is "https://host:port".
+	// Origin is "https://host:port"; empty for a session with an https
+	// proxy itself (ToProxy).
 	Origin string `json:"origin"`
 	// Partition is the connection partition it was received in, if any.
 	Partition string `json:"partition,omitempty"`
 	// Proxy is the proxy it was received through, as a hash of its URL
 	// (proxyHash), if any.
 	Proxy string `json:"proxy,omitempty"`
+	// ToProxy: a session with the https proxy Proxy itself (proxyKey).
+	ToProxy bool `json:"toProxy,omitempty"`
 	// QUIC: received on an HTTP/3 connection.
 	QUIC    bool      `json:"quic,omitempty"`
 	Expires time.Time `json:"expires,omitzero"`
@@ -97,8 +104,12 @@ func WriteTickets(w io.Writer, s *handshake.Store, now time.Time) error {
 
 		e.QUIC = quic
 
-		key, e.Proxy, _ = strings.Cut(key, viaSep)
-		e.Origin, e.Partition, _ = strings.Cut(key, " ")
+		if hash, ok := strings.CutPrefix(key, proxyKeyPrefix); ok {
+			e.Proxy, e.ToProxy = hash, true
+		} else {
+			key, e.Proxy, _ = strings.Cut(key, viaSep)
+			e.Origin, e.Partition, _ = strings.Cut(key, " ")
+		}
 
 		entries = append(entries, e)
 	}
@@ -108,6 +119,7 @@ func WriteTickets(w io.Writer, s *handshake.Store, now time.Time) error {
 			cmp.Compare(a.Origin, b.Origin),
 			cmp.Compare(a.Partition, b.Partition),
 			cmp.Compare(a.Proxy, b.Proxy),
+			compareBool(a.ToProxy, b.ToProxy),
 			compareBool(a.QUIC, b.QUIC),
 		)
 	})
@@ -173,8 +185,25 @@ func ReadTickets(r io.Reader, s *handshake.Store, now time.Time) error {
 }
 
 // key is the ticket key e was saved under, or what makes e unusable: an
-// origin that is not "https://host:port", or a proxy that is not a hash.
+// origin that is not "https://host:port", a proxy that is not a hash, or
+// a session with a proxy that names none, or names an origin, partition or
+// QUIC.
 func (e savedTicket) key() (string, error) {
+	if e.Proxy != "" {
+		h, ok := strings.CutPrefix(e.Proxy, proxyHashPrefix)
+		if _, err := hex.DecodeString(h); !ok || err != nil || len(h) != 32 {
+			return "", fmt.Errorf("proxy %q is not a hash of its URL", e.Proxy)
+		}
+	}
+
+	if e.ToProxy {
+		if e.Proxy == "" || e.Origin != "" || e.Partition != "" || e.QUIC {
+			return "", errors.New("a session with an https proxy names the proxy alone: no origin, partition or QUIC")
+		}
+
+		return proxyKeyPrefix + e.Proxy, nil
+	}
+
 	hostPort, ok := strings.CutPrefix(e.Origin, "https://")
 	if !ok {
 		return "", fmt.Errorf("origin %q is not https://host:port", e.Origin)
@@ -188,11 +217,6 @@ func (e savedTicket) key() (string, error) {
 	key, _ := poolKey("https", host, port, e.Partition)
 
 	if e.Proxy != "" {
-		h, ok := strings.CutPrefix(e.Proxy, proxyHashPrefix)
-		if _, err := hex.DecodeString(h); !ok || err != nil || len(h) != 32 {
-			return "", fmt.Errorf("proxy %q is not a hash of its URL", e.Proxy)
-		}
-
 		key += viaSep + e.Proxy
 	}
 

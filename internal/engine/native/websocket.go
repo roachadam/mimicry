@@ -234,7 +234,7 @@ func (e *Engine) dialWebSocketOnce(ctx context.Context, req *http.Request, r rou
 	case r.forward:
 		conn, err = e.dialer.DialProxy(ctx, r.proxy)
 	default:
-		conn, err = e.dialer.DialVia(ctx, r.proxy, r.addr)
+		conn, err = e.dialTunnel(ctx, r)
 	}
 
 	if err != nil {

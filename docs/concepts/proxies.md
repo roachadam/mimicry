@@ -1,7 +1,7 @@
 # Proxies
 
-Set `Config.Proxy` to send requests through an HTTP or SOCKS5 proxy. It
-takes the same function as `http.Transport.Proxy`:
+Set `Config.Proxy` to send requests through an HTTP, HTTPS or SOCKS5
+proxy. It takes the same function as `http.Transport.Proxy`:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
@@ -30,6 +30,41 @@ The proxy sees what the browser sends a proxy:
 - **`socks5://` or `socks5h://` proxy:** the browser's SOCKS5 handshake.
   It offers no authentication and sends the host name for the proxy to
   resolve. Both schemes behave the same.
+- **`https://` proxy:** see [HTTPS proxies](#https-proxies).
+
+## HTTPS proxies
+
+An `https://` proxy (`https://user:pass@proxy:443`) is an HTTP proxy
+reached over TLS. The proxy sees what the browser sends one:
+
+- **The TLS handshake:** the profile's ClientHello, the same as to a site,
+  with the proxy's host as `server_name` and `h2` and `http/1.1` offered.
+  The proxy's certificate is checked against `Config.RootCAs` (the system
+  roots when nil), and `Config.Pins` and `Config.VerifyConnection` apply,
+  called with the proxy's host. `Config.KeyLogWriter` gets its secrets.
+  A proxy asking for a client certificate gets none:
+  `Config.GetClientCertificate` is not asked.
+- **The proxy picks HTTP/2:** one connection carries every tunnel as a
+  stream, as in Chrome, Edge and Firefox, with the browser's HTTP/2
+  settings. A CONNECT sends `:method`, `:authority` and `user-agent`
+  (`proxy-authorization` last with credentials), at the browser's
+  priority (Chrome's lowest, Firefox's 21). A closed tunnel resets its
+  stream (CANCEL).
+- **The proxy picks HTTP/1.1:** each tunnel takes a TLS connection of
+  its own, with the CONNECT lines an `http://` proxy gets. Chrome and Edge
+  profiles resume the TLS session on the next connection; Firefox
+  profiles do not.
+
+Credentials go as to an `http://` proxy: up front by default, after the
+407 with `Config.BrowserProxyAuth`, answered on the same HTTP/2
+connection or the same (or a new) HTTP/1.1 connection.
+
+Only `https://` URLs and `wss://` sockets go through an HTTPS proxy:
+no browser was captured sending plain `http://` or a `ws://` socket
+through one, so those are `ErrNotMeasured`. Safari and the iPhone
+profiles, and Chrome 155 and Firefox 158, refuse HTTPS proxies the same
+way: they were never captured (macOS offers Safari no proxy reached over
+TLS).
 
 ## Credentials
 
@@ -66,8 +101,8 @@ Each proxy URL has its own connections and TLS sessions. Nothing is
 shared with other proxies or with direct requests. Proxied requests never
 coalesce onto another host's HTTP/2 connection.
 
-Firefox never resumes a TLS session through an HTTP proxy's tunnel, and a
-Firefox profile does the same. Through SOCKS5 it resumes.
+Firefox never resumes a TLS session through an HTTP or HTTPS proxy's
+tunnel, and a Firefox profile does the same. Through SOCKS5 it resumes.
 
 `Config.DialContext`, when set, opens the connection to the proxy.
 `Config.DialTimeout` bounds two steps separately: reaching the proxy plus
@@ -158,8 +193,8 @@ When the proxy fails:
   as not supporting HTTP/3.
 
 While a request goes through a proxy, no packet goes to the site
-directly. Through an `http://` proxy, or without the option, no UDP is
-sent at all.
+directly. Through an `http://` or `https://` proxy, or without the
+option, no UDP is sent at all.
 
 ## When the proxy fails
 
@@ -177,7 +212,8 @@ if errors.As(err, &pe) {
 
 It covers every failure before the server is reached:
 
-- the connection to the proxy fails;
+- the connection to the proxy fails, its TLS handshake included (an
+  `https://` proxy's certificate, `Config.Pins`, `VerifyConnection`);
 - a CONNECT is answered with anything but 2xx, including a 407;
 - the SOCKS5 handshake is refused;
 - the deadline passes. `errors.Is(err, context.DeadlineExceeded)` still
@@ -195,15 +231,17 @@ tunnel is up are the server's, not the proxy's. See
 
 ## Limits
 
-- `https://` proxies (TLS to the proxy) are not supported
-  ([decision 0014](../decisions/0014-proxies.md#amendment-2026-10-30-https-proxies)).
+- `https://` proxies take `https://` requests and `wss://` sockets only;
+  plain HTTP and `ws://` through one are `ErrNotMeasured`. A proxy asking
+  for a client certificate gets none. Firefox occasionally resumes its
+  TLS session with the proxy; a Firefox profile never does.
 - Proxy authentication is Basic only; a proxy asking for Digest, NTLM or
   Negotiate fails the request.
 - `Config.DialContext` opens the connection to the proxy, so it cannot
   also pin the server's address.
 - Chrome's speculative extra connections to the proxy are not made.
 - HTTP/3 goes only through SOCKS5 proxies. HTTP/3 through an `http://`
-  proxy (CONNECT-UDP, MASQUE) is not supported.
+  or `https://` proxy (CONNECT-UDP, MASQUE) is not supported.
 - A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing is not
   remembered: each origin waits up to the race delay per request until
   it is marked as not supporting HTTP/3.
@@ -216,4 +254,5 @@ Background: decisions [0014](../decisions/0014-proxies.md),
 [0038](../decisions/0038-http3-over-socks5.md),
 [0039](../decisions/0039-proxy-credentials-up-front.md),
 [0040](../decisions/0040-idle-connection-cleanup.md),
-[0044](../decisions/0044-profile-fingerprint.md).
+[0044](../decisions/0044-profile-fingerprint.md),
+[0065](../decisions/0065-https-proxies.md).

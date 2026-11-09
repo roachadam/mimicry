@@ -3,6 +3,7 @@ package h2
 import (
 	"errors"
 	"io"
+	"os"
 	"sync"
 )
 
@@ -28,6 +29,8 @@ type pipe struct {
 	// means every declared byte was read, discarded is how many buffered
 	// bytes nobody read.
 	s *stream
+	// dl is a tunnel's read deadline (Conn.Tunnel); nil until one is set.
+	dl *deadline
 }
 
 // init readies p, which is s's body, in place: it is part of s, so a
@@ -47,11 +50,13 @@ func (p *pipe) setExpected(n int64) {
 	p.mu.Unlock()
 }
 
-// Read implements io.Reader for the response body.
+// Read implements io.Reader for the response body. With a read deadline
+// passed, it reads what is buffered, or the stream's end, before failing
+// with os.ErrDeadlineExceeded.
 func (p *pipe) Read(b []byte) (int, error) {
 	p.mu.Lock()
 
-	for p.buf.size == 0 && p.err == nil && !p.closed {
+	for p.buf.size == 0 && p.err == nil && !p.closed && !p.expired() {
 		p.cond.Wait()
 	}
 
@@ -73,6 +78,10 @@ func (p *pipe) Read(b []byte) (int, error) {
 
 	err := p.err
 	p.mu.Unlock()
+
+	if err == nil {
+		return 0, os.ErrDeadlineExceeded
+	}
 
 	return 0, err
 }

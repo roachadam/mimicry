@@ -121,7 +121,8 @@ func TestSavedTicketsResume(t *testing.T) {
 
 // A saved ticket keeps its origin, partition, proxy and protocol apart,
 // and names its proxy by a hash: no proxy URL or credentials in the file,
-// and it resumes only through the same proxy URL.
+// and it resumes only through the same proxy URL. A session with an https
+// proxy itself is saved by the proxy's hash alone, its address left out.
 func TestSavedTicketKeys(t *testing.T) {
 	const (
 		secret = "s3cret-pass"
@@ -134,6 +135,7 @@ func TestSavedTicketKeys(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	tickets := store.Tickets("", clock)
 	ticketInto(t, tickets, ticketKey(key), tls.VersionTLS13)
+	ticketInto(t, tickets, ticketKey(proxyKey("https://user:"+secret+"@proxy.example:8443")), tls.VersionTLS13)
 
 	var saved bytes.Buffer
 	if err := WriteTickets(&saved, store, time.Now()); err != nil {
@@ -162,6 +164,9 @@ func TestSavedTicketKeys(t *testing.T) {
 		{"https://localhost:443 frame https://site.example via " + proxy, false},
 		{"https://localhost:443 via " + proxy + " h3", false},
 		{"https://localhost:443 frame https://site.example h3", false},
+		{proxyKey("https://user:" + secret + "@proxy.example:8443"), true},
+		{proxyKey("https://user:other@proxy.example:8443"), false},
+		{"https://proxy.example:8443 via https://user:" + secret + "@proxy.example:8443", false},
 	} {
 		if got := view.Has(ticketKey(tc.key)); got != tc.want {
 			t.Errorf("loaded ticket for %q: %v, want %v", tc.key, got, tc.want)
@@ -393,6 +398,7 @@ func TestReadTicketsRefusesMalformed(t *testing.T) {
 		{"origin with a path", "origin", "https://localhost:443/x"},
 		{"proxy URL, not a hash", "proxy", "http://user:pass@proxy.example:8080"},
 		{"short proxy hash", "proxy", "sha256:abcd"},
+		{"a session with a proxy that names an origin", "toProxy", true},
 		{"no ticket", "ticket", ""},
 		{"state that does not parse", "state", "AAAA"},
 	} {

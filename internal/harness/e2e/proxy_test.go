@@ -283,8 +283,11 @@ var proxyPlainGaps = func() map[string]string {
 }()
 
 // What a profile does not describe is an error, not a guess: a proxy without
-// a proxy section, credentials without connectAuth, and a WebSocket through
-// a proxy its browser was not measured with.
+// a proxy section, credentials without connectAuth, a WebSocket through a
+// proxy its browser was not measured with, an https:// proxy without
+// proxy.https (Safari's, the older versions'), its credentials without
+// proxy.https.connectAuth, and plain HTTP or ws:// through it (never
+// captured).
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -292,8 +295,8 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		user  *url.Userinfo
 		// scheme is the proxy's; empty: http.
 		scheme string
-		// websocket dials target with DialWebSocket; empty target:
-		// https://example.test/ as a request.
+		// websocket dials target with DialWebSocket, else a request
+		// goes to it; empty target: https://example.test/.
 		websocket bool
 		target    string
 	}{
@@ -307,6 +310,7 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			name: "credentials not measured",
 			strip: func(p *profile.Proxy) *profile.Proxy {
 				p.ConnectAuth, p.ConnectCredentials, p.ForwardCredentials, p.ForwardAuth = nil, "", "", nil
+				p.HTTPS.ConnectAuth = nil
 				p.WebSocket.Credentials = false
 
 				return p
@@ -335,6 +339,34 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 		{
 			name:      "ws:// through SOCKS5, never captured",
 			scheme:    "socks5h",
+			websocket: true,
+			target:    "ws://example.test/socket",
+		},
+		{
+			name: "https:// proxy without proxy.https",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.HTTPS = nil
+				return p
+			},
+			scheme: "https",
+		},
+		{
+			name: "https:// proxy credentials without proxy.https.connectAuth",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.HTTPS.ConnectAuth = nil
+				return p
+			},
+			user:   url.UserPassword("u", "p"),
+			scheme: "https",
+		},
+		{
+			name:   "plain HTTP through an https:// proxy, never captured",
+			scheme: "https",
+			target: "http://example.test/",
+		},
+		{
+			name:      "ws:// through an https:// proxy, never captured",
+			scheme:    "https",
 			websocket: true,
 			target:    "ws://example.test/socket",
 		},
@@ -376,7 +408,12 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 				return
 			}
 
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://example.test/", nil)
+			target := tc.target
+			if target == "" {
+				target = "https://example.test/"
+			}
+
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -432,6 +469,23 @@ func startProxied(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.
 		s.proxy.Auth = server.ProxyAuthorization()
 	}
 
+	if sc.Proxy == server.ProxyHTTPS {
+		// As for the browser: a certificate from the capture CA for the
+		// name the proxy URL gives.
+		pcert, err := ca.Issue([]string{server.ProxyHost}, time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		s.proxy.TLS = &tls.Config{
+			Certificates: []tls.Certificate{
+				pcert,
+			},
+			NextProtos: sc.ProxyNextProtos(),
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+
 	s.pool.AddCert(ca.Cert)
 
 	srv := &server.Server{
@@ -475,15 +529,37 @@ func startProxied(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.
 		}
 	})
 
+	proxyURL := &url.URL{
+		Scheme: sc.Proxy,
+		Host:   pln.Addr().String(),
+		User:   user,
+	}
+
+	var dialProxy func(ctx context.Context, network, addr string) (net.Conn, error)
+
+	if sc.Proxy == server.ProxyHTTPS {
+		// The proxy by its name, as the browser reached it, which
+		// DialContext takes to the listener.
+		_, port, err := net.SplitHostPort(pln.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		proxyURL.Host = net.JoinHostPort(server.ProxyHost, port)
+
+		addr := pln.Addr().String()
+
+		dialProxy = func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return new(net.Dialer).DialContext(ctx, network, addr)
+		}
+	}
+
 	s.tr, err = mimicry.NewTransport(mimicry.Config{
-		Profile: checked(p),
-		RootCAs: s.pool,
-		Cookies: s.jar,
-		Proxy: http.ProxyURL(&url.URL{
-			Scheme: sc.Proxy,
-			Host:   pln.Addr().String(),
-			User:   user,
-		}),
+		Profile:          checked(p),
+		RootCAs:          s.pool,
+		Cookies:          s.jar,
+		Proxy:            http.ProxyURL(proxyURL),
+		DialContext:      dialProxy,
 		BrowserProxyAuth: browserAuth,
 	})
 	if err != nil {

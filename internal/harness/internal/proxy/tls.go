@@ -54,6 +54,35 @@ func (p *Proxy) TLSConns() []capture.ProxyTLS {
 	return out
 }
 
+// WaitH2Ended waits, as long as ctx allows, until the client has ended
+// every HTTP/2 connection to a TLS proxy so far: each one's record is then
+// complete.
+func (p *Proxy) WaitH2Ended(ctx context.Context) error {
+	p.mu.Lock()
+
+	recs := slices.Clone(p.tlsConns)
+	p.mu.Unlock()
+
+	for _, rec := range recs {
+		p.mu.Lock()
+
+		r := rec.h2
+		p.mu.Unlock()
+
+		if r == nil {
+			continue
+		}
+
+		select {
+		case <-r.ended:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	return nil
+}
+
 // handshake reads conn's ClientHello from br, completes the TLS handshake
 // as the proxy, and records both; id numbers the connection.
 func (p *Proxy) handshake(ctx context.Context, conn net.Conn, br *bufio.Reader, id int) (*tls.Conn, *tlsRecord, error) {

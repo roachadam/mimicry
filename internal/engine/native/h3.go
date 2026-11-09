@@ -255,8 +255,8 @@ func (e *Engine) h3Refusal(req *http.Request, r route) error {
 		return errors.New("mimicry: plain http:// never goes over HTTP/3")
 	case r.proxy != nil && !e.h3SOCKS5:
 		return errors.New("mimicry: requests through a proxy never go over HTTP/3 (Config.HTTP3OverSOCKS5 allows SOCKS5 proxies)")
-	case r.proxy != nil && r.proxy.Scheme == dial.SchemeHTTP:
-		return errors.New("mimicry: requests through an HTTP proxy never go over HTTP/3")
+	case r.proxy != nil && (r.proxy.Scheme == dial.SchemeHTTP || r.proxy.Scheme == dial.SchemeHTTPS):
+		return errors.New("mimicry: requests through an http:// or https:// proxy never go over HTTP/3")
 	case r.proxy != nil && e.dialer.UDPRefused(r.proxy):
 		return errors.New("mimicry: the SOCKS5 proxy refused a UDP association: its requests stay on TCP")
 	case !h3.Measured(e.profile, headerorder.PlanFrom(req.Context())):

@@ -180,6 +180,10 @@ type Engine struct {
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
 	pool    *pool.Pool[*shared, *h1.Conn]
+	// proxyConns are the HTTP/2 connections to https proxies, each
+	// carrying its proxy's tunnels as streams (proxyKey). Connections to
+	// a proxy that picked HTTP/1.1 are their tunnels, never pooled here.
+	proxyConns *pool.Pool[*proxyConn, noExclusive]
 	// quic is the engine's HTTP/3; nil when the profile has none (or
 	// Config.DisableHTTP3).
 	quic *quicState
@@ -307,7 +311,14 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 			MaxExclusive: perHost,
 			OnWait:       onWait,
 		}),
+		proxyConns: pool.New[*proxyConn, noExclusive](pool.Config{
+			Clock:       clock,
+			IdleTimeout: idle,
+			KeyTimeout:  idleTimeout,
+		}),
 	}
+
+	e.dialer.ProxyTLS = e.proxyHandshake
 
 	store := cfg.Tickets
 	if store == nil {
@@ -534,6 +545,9 @@ type route struct {
 	// names it.
 	proxy *url.URL
 	via   string
+	// proxyKey, through an https proxy, is the key of the connections to
+	// the proxy itself (proxyKey); empty otherwise.
+	proxyKey string
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
 	// through a tunnel.
 	forward bool
@@ -579,21 +593,17 @@ func (e *Engine) route(req *http.Request) (route, error) {
 			partition: partition,
 		}
 
-		if strings.HasSuffix(host, ".") {
-			switch e.profile.TLS.TrailingDotSNI {
-			case "":
-				return r, fmt.Errorf("%w: profile %s does not describe the server_name its browser sends for a host ending in a dot (tls.trailingDotSni): %s", headerorder.ErrNotMeasured, e.profile.Name, host)
-			case profile.TrailingDotOmit:
-				r.omitSNI = true
-			}
+		omit, err := e.omitSNI(host)
+		if err != nil {
+			return r, err
+		}
 
-			if r.omitSNI {
-				// Safari opened a connection of its own with no
-				// server_name for www.urls.test., fetched and
-				// navigated to, beside its www.urls.test one (urls
-				// capture, h-dotpool): it never coalesces.
-				r.group = group{}
-			}
+		if omit {
+			// Safari opened a connection of its own with no server_name
+			// for www.urls.test., fetched and navigated to, beside its
+			// www.urls.test one (urls capture, h-dotpool): it never
+			// coalesces.
+			r.omitSNI, r.group = true, group{}
 		}
 	}
 
@@ -610,14 +620,20 @@ func (e *Engine) route(req *http.Request) (route, error) {
 		return r, err
 	}
 
+	tunnels := p.Scheme == dial.SchemeHTTP || p.Scheme == dial.SchemeHTTPS
+
 	switch px := e.profile.Proxy; {
 	case px == nil:
 		return r, fmt.Errorf("%w: profile %s does not describe how its browser talks to proxies (proxy)", headerorder.ErrNotMeasured, e.profile.Name)
-	case p.Scheme != dial.SchemeHTTP && px.SOCKS5 == nil:
+	case !tunnels && px.SOCKS5 == nil:
 		return r, fmt.Errorf("%w: profile %s does not describe its browser's SOCKS5 handshake (proxy.socks5)", headerorder.ErrNotMeasured, e.profile.Name)
-	case p.Scheme == dial.SchemeHTTP && p.User != nil && px.ConnectAuth == nil:
-		return r, fmt.Errorf("%w: profile %s does not describe how its browser gives a proxy credentials (proxy.connectAuth)", headerorder.ErrNotMeasured, e.profile.Name)
-	case p.Scheme == dial.SchemeHTTP && p.User != nil && e.dialer.BrowserAuth && px.ConnectCredentials == "":
+	case p.Scheme == dial.SchemeHTTPS && px.HTTPS == nil:
+		return r, fmt.Errorf("%w: profile %s does not describe how its browser talks to an https:// proxy (proxy.https)", headerorder.ErrNotMeasured, e.profile.Name)
+	case p.Scheme == dial.SchemeHTTPS && req.URL.Scheme == "http":
+		return r, fmt.Errorf("%w: no browser was measured sending a plain-HTTP request or ws:// socket through an https:// proxy", headerorder.ErrNotMeasured)
+	case tunnels && p.User != nil && (px.ConnectAuth == nil || p.Scheme == dial.SchemeHTTPS && px.HTTPS.ConnectAuth == nil):
+		return r, fmt.Errorf("%w: profile %s does not describe how its browser gives a proxy credentials (proxy.connectAuth, proxy.https.connectAuth)", headerorder.ErrNotMeasured, e.profile.Name)
+	case tunnels && p.User != nil && e.dialer.BrowserAuth && px.ConnectCredentials == "":
 		return r, fmt.Errorf("%w: profile %s does not describe how its browser answers a proxy's 407 (proxy.connectCredentials), which BrowserProxyAuth follows", headerorder.ErrNotMeasured, e.profile.Name)
 	}
 
@@ -625,6 +641,9 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	r.forward = p.Scheme == dial.SchemeHTTP && req.URL.Scheme == "http"
 
 	r.via = p.String()
+	if p.Scheme == dial.SchemeHTTPS {
+		r.proxyKey = proxyKey(r.via)
+	}
 
 	r.key += " via " + r.via
 	// Coalescing through a proxy was never captured; the proxy resolves
@@ -651,6 +670,25 @@ func poolKey(scheme, host, port, partition string) (key, addr string) {
 	start := len(scheme) + len("://")
 
 	return key, key[start : start+len(host)+len(":")+len(port)]
+}
+
+// omitSNI reports whether a TLS connection to host sends no server_name:
+// host ends in a dot, and the profile's browser sends none for such a host
+// (tls.trailingDotSni omit; keep sends the name with its dot). Not
+// measured, such a host is an error.
+func (e *Engine) omitSNI(host string) (bool, error) {
+	if !strings.HasSuffix(host, ".") {
+		return false, nil
+	}
+
+	switch e.profile.TLS.TrailingDotSNI {
+	case "":
+		return false, fmt.Errorf("%w: profile %s does not describe the server_name its browser sends for a host ending in a dot (tls.trailingDotSni): %s", headerorder.ErrNotMeasured, e.profile.Name, host)
+	case profile.TrailingDotOmit:
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // userAgent is the profile's User-Agent value.
@@ -874,7 +912,7 @@ func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.
 	case r.forward:
 		conn, err = e.dialer.DialProxy(ctx, r.proxy)
 	default:
-		conn, err = e.dialer.DialVia(ctx, r.proxy, r.addr)
+		conn, err = e.dialTunnel(ctx, r)
 	}
 
 	if err != nil {
@@ -916,14 +954,16 @@ func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.
 }
 
 // resumes reports whether TLS connections on route r resume sessions:
-// the profile resumes some (TLS.Resumption), and none through an HTTP
-// proxy's CONNECT tunnel where Proxy.ConnectNoResume says so.
+// the profile resumes some (TLS.Resumption), and none through a CONNECT
+// tunnel (an http or https proxy's) where Proxy.ConnectNoResume says so.
 func (e *Engine) resumes(r route) bool {
 	if e.tickets == nil {
 		return false
 	}
 
-	return r.proxy == nil || r.proxy.Scheme != dial.SchemeHTTP || !e.profile.Proxy.ConnectNoResume
+	connect := r.proxy != nil && (r.proxy.Scheme == dial.SchemeHTTP || r.proxy.Scheme == dial.SchemeHTTPS)
+
+	return !connect || !e.profile.Proxy.ConnectNoResume
 }
 
 // pooled makes c, which a dial for key made, go back to key's pool as each
@@ -967,13 +1007,16 @@ func (e *Engine) Handshake(ctx context.Context, rawURL string) (*tls.ConnectionS
 }
 
 // CloseIdleConnections closes idle HTTP/1.1 connections, and HTTP/2 and
-// HTTP/3 connections with no requests in flight.
+// HTTP/3 connections with no requests in flight; then the connections to
+// https proxies left with no tunnel.
 func (e *Engine) CloseIdleConnections() {
 	e.pool.CloseIdle()
 
 	if e.quic != nil {
 		e.quic.pool.CloseIdle()
 	}
+
+	e.proxyConns.CloseIdle()
 }
 
 // replayable reports whether req can be sent again on a new connection:
