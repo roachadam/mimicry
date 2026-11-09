@@ -23,6 +23,7 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"
 
+	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/quic"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -898,9 +899,11 @@ func TestSweptProxiesAreForgotten(t *testing.T) {
 		},
 	} {
 		for _, maxIdle := range []int{0, 1} {
-			t.Run(fmt.Sprintf("%s, MaxIdleProxies %d", tc.name, maxIdle), func(t *testing.T) {
-				testSweptProxiesAreForgotten(t, tc.socks5, maxIdle, tc.kept, tc.fresh)
-			})
+			for _, shared := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s, MaxIdleProxies %d, shared tickets %v", tc.name, maxIdle, shared), func(t *testing.T) {
+					testSweptProxiesAreForgotten(t, tc.socks5, maxIdle, shared, tc.kept, tc.fresh)
+				})
+			}
 		}
 	}
 }
@@ -909,8 +912,9 @@ func TestSweptProxiesAreForgotten(t *testing.T) {
 // 4 identities more than are remembered are used in turn, then each
 // remembered one out of the most recent, the last one and the forgotten
 // ones come back, the first ones' requests looking to the proxy as kept
-// says, the forgotten ones' as fresh says.
-func testSweptProxiesAreForgotten(t *testing.T, socks5 bool, maxIdle int, kept, fresh []string) {
+// says, the forgotten ones' as fresh says. With shared, the tickets are in
+// a store as Config.Tickets gives one, which forgets them alike.
+func testSweptProxiesAreForgotten(t *testing.T, socks5 bool, maxIdle int, shared bool, kept, fresh []string) {
 	t.Helper()
 
 	const forgotten = 4
@@ -921,6 +925,11 @@ func testSweptProxiesAreForgotten(t *testing.T, socks5 bool, maxIdle int, kept, 
 
 	var current atomic.Pointer[url.URL]
 
+	var store *handshake.Store
+	if shared {
+		store = handshake.NewStore()
+	}
+
 	e := newTestEngine(t, options{
 		dial:  proxies.dial,
 		clock: clock,
@@ -930,6 +939,7 @@ func testSweptProxiesAreForgotten(t *testing.T, socks5 bool, maxIdle int, kept, 
 		maxIdleProxies:   maxIdle,
 		browserProxyAuth: true,
 		http3OverSOCKS5:  true,
+		tickets:          store,
 	})
 	if maxIdle == 0 {
 		e.proxies.remember = keepProxies + 4

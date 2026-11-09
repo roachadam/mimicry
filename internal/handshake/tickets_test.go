@@ -56,12 +56,7 @@ func ticketFrom(t *testing.T, tickets *Tickets, key string, validity time.Durati
 		t.Fatal(err)
 	}
 
-	tickets.mu.Lock()
-
-	_, ok := tickets.m[key]
-	tickets.mu.Unlock()
-
-	if !ok {
+	if !tickets.Has(key) {
 		t.Fatal("the server's ticket was not kept")
 	}
 }

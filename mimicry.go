@@ -195,6 +195,14 @@ type Config struct {
 	// Transport given the same cache, like a browser's tabs. Save and load
 	// it to keep it across runs. Nil, the default, keeps one per Transport.
 	AltSvc *AltSvcCache
+	// Tickets keeps TLS session tickets, shared by every Transport given
+	// the same cache, like a browser's tabs. Save and load it to carry an
+	// identity's sessions to another process, so its first connections
+	// resume; see TicketCache for what that models. A cache belongs to one
+	// browser: NewTransport refuses a profile of another. Proxies swept
+	// as MaxIdleProxies says lose their tickets from it too. Nil, the
+	// default, keeps one per Transport, lost with it.
+	Tickets *TicketCache
 	// BrowserQUICFallback copies the browser's slow fallback when QUIC
 	// stalls or fails: requests wait as long as the browser's do. By
 	// default they move to TCP after the browser's race delay, or at once
@@ -428,6 +436,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 
 		if cfg.AltSvc != nil {
 			ncfg.AltSvc = cfg.AltSvc.c
+		}
+
+		if cfg.Tickets != nil {
+			ncfg.Tickets = cfg.Tickets.s
 		}
 
 		e, err := native.New(ncfg)

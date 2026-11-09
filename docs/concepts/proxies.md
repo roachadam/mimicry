@@ -103,7 +103,8 @@ connection that resumes its TLS session (0-RTT over HTTP/3) and sends
 its credentials at once. A proxy beyond them is forgotten and, used again
 later, starts like a new proxy: a full TLS handshake, and the 407 again
 with `Config.BrowserProxyAuth`. With `Config.MaxIdleProxies` a proxy
-pushed out is forgotten at once. Sessions are never shared between
+pushed out is forgotten at once. A forgotten proxy's tickets leave a
+shared `Config.Tickets` cache too. Sessions are never shared between
 proxies.
 
 To rotate by client instead, build a new client per identity. Call

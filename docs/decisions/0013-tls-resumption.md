@@ -1,6 +1,6 @@
 # 0013: TLS session resumption as the browser does it
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-08 by [0062](0062-saved-tls-tickets.md) (tickets shared and saved on request; a proxy named by a hash of its URL)
 - Date: 2026-10-24
 - Commits: `d29d30f`, `89b05bc`
 
@@ -76,3 +76,11 @@ resume page through mimicry.
 
 A browser is captured using 0-RTT over TCP, several tickets at once, or
 session-ID (not ticket) resumption with a server that issues no tickets.
+
+## Amendment 2026-11-08: shared and saved tickets
+
+[0062](0062-saved-tls-tickets.md): `Config.Tickets` shares one store
+between Transports and saves it as JSON. Tickets through a proxy are now
+keyed by a hash of the proxy's URL instead of the URL, so no credentials
+are kept or saved; they still stay apart per proxy. Without the field each
+Transport keeps its own tickets, as before.

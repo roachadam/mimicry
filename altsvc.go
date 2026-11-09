@@ -16,7 +16,8 @@ import (
 //
 // An entry lives until its ma (max-age; 24 hours without one) or a
 // "clear" from its origin. Only the alternatives are shared: which origins
-// failed over QUIC, connections and session tickets stay each Transport's.
+// failed over QUIC and connections stay each Transport's, and session
+// tickets too unless Config.Tickets shares them (TicketCache).
 // Entries are kept per connection partition (anonymous requests and
 // cross-site frames apart), not per top-level site: browsers partition
 // them by top-level site too, which mimicry does not model. Create one with NewAltSvcCache; it is safe for concurrent use.

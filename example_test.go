@@ -793,6 +793,65 @@ func ExampleAltSvcCache() {
 	// saved: https://www.shop.test:443 h3 on port 443
 }
 
+// A TicketCache carries an identity's TLS sessions to another process: a
+// worker that picks the identity up resumes its first connection, as the
+// browser that stayed open would, instead of a full handshake. Save it
+// with the cookie jar; load it into one process only.
+func ExampleTicketCache() {
+	shop := startShop(func(http.ResponseWriter, *http.Request) {})
+	defer shop.Close()
+
+	get := func(tickets *mimicry.TicketCache) {
+		client, err := mimicry.NewClient(mimicry.Config{
+			Profile: profiles.ChromeMacOS(),
+			Tickets: tickets,
+			// Only to reach the local stand-in shop; nil for real sites.
+			RootCAs:     shop.RootCAs,
+			DialContext: shop.DialContext,
+		})
+		if err != nil {
+			panic(err)
+		}
+		defer client.CloseIdleConnections()
+
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.shop.test/", nil)
+		if err != nil {
+			panic(err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+		fmt.Println(resp.Proto, "resumed:", resp.TLS.DidResume)
+	}
+
+	tickets := mimicry.NewTicketCache()
+	get(tickets)
+
+	// Saved by the first process (a file kept like a password, in a real
+	// program)...
+	var saved bytes.Buffer
+	if err := tickets.WriteJSON(&saved); err != nil {
+		panic(err)
+	}
+
+	// ...and loaded by the next.
+	restored := mimicry.NewTicketCache()
+	if err := restored.ReadJSON(&saved); err != nil {
+		panic(err)
+	}
+
+	get(restored)
+
+	// Output:
+	// HTTP/2.0 resumed: false
+	// HTTP/2.0 resumed: true
+}
+
 // Chrome profiles answer a site's client hints opt-in as Chrome does: a
 // navigation's Accept-CH is kept for its origin (Config.ClientHintStore), and
 // later requests send the hints it asked for, with one machine's values

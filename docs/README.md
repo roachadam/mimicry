@@ -6,6 +6,7 @@
 - [How a request is built](concepts/how-a-request-is-built.md)
 - [Cookies](concepts/cookies.md)
 - [Client hints](concepts/client-hints.md)
+- [Saving an identity](concepts/sessions.md)
 - [Proxies](concepts/proxies.md)
 - [CORS preflights](concepts/cors-preflights.md)
 - [WebSockets](concepts/websockets.md)
@@ -92,7 +93,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 |---|---|---|
 | [0010](decisions/0010-dial-context.md) | `Config.DialContext` for the TCP connection | Accepted |
 | [0011](decisions/0011-connection-partitioning.md) | Partition connections only where a rule is measured | Amended |
-| [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Accepted |
+| [0013](decisions/0013-tls-resumption.md) | TLS session resumption as the browser does it | Amended by 0062 |
 | [0023](decisions/0023-connection-limits-and-coalescing.md) | Per-host HTTP/1.1 limit and HTTP/2 coalescing, per browser | Amended by 0037 |
 | [0032](decisions/0032-certificate-pinning.md) | Certificate pinning and VerifyConnection on every handshake | Accepted |
 | [0037](decisions/0037-coalescing-opt-out.md) | Options to disable HTTP/2 coalescing and change the per-host limit | Accepted |
@@ -100,6 +101,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0042](decisions/0042-http2-opening-records.md) | The HTTP/2 opening is grouped into TLS records as the browser does | Amended (preconnected connections kept not planned) |
 | [0052](decisions/0052-http1-upload-records.md) | HTTP/1.1 requests are cut into TLS records as the browser does; no dynamic record sizing | Accepted |
 | [0056](decisions/0056-local-addresses.md) | `Config.LocalAddrs` binds TCP, HTTP/3 and SOCKS5 relays to one address per family | Accepted |
+| [0062](decisions/0062-saved-tls-tickets.md) | Session tickets shared and saved on request (`Config.Tickets`), one browser per cache; proxies named by a hash, swept proxies' tickets dropped | Accepted |
 
 ### Proxies and WebSockets
 
