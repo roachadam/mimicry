@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/browser"
@@ -32,7 +33,18 @@ func clientCertRefusal(*browser.Browser) string {
 // adds AutoSelectCertificateForUrls entries for hosts to the user's
 // policies after any there.
 func installClientCert(ctx context.Context, b *browser.Browser, p12 string, hosts []string) (func(context.Context) error, error) {
-	script := `$p = ConvertTo-SecureString -String ` + browser.PSQuote(clientcert.Password) + ` -AsPlainText -Force
+	// The passphrase goes in a file beside p12, never in the script, which
+	// an error message could show.
+	pass := p12 + ".passphrase"
+	if err := os.WriteFile(pass, []byte(clientcert.Password), 0o600); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		_ = os.Remove(pass)
+	}()
+
+	script := `$p = ConvertTo-SecureString -String (Get-Content -Raw -LiteralPath ` + browser.PSQuote(pass) + `) -AsPlainText -Force
 Import-PfxCertificate -FilePath ` + browser.PSQuote(p12) + ` -CertStoreLocation Cert:\CurrentUser\My -Password $p | Out-Null
 `
 

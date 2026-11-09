@@ -58,17 +58,33 @@ func importClientCert(ctx context.Context, b *Browser, dir string, t Target) err
 		return err
 	}
 
-	steps := [][]string{
-		{"pk12util", "-i", t.ClientCert.P12, "-d", "sql:" + db, "-W", t.ClientCert.Password, "-K", ""},
+	// The passphrase goes in a file (-w), never on the command line, where
+	// an error message or a process listing would show it.
+	pass := filepath.Join(dir, "p12-passphrase")
+	if err := os.WriteFile(pass, []byte(t.ClientCert.Password), 0o600); err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = os.Remove(pass)
+	}()
+
+	type step struct {
+		what string
+		args []string
+	}
+
+	steps := []step{
+		{"pk12util -i", []string{"pk12util", "-i", t.ClientCert.P12, "-d", "sql:" + db, "-w", pass, "-K", ""}},
 	}
 
 	if _, err := os.Stat(filepath.Join(db, "cert9.db")); errors.Is(err, os.ErrNotExist) {
-		steps = append([][]string{{"certutil", "-N", "-d", "sql:" + db, "--empty-password"}}, steps...)
+		steps = append([]step{{"certutil -N", []string{"certutil", "-N", "-d", "sql:" + db, "--empty-password"}}}, steps...)
 	}
 
-	for _, args := range steps {
-		if out, err := exec.CommandContext(ctx, args[0], args[1:]...).CombinedOutput(); err != nil { //nolint:gosec // fixed tools; the files are the run's own
-			return fmt.Errorf("%s importing the client identity (%s): %w: %s", b.Name, strings.Join(args[:2], " "), err, strings.TrimSpace(string(out)))
+	for _, s := range steps {
+		if out, err := exec.CommandContext(ctx, s.args[0], s.args[1:]...).CombinedOutput(); err != nil { //nolint:gosec // fixed tools; the files are the run's own
+			return fmt.Errorf("%s importing the client identity (%s): %w: %s", b.Name, s.what, err, strings.TrimSpace(string(out)))
 		}
 	}
 
