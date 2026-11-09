@@ -37,13 +37,16 @@ type Scenario struct {
 	// are written gzipped (capture.Capture.Gzip).
 	recordUploads bool
 	// Proxy, when set, has the browser reach the server through the
-	// capture proxy: ProxyHTTP or ProxySOCKS5.
+	// capture proxy: ProxyHTTP, ProxyHTTPS or ProxySOCKS5.
 	Proxy string
 	// Plain serves the page over plain HTTP (HTTP/1.1, no TLS).
 	Plain bool
 	// ProxyAuth has the proxy demand ProxyUser and ProxyPassword: CONNECTs,
 	// or with Plain each forwarded request, without them are answered 407.
 	ProxyAuth bool
+	// proxyHTTP1 has a ProxyHTTPS proxy offer only http/1.1 in ALPN (see
+	// ProxyNextProtos).
+	proxyHTTP1 bool
 	// maxVersion caps the TLS version the server negotiates (zero: TLS
 	// 1.3), to see what browsers do with a TLS 1.2-only server.
 	maxVersion uint16
@@ -112,11 +115,33 @@ var DefaultScenario = &Scenario{
 	Doc:  "subresources, a 16 MiB download, a 200 KB upload, a Huffman probe header, a navigation with document.cookie cookies",
 }
 
-// Values of Scenario.Proxy.
+// Values of Scenario.Proxy. ProxyHTTPS is an HTTP proxy the browser
+// reaches over TLS, at ProxyHost.
 const (
 	ProxyHTTP   = "http"
+	ProxyHTTPS  = "https"
 	ProxySOCKS5 = "socks5"
 )
+
+// ProxyHost is the name of a ProxyHTTPS proxy, under .test so the capture
+// CA issues its certificate and browsers send server_name.
+const ProxyHost = "proxy.mimicry.test"
+
+// ProxyNextProtos are the ALPN protocols a ProxyHTTPS scenario's proxy
+// offers, in its order of preference: h2 and http/1.1, as proxies that
+// speak HTTP/2 do, or only http/1.1.
+func (sc *Scenario) ProxyNextProtos() []string {
+	if sc.proxyHTTP1 {
+		return []string{
+			"http/1.1",
+		}
+	}
+
+	return []string{
+		"h2",
+		"http/1.1",
+	}
+}
 
 // The credentials a ProxyAuth scenario's proxy demands, which the capture
 // tool gives the browser when challenged.
@@ -231,6 +256,36 @@ var Scenarios = []*Scenario{
 		Plain:     true,
 		ProxyAuth: true,
 	},
+	{
+		Name:  "proxy-https",
+		Doc:   "the capture page through an HTTPS proxy offering h2 and http/1.1: the ClientHello to the proxy and the protocol it gets, each CONNECT (an HTTP/2 stream with every frame sent, or HTTP/1.1 lines), the ClientHello through the tunnel, and the tunnelled connection against the direct one",
+		Proxy: ProxyHTTPS,
+	},
+	{
+		Name:       "proxy-https-h1",
+		Doc:        "the capture page through an HTTPS proxy offering only http/1.1: the ClientHello to the proxy, each CONNECT's lines, the ClientHello through the tunnel, and the tunnelled connection against the direct one",
+		Proxy:      ProxyHTTPS,
+		proxyHTTP1: true,
+	},
+	{
+		Name:      "proxy-https-auth",
+		Doc:       "the resume page (a new connection per request, three hosts) through an HTTPS proxy offering h2 and http/1.1 and demanding Basic credentials: the 407 challenge and the retry on the protocol the proxy got, whether later CONNECTs send credentials unasked, and how many connections go to the proxy",
+		Proxy:     ProxyHTTPS,
+		ProxyAuth: true,
+		multi: resumePage{
+			fixedHosts: resumeHosts,
+		},
+	},
+	{
+		Name:       "proxy-https-h1-auth",
+		Doc:        "the resume page through an HTTPS proxy offering only http/1.1 and demanding Basic credentials: the challenge flow over HTTP/1.1 and, with each tunnel on a connection of its own, whether TLS to the proxy resumes",
+		Proxy:      ProxyHTTPS,
+		proxyHTTP1: true,
+		ProxyAuth:  true,
+		multi: resumePage{
+			fixedHosts: resumeHosts,
+		},
+	},
 	Kinds,
 	KindsHTTP1,
 	KindsPlain,
@@ -310,6 +365,8 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 		return iosNoProxyAuth
 	case sc.Proxy == ProxySOCKS5:
 		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy only"
+	case sc.Proxy == ProxyHTTPS:
+		return "the iPhone's Wi-Fi proxy setting takes a plain HTTP proxy, and its proxy script is read by the same system networking as macOS's, which " + noSafariHTTPSProxy + " ([INFERENCE] not tried on the phone)"
 	case sc == CookiesEdge:
 		return "its lo-* steps navigate to http://localhost, which on the iPhone is the phone itself, so the page stops there"
 	case sc.clientCert != "":
@@ -323,12 +380,19 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 // computer; on an iPhone see UnsupportedOnIOS) cannot take sc, "" when it
 // can.
 func (sc *Scenario) UnsupportedBy(tool string) string {
-	if sc.clientCert != "" && tool == "safari" {
+	switch {
+	case sc.clientCert != "" && tool == "safari":
 		return noSafariClientCert
+	case sc.Proxy == ProxyHTTPS && tool == "safari":
+		return "macOS gives Safari no proxy it reaches over TLS: its secure web proxy setting is a plain HTTP proxy for https:// URLs, and the system " + noSafariHTTPSProxy
 	}
 
 	return ""
 }
+
+// noSafariHTTPSProxy is what macOS (27.0.1, Safari 27, 2026-11-09) did
+// with a proxy script answering HTTPS host:port for *.test.
+const noSafariHTTPSProxy = "ignores a proxy script's HTTPS host:port: Safari connected to the site directly, and nothing reached the proxy (macOS 27.0.1, 2026-11-09)"
 
 // iosNoProxyAuth is why the proxy-credential scenarios are neither
 // captured on the iPhone nor inherited from macOS Safari.

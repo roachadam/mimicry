@@ -258,7 +258,8 @@ Xvfb, a virtual X display it starts for the run, unless the session has a
 display that answers: an ordinary windowed browser, not headless, on no
 screen. Each browser trusts the run's capture CA in its own throwaway
 profile (Chrome's NSS database under a `HOME` that is that profile;
-Firefox's profile database, on pages across hosts), so nothing outside the
+Firefox's profile database, on pages across hosts and through an
+`https://` proxy), so nothing outside the
 run's directory changes but, in WSL, the port setting above, and nothing
 needs cleaning up.
 
@@ -353,9 +354,10 @@ redirects", even restarted): take them again as single-sample runs and join the 
    which trusts the CA only during a capture: administrator rights,
    `certutil` and `schtasks` instead). It also checks
    `/etc/resolver/test` (Safari), python3 with aioquic and Safari's proxy
-   script (full mode). Finally it checks whether Gatekeeper still has to
-   approve a fresh browser's first launch, a dialog nobody at an ssh
-   session can answer. The version names the profile: a new major version
+   script (when the plan holds a proxy scenario Safari takes). Finally it
+   checks whether Gatekeeper still has to approve a fresh browser's first
+   launch, a dialog nobody at an ssh session can answer. The version names
+   the profile: a new major version
    gets a new profile copied from the browser's newest; the same major
    refreshes that profile in place. It prints the plan, the manual steps
    and any problems with the commands that fix them, then asks before
@@ -406,6 +408,10 @@ the preflight reads that build's version, so the plan picks its profile.
 - Safari's proxy-credential scenarios (a person types the credentials) and,
   on the second Mac, its click scenario (no Accessibility over ssh). Safari's
   full refresh leaves them out, so the profile keeps or inherits them.
+- Safari through an `https://` proxy: macOS offers Safari none, so every
+  refresh skips the `proxy-https*` scenarios for it (logged; see
+  [Capturing](capturing.md#https-proxy-scenarios)), and the iPhone's
+  scenario set leaves them out.
 - New Safari versions come only with macOS updates. Updating the second Mac
   past macOS 26 ends Safari 26's captures.
 - Committing: the tool never touches git.

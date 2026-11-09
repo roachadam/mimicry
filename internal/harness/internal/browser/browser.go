@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/exec"
@@ -42,7 +43,9 @@ type Target struct {
 	// (by hand, once) and Windows (for the run).
 	CAFile string
 	// Proxy, when set, is the proxy the browser goes through
-	// ("http://127.0.0.1:port" or "socks5://127.0.0.1:port").
+	// ("http://127.0.0.1:port", "socks5://127.0.0.1:port", or
+	// "https://<name>:port", a TLS proxy whose name the browser maps to
+	// Loopback).
 	Proxy *url.URL
 	// Plain sends the browser to http:// instead of https://.
 	Plain bool
@@ -129,6 +132,29 @@ func (t Target) url(host string) string {
 	}
 
 	return scheme + host + ":" + strconv.Itoa(t.Port) + path
+}
+
+// proxyHost is the name of t's proxy that the browser maps to Loopback,
+// "" when the proxy is an address.
+func (t Target) proxyHost() string {
+	if t.Proxy == nil {
+		return ""
+	}
+
+	if _, err := netip.ParseAddr(t.Proxy.Hostname()); err == nil {
+		return ""
+	}
+
+	return t.Proxy.Hostname()
+}
+
+// trustsCA says the browser checks a certificate from the capture CA, not
+// only the server's: the server gives each host its own (HostCerts), or
+// the proxy is reached over TLS. Firefox then trusts the CA (in the
+// system's roots, or on Linux its profile's) instead of an exception for
+// CertSHA256.
+func (t Target) trustsCA() bool {
+	return t.HostCerts || t.Proxy != nil && t.Proxy.Scheme == "https"
 }
 
 // Browser is a browser that can be launched against a Target: one installed
@@ -425,9 +451,13 @@ func (s *Session) quit() error {
 }
 
 func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
-	rules := make([]string, 0, 1+len(t.Hosts))
+	rules := make([]string, 0, 2+len(t.Hosts))
 	for _, h := range append([]string{t.Host}, t.Hosts...) {
 		rules = append(rules, "MAP "+h+" "+t.Addr)
+	}
+
+	if h := t.proxyHost(); h != "" {
+		rules = append(rules, "MAP "+h+" "+Loopback)
 	}
 
 	args := []string{

@@ -336,7 +336,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		return nil
 	}
 
-	raw, msg, err := readClientHello(conn)
+	raw, msg, err := ReadClientHello(conn)
 	if err != nil {
 		return err
 	}

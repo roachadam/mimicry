@@ -51,7 +51,7 @@ func TestReadClientHelloAcrossRecords(t *testing.T) {
 		wire := records(msg, size)
 		r := bytes.NewReader(append(wire, "next"...))
 
-		raw, got, err := readClientHello(r)
+		raw, got, err := ReadClientHello(r)
 		if err != nil {
 			t.Fatalf("records of %d bytes: %v", size, err)
 		}

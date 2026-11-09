@@ -23,11 +23,11 @@ const (
 	maxClientHelloLen = 1 << 16
 )
 
-// readClientHello reads TLS records from r until it has a whole ClientHello
+// ReadClientHello reads TLS records from r until it has a whole ClientHello
 // handshake message, which a client may split across several records. It
 // returns every byte read, so the connection can be replayed into a TLS server,
 // and the ClientHello message itself (handshake header included).
-func readClientHello(r io.Reader) (raw, msg []byte, err error) {
+func ReadClientHello(r io.Reader) (raw, msg []byte, err error) {
 	var header [recordHeaderLen]byte
 
 	need := -1
@@ -252,7 +252,7 @@ func boringPadding(unpadded int) (int, bool) {
 // record-layer version and the handshake message. Every record must carry
 // the same version, and nothing may follow the message.
 func ParseRecords(records []byte) (uint16, []byte, error) {
-	raw, msg, err := readClientHello(bytes.NewReader(records))
+	raw, msg, err := ReadClientHello(bytes.NewReader(records))
 	if err != nil {
 		return 0, nil, err
 	}

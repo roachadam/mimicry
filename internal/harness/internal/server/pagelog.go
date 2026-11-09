@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/hex"
 	"slices"
 	"sync"
@@ -52,25 +53,14 @@ func (l *pageLog) arrived(path string) {
 // ClientHello, which arrived at helloAt, and whether it offered and got a
 // resumed session.
 func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, helloAt time.Time) {
-	o := resumptionOffer(c.ClientHello)
-	hello := c.Profile.TLS
+	conn := newConnection(host, c.Protocol, c.ClientHello, c.Profile.TLS, c.RecordVersion(), accepted)
+
+	conn.Millis = helloAt.Sub(l.start).Milliseconds()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.connections = append(l.connections, capture.Connection{
-		Host:          host,
-		Protocol:      c.Protocol,
-		Millis:        helloAt.Sub(l.start).Milliseconds(),
-		Resumed:       o.pskIdentities > 0 || o.ticket != "",
-		Accepted:      accepted,
-		PSKIdentities: o.pskIdentities,
-		PSKIdentity:   o.pskIdentity,
-		Ticket:        o.ticket,
-		Hello:         &hello,
-		ClientHello:   hex.EncodeToString(c.ClientHello),
-		RecordVersion: c.RecordVersion(),
-	})
+	l.connections = append(l.connections, conn)
 	if l.index == nil {
 		l.index = map[*capture.Capture]int{}
 	}
@@ -79,6 +69,44 @@ func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, hel
 	if len(l.connections) == 1 {
 		l.firstHello = c.ClientHello
 		l.firstRecords = c.Records
+	}
+}
+
+// HelloConnection describes, as a page's connection, a TLS connection whose
+// ClientHello came in the records raw and whose handshake ended in state.
+func HelloConnection(raw []byte, state tls.ConnectionState) (capture.Connection, error) {
+	version, msg, err := ParseRecords(raw)
+	if err != nil {
+		return capture.Connection{}, err
+	}
+
+	hello, err := ParseClientHello(msg)
+	if err != nil {
+		return capture.Connection{}, err
+	}
+
+	hello.RecordVersion = profile.Code(version)
+
+	return newConnection(state.ServerName, state.NegotiatedProtocol, msg, hello, version, state.DidResume), nil
+}
+
+// newConnection is a connection to host, which negotiated protocol, whose
+// ClientHello msg (parsed as hello) came in records of recordVersion;
+// accepted says the server resumed the session it offered.
+func newConnection(host, protocol string, msg []byte, hello profile.TLS, recordVersion uint16, accepted bool) capture.Connection {
+	o := resumptionOffer(msg)
+
+	return capture.Connection{
+		Host:          host,
+		Protocol:      protocol,
+		Resumed:       o.pskIdentities > 0 || o.ticket != "",
+		Accepted:      accepted,
+		PSKIdentities: o.pskIdentities,
+		PSKIdentity:   o.pskIdentity,
+		Ticket:        o.ticket,
+		Hello:         &hello,
+		ClientHello:   hex.EncodeToString(msg),
+		RecordVersion: recordVersion,
 	}
 }
 

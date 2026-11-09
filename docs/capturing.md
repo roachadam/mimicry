@@ -423,7 +423,8 @@ Safari's window: leave the machine alone while it runs.
 ### Proxy scenarios
 
 Proxy scenarios (`proxy-*`) put the capture proxy (`internal/proxy`:
-HTTP CONNECT, absolute-form, SOCKS5, all recorded) in front of the server;
+HTTP CONNECT, absolute-form, SOCKS5, all recorded, or CONNECT over TLS;
+see [HTTPS proxy scenarios](#https-proxy-scenarios)) in front of the server;
 a scenario with a plain port gets what goes to that port (tunnels and
 absolute-form requests) on the server's plain side, as if the proxy had
 connected there, and each connection the server records carries the proxy
@@ -462,6 +463,60 @@ raises; saving them in System Settings, `networksetup` or the keychain was
 not enough (see [the proxies report](../internal/harness/reports/proxies-2026-10-24.md)).
 Remove the profile afterwards. `cmd/refresh` leaves these scenarios out of
 Safari's runs: capture them by hand.
+
+### HTTPS proxy scenarios
+
+`proxy-https`, `proxy-https-h1`, `proxy-https-auth` and
+`proxy-https-h1-auth` put the capture proxy behind TLS. The browser
+reaches it at `https://proxy.mimicry.test:<port>` (`server.ProxyHost`,
+mapped to 127.0.0.1 as the capture hosts are), whose certificate the
+capture CA issues; every browser checks it, so Firefox trusts the CA as it
+does for pages across hosts (`security.enterprise_roots.enabled`, or on
+Linux its profile's database). Chrome and Edge get
+`--proxy-server=https://…`; Firefox, whose manual proxy settings take no
+proxy reached over TLS, a proxy script answering `HTTPS
+proxy.mimicry.test:<port>` for every URL, as a `data:` URL
+(`network.proxy.type` 2). The proxy offers `h2` and `http/1.1` in ALPN, or
+only `http/1.1` in the `-h1` scenarios. Over HTTP/1.1 it answers CONNECT as
+the HTTP proxy does; over HTTP/2 each CONNECT is a stream (Go's HTTP/2
+server), refused with 403 for hosts outside `*.test` and challenged with a
+407 response on the stream with credentials. The `-auth` scenarios load
+the resume page (a new connection per request), so over HTTP/1.1 every
+tunnel takes a proxy connection of its own and shows whether TLS to the
+proxy resumes.
+
+Each writes `<name>.<scenario>.proxytls.json.gz` beside the proxy trace and
+the page's trace: per sample, every connection to the proxy
+(`capture.ProxyTLS`), those that carried only the browser's own traffic
+(refused, not in the proxy trace) and those that never finished their
+handshake included. Each has its ClientHello's records as sent (a
+`.clienthello` line), parsed as a page connection's (server name, the
+protocol the proxy picked, the session offered and taken), and over
+HTTP/2 every frame the browser sent, each header block's HPACK
+instructions and its first SETTINGS. In the proxy trace a CONNECT over
+HTTP/2 has its stream and its decoded header fields, pseudo-headers
+included, as lines, and every accepted tunnel the first ClientHello sent
+through it (`clientHello`), to compare with the direct one.
+
+The proxy's HTTP/2 server sends its connection preface only after the
+browser's has arrived (RFC 9113 allows either order). Firefox 159 lost a
+server preface that arrived while the connection waited in its pool, its
+TLS handshake done but HTTP/2 not yet started, then read the server's
+WINDOW_UPDATE as the first frame and ended the connection with
+PROTOCOL_ERROR ("First Frame Type Must Be Settings" in its HTTP log),
+failing the page about one sample in two when its tunnel was on that
+connection.
+
+Safari and the browsers on an iPhone cannot take these scenarios
+(`Scenario.UnsupportedBy`, `Scenario.UnsupportedOnIOS`): macOS offers no
+proxy reached over TLS. Its secure web proxy setting is a plain HTTP proxy
+for https:// URLs, and with the system's proxy script answering `HTTPS
+proxy.mimicry.test:<port>` (or `HTTPS 127.0.0.1:<port>`) for `*.test`,
+Safari 27 on macOS 27.0.1 connected to the site directly and nothing
+reached the proxy (2026-11-09). The iPhone's Wi-Fi proxy goes through the
+same system networking; it was not tried there. Not tried either: a
+managed Network Relay (`com.apple.relay.managed` configuration profile),
+which is an MDM relay, not a proxy setting.
 
 ### HTTP/3 scenarios
 

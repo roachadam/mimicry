@@ -1,11 +1,13 @@
 // Package proxy is the capture proxy: HTTP (CONNECT and absolute-form) and
-// SOCKS5 on one port. It records how a client asks for each connection and
-// hands the connection on to the capture server.
+// SOCKS5 on one port, or an HTTP proxy over TLS. It records how a client
+// asks for each connection and hands the connection on to the capture
+// server.
 package proxy
 
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -56,11 +58,20 @@ type Proxy struct {
 	// for a proxy the iPhone's Wi-Fi settings name, which passes other
 	// hosts through): connections from elsewhere are closed unanswered.
 	Clients netip.Prefix
+	// TLS, when set, makes it an HTTPS proxy, reached over TLS (no
+	// SOCKS5): each connection's handshake is recorded (TLSConns), then
+	// CONNECTs are served over the protocol ALPN picked, HTTP/1.1 or
+	// HTTP/2 (every frame the client sends recorded), and each tunnel's
+	// first ClientHello is recorded with its CONNECT. Over HTTP/2 only
+	// CONNECT is served and other hosts are refused even with
+	// PassThrough.
+	TLS *tls.Config
 	// Logf receives connection errors. Nil discards them.
 	Logf func(format string, args ...any)
 
 	mu       sync.Mutex
 	requests []capture.ProxyRequest
+	tlsConns []*tlsRecord
 	conns    int
 	ln       *listener
 	plainLn  *listener
@@ -186,9 +197,23 @@ func (p *Proxy) handle(ctx context.Context, conn net.Conn) error {
 		target string
 	)
 
-	if first[0] == 5 {
+	switch {
+	case p.TLS != nil:
+		tc, rec, herr := p.handshake(ctx, conn, br, id)
+		if herr != nil {
+			return herr
+		}
+
+		if tc.ConnectionState().NegotiatedProtocol == "h2" {
+			return p.serveH2(ctx, tc, rec, id)
+		}
+
+		conn = tc
+		pass, target, err = p.http(conn, bufio.NewReader(tc), id)
+
+	case first[0] == 5:
 		pass, target, err = p.socks5(conn, br, id)
-	} else {
+	default:
 		pass, target, err = p.http(conn, br, id)
 	}
 
@@ -196,12 +221,17 @@ func (p *Proxy) handle(ctx context.Context, conn net.Conn) error {
 		return err
 	}
 
+	toPlain := p.PlainPort != 0 && portOf(target) == p.PlainPort
+	if p.TLS != nil && !toPlain {
+		pass = p.tunnelHello(id, 0, pass)
+	}
+
 	if err := conn.SetDeadline(time.Time{}); err != nil {
 		return err
 	}
 
 	out := p.ln
-	if p.PlainPort != 0 && portOf(target) == p.PlainPort {
+	if toPlain {
 		out = p.plainLn
 	}
 
