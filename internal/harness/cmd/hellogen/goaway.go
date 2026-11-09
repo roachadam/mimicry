@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
@@ -15,7 +16,12 @@ import (
 // captures the server sent GOAWAY on (after answering a request its
 // scenario closes the connection on), or "" when it sent none on any.
 // The connections must agree. Replay pages are left out: their scenarios
-// come from page shapes, not by name.
+// come from page shapes, not by name. So are the scenarios whose tunnels
+// may run over HTTP/2 to an https:// proxy (proxy-https-auth): there the
+// browser can end a connection by resetting its tunnel's stream to the
+// proxy instead, and Firefox 159, which answers NO_ERROR everywhere else,
+// reset it (CANCEL) with no GOAWAY in the tunnel on every one
+// (profiles/EVIDENCE.md, Not covered by any claim).
 func goAwayReply(dir string, p *profile.Spec) (string, error) {
 	var (
 		reply, replyAt string
@@ -36,6 +42,10 @@ func goAwayReply(dir string, p *profile.Spec) (string, error) {
 			sc, err := server.ScenarioByName(f.Scenario)
 			if err != nil {
 				return "", fmt.Errorf("%s: %w", f.Path, err)
+			}
+
+			if sc.Proxy == server.ProxyHTTPS && slices.Contains(sc.ProxyNextProtos(), "h2") {
+				continue
 			}
 
 			samples, err := traces(f.Path, suffix)

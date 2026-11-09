@@ -1441,6 +1441,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Firefox's last-in-body script over plain HTTP** (Firefox): sent without Priority; kinds-plain's head script went at u=2, the profile's one script list; detection low; a body-script kind (`proxyPlainGaps`).
 - **Challenge state per proxy** (all): shared by tunnels and forwarded requests ([INFERENCE]); detection low; a mixed capture.
 - **Chrome's preconnects to the proxy**: see Chrome's preconnect above.
+- **Ending a tunnel over an HTTP/2 proxy** (Firefox): through an `https://` proxy speaking HTTP/2 (`proxy-https-auth`, Firefox 159 on macOS, every sample), each connection the server sent GOAWAY on was ended by resetting its tunnel's stream to the proxy (RST_STREAM CANCEL right after its last record), with no GOAWAY inside the tunnel, where Firefox answers NO_ERROR on every other connection, an HTTP/1.1 `https://` proxy's tunnels (`proxy-https-h1-auth`) included; `hellogen` leaves the scenarios whose proxy may speak HTTP/2 out of `goawayReply`; detection none while `https://` proxies are unsupported ([issue #105](https://github.com/roachadam/mimicry/issues/105)), then low (the proxy sees it); modelled when the proxy is.
 
 ## What checks each behaviour
 

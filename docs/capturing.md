@@ -507,6 +507,12 @@ PROTOCOL_ERROR ("First Frame Type Must Be Settings" in its HTTP log),
 failing the page about one sample in two when its tunnel was on that
 connection.
 
+Through the HTTP/2 proxy Firefox ends a tunnelled connection the server
+sent GOAWAY on by resetting the tunnel's stream (CANCEL), with no GOAWAY
+reply inside it, so `hellogen` leaves `proxy-https-auth` (and any scenario
+whose proxy offers `h2`) out of `http2.goawayReply`
+([EVIDENCE](../profiles/EVIDENCE.md), Not covered by any claim).
+
 Safari and the browsers on an iPhone cannot take these scenarios
 (`Scenario.UnsupportedBy`, `Scenario.UnsupportedOnIOS`): macOS offers no
 proxy reached over TLS. Its secure web proxy setting is a plain HTTP proxy
