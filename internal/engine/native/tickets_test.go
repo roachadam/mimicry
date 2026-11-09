@@ -4,9 +4,13 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"io"
+	"maps"
 	"net"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +21,7 @@ import (
 	"github.com/roachadam/mimicry/internal/fingerprint"
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/testutil"
+	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
 
@@ -128,14 +133,15 @@ func TestSavedTicketKeys(t *testing.T) {
 	store := handshake.NewStore()
 	clock := clockwork.NewRealClock()
 	tickets := store.Tickets("", clock)
-	ticketInto(t, tickets, ticketKey(key))
+	ticketInto(t, tickets, ticketKey(key), tls.VersionTLS13)
 
 	var saved bytes.Buffer
 	if err := WriteTickets(&saved, store, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 
-	for _, leak := range []string{secret, "proxy.example", "user"} {
+	// No base64 has ":" or "@": these cannot appear by chance.
+	for _, leak := range []string{secret, "proxy.example", "user:", "@"} {
 		if strings.Contains(saved.String(), leak) {
 			t.Errorf("saved tickets contain %q:\n%s", leak, saved.String())
 		}
@@ -163,9 +169,9 @@ func TestSavedTicketKeys(t *testing.T) {
 	}
 }
 
-// ticketInto does a full TLS 1.3 handshake whose ticket tickets keeps
+// ticketInto does a full handshake in version whose ticket tickets keeps
 // under key.
-func ticketInto(t *testing.T, tickets *handshake.Tickets, key string) {
+func ticketInto(t *testing.T, tickets *handshake.Tickets, key string, version uint16) {
 	t.Helper()
 
 	cert, roots := testutil.Certificate(t, "localhost")
@@ -181,7 +187,8 @@ func ticketInto(t *testing.T, tickets *handshake.Tickets, key string) {
 			Certificates: []tls.Certificate{
 				cert,
 			},
-			MinVersion: tls.VersionTLS13,
+			MinVersion: version,
+			MaxVersion: version,
 		})
 		if srv.HandshakeContext(t.Context()) != nil {
 			return
@@ -207,5 +214,206 @@ func ticketInto(t *testing.T, tickets *handshake.Tickets, key string) {
 
 	if !tickets.Has(key) {
 		t.Fatal("the server's ticket was not kept")
+	}
+}
+
+// Through a proxy with credentials, a saved ticket names the proxy by a
+// hash only, and resumes in another engine through the same proxy URL,
+// not through the same proxy with another password.
+func TestSavedTicketsThroughProxy(t *testing.T) {
+	cert, roots := testutil.Certificate(t, "localhost")
+	serverCert.Store(&cert)
+
+	proxies := newIdentityProxies(t, false)
+	proxyURL := func(password string) *url.URL {
+		return &url.URL{
+			Scheme: "http",
+			User:   url.UserPassword("user", password),
+			Host:   proxyAddr(0),
+		}
+	}
+
+	through := func(store *handshake.Store, password string) []string {
+		t.Helper()
+
+		e := newTestEngine(t, options{
+			dial: proxies.dial,
+			proxy: func(*http.Request) (*url.URL, error) {
+				return proxyURL(password), nil
+			},
+			tickets: store,
+			roots:   roots,
+		})
+
+		resp, err := get(t, e, "https://localhost/")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		readAll(t, resp)
+		e.CloseIdleConnections()
+
+		return proxies.take(proxyAddr(0))
+	}
+
+	first := handshake.NewStore()
+	through(first, "s3cret-pass")
+
+	var saved bytes.Buffer
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		saved.Reset()
+
+		if err := WriteTickets(&saved, first, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+
+		if strings.Contains(saved.String(), `"proxy"`) {
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("no ticket through the proxy saved:\n%s", saved.String())
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+	for _, leak := range []string{"s3cret-pass", "user:", proxyAddr(0)} {
+		if strings.Contains(saved.String(), leak) {
+			t.Errorf("saved tickets contain %q:\n%s", leak, saved.String())
+		}
+	}
+
+	for _, tc := range []struct {
+		password string
+		resumed  bool
+	}{
+		{"other-pass", false},
+		{"s3cret-pass", true},
+	} {
+		loaded := handshake.NewStore()
+		if err := ReadTickets(bytes.NewReader(saved.Bytes()), loaded, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+
+		if got := slices.Contains(through(loaded, tc.password), "TLS resumed"); got != tc.resumed {
+			t.Errorf("through the proxy with password %q: resumed %v, want %v", tc.password, got, tc.resumed)
+		}
+	}
+}
+
+// TLS 1.2 tickets save and load like TLS 1.3 ones, for views that keep
+// them, and never reach a view that does not (QUIC's); tickets expired by
+// the time of saving or loading are left out.
+func TestSavedTicketVersionsAndExpiry(t *testing.T) {
+	const key = "https://localhost:443"
+
+	clock := clockwork.NewRealClock()
+
+	for _, tc := range []struct {
+		name    string
+		version uint16
+		tls12   string
+	}{
+		{"TLS 1.3", tls.VersionTLS13, ""},
+		{"TLS 1.2, reuse", tls.VersionTLS12, profile.TLS12Reuse},
+		{"TLS 1.2, single use", tls.VersionTLS12, profile.TLS12SingleUse},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := handshake.NewStore()
+			ticketInto(t, store.Tickets(tc.tls12, clock), key, tc.version)
+
+			var saved bytes.Buffer
+			if err := WriteTickets(&saved, store, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+
+			loaded := handshake.NewStore()
+			if err := ReadTickets(bytes.NewReader(saved.Bytes()), loaded, time.Now()); err != nil {
+				t.Fatal(err)
+			}
+
+			if !loaded.Tickets(tc.tls12, clock).Has(key) {
+				t.Error("the loaded ticket is not offered")
+			}
+
+			if tc.version == tls.VersionTLS12 && loaded.Tickets("", clock).Take(key) != nil {
+				t.Error("a view keeping no TLS 1.2 tickets took one")
+			}
+
+			// The server certificate lives a day (testutil.Certificate).
+			later := time.Now().Add(48 * time.Hour)
+
+			var expired bytes.Buffer
+			if err := WriteTickets(&expired, store, later); err != nil {
+				t.Fatal(err)
+			}
+
+			if got := strings.TrimSpace(expired.String()); got != "[]" {
+				t.Errorf("saved after expiry: %s, want []", got)
+			}
+
+			late := handshake.NewStore()
+			if err := ReadTickets(bytes.NewReader(saved.Bytes()), late, later); err != nil {
+				t.Fatal(err)
+			}
+
+			if late.Tickets(tc.tls12, clockwork.NewFakeClockAt(later)).Has(key) {
+				t.Error("a ticket loaded after its expiry is offered")
+			}
+		})
+	}
+}
+
+// A malformed entry fails ReadTickets before anything is added, valid
+// entries before it included.
+func TestReadTicketsRefusesMalformed(t *testing.T) {
+	store := handshake.NewStore()
+	clock := clockwork.NewRealClock()
+	ticketInto(t, store.Tickets("", clock), "https://localhost:443", tls.VersionTLS13)
+
+	var good bytes.Buffer
+	if err := WriteTickets(&good, store, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	var entries []map[string]any
+	if err := json.Unmarshal(good.Bytes(), &entries); err != nil || len(entries) != 1 {
+		t.Fatalf("saved %s: %v", good.String(), err)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		field string
+		value any
+	}{
+		{"plain http origin", "origin", "http://localhost:80"},
+		{"origin with a path", "origin", "https://localhost:443/x"},
+		{"proxy URL, not a hash", "proxy", "http://user:pass@proxy.example:8080"},
+		{"short proxy hash", "proxy", "sha256:abcd"},
+		{"no ticket", "ticket", ""},
+		{"state that does not parse", "state", "AAAA"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bad := maps.Clone(entries[0])
+
+			bad[tc.field] = tc.value
+
+			b, err := json.Marshal([]map[string]any{entries[0], bad})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			loaded := handshake.NewStore()
+			if err := ReadTickets(bytes.NewReader(b), loaded, time.Now()); err == nil {
+				t.Fatal("no error")
+			}
+
+			if loaded.Tickets("", clock).Has("https://localhost:443") {
+				t.Error("the valid entry before the malformed one was added")
+			}
+		})
 	}
 }

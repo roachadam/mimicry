@@ -324,7 +324,7 @@ slower.
 0-RTT. Tickets stay with their Transport unless `Config.Tickets` shares
 them, which also lets you save them for another process
 ([saving an identity](sessions.md)); a relaunched Chrome or Firefox starts
-without any.
+without any, a relaunched Safari keeps its QUIC ones.
 
 ## WebSockets
 

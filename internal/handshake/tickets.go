@@ -110,7 +110,8 @@ func (t *Ticket) EarlyData() bool {
 
 // Take returns the ticket a new connection for key offers, or nil. TLS 1.3
 // tickets, and TLS 1.2 ones under single use, leave the store: concurrent
-// connections then resume one at a time. Expired tickets are dropped.
+// connections then resume one at a time. Expired tickets are dropped. A
+// view keeping no TLS 1.2 tickets (QUIC's) never hands one out.
 func (t *Tickets) Take(key string) *Ticket {
 	s := t.s
 
@@ -125,6 +126,10 @@ func (t *Tickets) Take(key string) *Ticket {
 	if tk.expired(t.clock.Now()) {
 		delete(s.m, key)
 
+		return nil
+	}
+
+	if !tk.tls13 && t.tls12 == "" {
 		return nil
 	}
 
@@ -146,7 +151,7 @@ func (t *Tickets) Has(key string) bool {
 
 	tk, ok := t.s.m[key]
 
-	return ok && !tk.expired(t.clock.Now())
+	return ok && !tk.expired(t.clock.Now()) && (tk.tls13 || t.tls12 != "")
 }
 
 // Drop forgets key's ticket, if any.
@@ -227,16 +232,27 @@ type Saved struct {
 
 // Export returns the tickets usable at now.
 func (s *Store) Export(now time.Time) ([]Saved, error) {
+	type entry struct {
+		key string
+		tk  ticket
+	}
+
+	// Stored sessions are never changed: encode them after unlocking, so
+	// that handshakes do not wait for it.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
-	saved := make([]Saved, 0, len(s.m))
+	entries := make([]entry, 0, len(s.m))
 	for key, tk := range s.m {
-		if tk.expired(now) {
-			continue
+		if !tk.expired(now) {
+			entries = append(entries, entry{key, tk})
 		}
+	}
 
-		ticket, state, err := tk.state.ResumptionState()
+	s.mu.Unlock()
+
+	saved := make([]Saved, 0, len(entries))
+	for _, e := range entries {
+		ticket, state, err := e.tk.state.ResumptionState()
 		if err != nil {
 			return nil, err
 		}
@@ -247,8 +263,8 @@ func (s *Store) Export(now time.Time) ([]Saved, error) {
 		}
 
 		saved = append(saved, Saved{
-			Key:     key,
-			Expires: tk.expires,
+			Key:     e.key,
+			Expires: e.tk.expires,
 			Ticket:  ticket,
 			State:   b,
 		})
@@ -298,6 +314,12 @@ func parseSaved(sv Saved) (ticket, error) {
 	switch state.Version() {
 	case utls.VersionTLS13:
 		tk.tls13 = true
+		// As keep: never past the ticket's own lifetime, whatever the
+		// file says, or uTLS would decline a ticket the hello offers.
+		if useBy := state.UseBy(); !useBy.IsZero() && (tk.expires.IsZero() || useBy.Before(tk.expires)) {
+			tk.expires = useBy
+		}
+
 	case utls.VersionTLS12:
 	default:
 		return ticket{}, fmt.Errorf("session version %#04x is neither TLS 1.2 nor 1.3", state.Version())

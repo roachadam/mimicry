@@ -15,10 +15,12 @@ import (
 // with 0-RTT where the profile's browser uses it, instead of starting with
 // full handshakes.
 //
-// That models a browser that stayed open. Chrome 156 and Firefox 159 keep
-// tickets in memory only: relaunched, they start with full handshakes
-// (decision 0062). Share a cache only between Transports of one identity:
-// a ticket links the connections that use it, as a cookie would.
+// What that models depends on the browser (decision 0062). Chrome 156 and
+// Firefox 159 keep tickets in memory only: relaunched, they start with
+// full handshakes, so a loaded cache models one that stayed open. Safari
+// 27 resumes its QUIC sessions, with 0-RTT, after a relaunch too (it never
+// resumes over TCP). Share a cache only between Transports of one
+// identity: a ticket links the connections that use it, as a cookie would.
 //
 // Tickets are kept per origin, connection partition and proxy, and used as
 // the profile's browser uses them: a TLS 1.3 ticket once. A ticket saved
@@ -52,6 +54,10 @@ func (c *TicketCache) WriteJSON(w io.Writer) error {
 // those of the same origin, partition, proxy and protocol. Expired ones
 // are skipped; a malformed entry fails it before anything is added. A
 // file written by another version of mimicry may not be read.
+//
+// Read only files you wrote: a resumed connection is authenticated by the
+// ticket's secret alone, not the server's certificate, so whoever can
+// write the file can stand in for every server it names.
 func (c *TicketCache) ReadJSON(r io.Reader) error {
 	return native.ReadTickets(r, c.s, time.Now())
 }

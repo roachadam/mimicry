@@ -7,10 +7,10 @@
 **Summary.** `Config.Tickets` takes a `TicketCache`, which keeps the TLS
 and QUIC session tickets of every Transport given it and saves and loads
 them as JSON. A process that loads one resumes its first connections where
-it would otherwise make full handshakes, as one browser that stayed open
-does. Chrome 156 and Firefox 159 keep tickets in memory only, so a saved
-cache does not model a relaunched browser. Without the field nothing
-changes: each Transport keeps its own tickets.
+it would otherwise make full handshakes. Chrome 156 and Firefox 159 keep
+tickets in memory only, so for them a loaded cache models a browser that
+stayed open; Safari 27 resumes its QUIC sessions after a relaunch too.
+Without the field nothing changes: each Transport keeps its own tickets.
 
 ## Problem
 
@@ -30,7 +30,8 @@ ticket cache (`SessionCacheBackend`).
   `NewTicketCache`, `WriteJSON`, `ReadJSON`, `Clear`. Transports given the
   same cache share tickets, as a browser's tabs do; the TLS 1.2 policy
   stays each profile's (`handshake.Store` holds the tickets, each engine
-  a view with its profile's policy).
+  a view with its profile's policy; a view keeping no TLS 1.2 tickets,
+  QUIC's, never hands one out).
 - **A pluggable backend interface** (httpcloak): a remote cache shared by
   many processes would hand one single-use ticket to several, which no
   browser does. Not now.
@@ -46,37 +47,58 @@ The saved form needed two choices:
   it keeps `SessionState.Extra`, where the QUIC copy stores the server's
   transport parameters, version and HTTP/3 SETTINGS for 0-RTT (decision
   0060), so a loaded QUIC ticket resumes with 0-RTT as it would have in
-  the process that received it. The encoding may change between uTLS
-  versions; a file that no longer parses fails `ReadJSON`.
+  the process that received it. A loaded TLS 1.3 ticket never outlives its
+  own lifetime, whatever the file says. The encoding may change between
+  uTLS versions; a file that no longer parses fails `ReadJSON`.
 
 A swept proxy (decision 0040) drops its tickets from a Transport's own
 store; from a shared cache it does not, since another Transport may still
-use the proxy. They expire there (7 days at most).
+use the proxy. They expire there: TLS 1.3 tickets within 7 days, TLS 1.2
+ones with their certificate.
 
 ## Decision
 
 `TicketCache` and `Config.Tickets` as above. The docs say what a loaded
-cache models (a browser that stayed open), that a cache is loaded into one
-process at a time, and that its file is kept like a password.
+cache models per browser, that a cache is loaded into one process at a
+time, and that its file must be kept secret and read only by its writer.
 
 ## Evidence
 
-- **Browsers across a relaunch** (2026-11-08, this Mac, macOS 27.0.1): a
-  TLS 1.3 server logging each ClientHello's `pre_shared_key` and whether
-  the handshake resumed; each browser launched twice on one persistent
-  profile, quit gracefully (SIGTERM) in between. Chrome 156.0.8078.80:
-  in each run the first connections were full and a later one resumed;
-  the second run's first hellos offered no PSK. Firefox 159.0: the same.
-  Neither keeps tickets across a relaunch. Safari not checked (it runs
-  only as the user's own Safari, which the check would quit). The check
-  was a throwaway server, not a harness scenario.
+- **Browsers across a relaunch** (2026-11-08, this Mac, macOS 27.0.1), with
+  throwaway servers logging each ClientHello's `pre_shared_key` and
+  `early_data` and whether the handshake resumed, TCP and (quic-go) HTTP/3
+  on one port; the page reloaded every 4 s and the server closed idle
+  connections after 2 s, so each run made new connections. Each browser
+  was launched twice on one persistent profile and quit gracefully in
+  between.
+  - Chrome 156.0.8078.80 (TCP, twice; and with HTTP/3 on `tk.test`): within
+    a run the later connections resumed; the second run's first TCP hellos
+    and its one QUIC hello offered no PSK.
+  - Firefox 159.0 (TCP; then HTTP/3): within a run every later QUIC
+    connection resumed with 0-RTT; after the relaunch it went to HTTP/3 at
+    once (Alt-Svc kept) but its first QUIC hello offered no PSK.
+  - Safari 27 (HTTP/3, the user's own Safari quit with AppleScript, four
+    relaunches over two sessions): every relaunch's first QUIC connection
+    resumed with 0-RTT; no TCP hello ever offered a PSK, as decision 0013
+    found. No Safari process was left running; the WebKit networking
+    service (an XPC service started days earlier, parent launchd) was.
+    [INFERENCE] Safari's tickets live there, and a logout or reboot
+    clears them.
 - `TestSavedTicketsResume` (`internal/engine/native`): an engine's store
   written and read into another engine's resumes the second engine's
   first connection; it fails if `Import` adds nothing.
-- `TestSavedTicketKeys`: a ticket received through a proxy with
-  credentials, in a frame partition, over HTTP/3, saves without the proxy's
-  URL or credentials, and loads under its own key only (not another
-  password's, protocol's, partition's).
+- `TestSavedTicketsThroughProxy`: through an HTTP proxy with credentials,
+  the saved file holds neither password, user nor proxy host; loaded into
+  another engine, the ticket resumes through the same proxy URL and not
+  with another password. It fails if a call site keys tickets by the raw
+  route key.
+- `TestSavedTicketKeys`: a ticket in a frame partition, through a proxy,
+  over HTTP/3, loads under its own key only.
+- `TestSavedTicketVersionsAndExpiry`: TLS 1.3 and TLS 1.2 (reuse, single
+  use) tickets round-trip; a TLS 1.2 one never reaches QUIC's view;
+  expired tickets are neither written nor loaded.
+- `TestReadTicketsRefusesMalformed`: a bad origin, proxy, ticket or state
+  fails `ReadTickets` with nothing added.
 - `ExampleTicketCache`: over HTTP/2, the restored cache's first request
   resumes.
 - Against cloudflare-quic.com (2026-11-08): a process made five requests
@@ -90,6 +112,11 @@ process at a time, and that its file is kept like a password.
 
 - A worker can take over an identity with its sessions; nothing changes
   for a caller who doesn't set the field.
+- A resumed connection is authenticated by the ticket's secret, not the
+  server's certificate: whoever can write a file `ReadJSON` reads can
+  stand in for every server it names. Checking the saved certificates
+  would not help (the certificates are public; the secret is what counts),
+  so the docs say to read only files you wrote.
 - Tickets through a proxy are keyed by a hash: two URLs naming the same
   proxy differently (a password changed, a port written out) do not share
   tickets.
@@ -98,6 +125,5 @@ process at a time, and that its file is kept like a password.
 
 ## Revisit when
 
-A capture shows a browser keeping tickets across a relaunch (Safari is
-unchecked), or callers need a store shared between processes with
-single-use enforced.
+Callers need a store shared between processes with single-use enforced,
+or a capture shows Chrome or Firefox keeping tickets across a relaunch.

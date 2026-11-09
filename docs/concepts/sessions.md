@@ -11,7 +11,7 @@ identity to another run or another process.
 | `*cookies.Jar` | `Cookies` | `WriteJSON` / `ReadJSON` (also Netscape) | Persistent cookies; session cookies go (`ClearSession`) |
 | `*AltSvcCache` | `AltSvc` | `WriteJSON` / `ReadJSON` | Kept ([HTTP/3](http3.md)) |
 | `ClientHintStore` | `ClientHintStore` | `WriteJSON` / `ReadJSON` (`MemoryClientHintStore`) | Kept ([client hints](client-hints.md)) |
-| `*TicketCache` | `Tickets` | `WriteJSON` / `ReadJSON` | Nothing: Chrome 156 and Firefox 159 start over ([0062](../decisions/0062-saved-tls-tickets.md)) |
+| `*TicketCache` | `Tickets` | `WriteJSON` / `ReadJSON` | Chrome 156 and Firefox 159: nothing. Safari 27: its QUIC sessions ([0062](../decisions/0062-saved-tls-tickets.md)) |
 
 ```go
 chrome := profiles.ChromeMacOS()
@@ -42,25 +42,31 @@ client, err := mimicry.NewClient(mimicry.Config{
 
 A loaded `TicketCache` lets the new process resume its first connections,
 over TCP and HTTP/3 (with 0-RTT where the profile's browser sends it),
-where it would otherwise make full handshakes. That is what one browser
-that stayed open does, so use it to move a live identity between
-processes or workers. To look like a browser that was relaunched, load
-the other stores and leave the tickets out: a relaunched Chrome or
-Firefox resumes nothing.
+where it would otherwise make full handshakes. For Chrome and Firefox
+that is what one browser that stayed open does, so use it to move a live
+identity between processes or workers; to look like a relaunched Chrome
+or Firefox, load the other stores and leave the tickets out. A relaunched
+Safari does resume its QUIC sessions, with 0-RTT, so for Safari profiles
+a loaded cache fits either. (Safari never resumes over TCP.)
 
 - **One process at a time.** A TLS 1.3 ticket is used once, as the browser
   uses it. A file loaded into two processes would resume one ticket twice,
   which no browser does and a server can see.
-- **Keep the file like a password.** A ticket's state holds the secrets
-  the resumed connection is keyed from.
+- **Keep the file like a password, and read only files you wrote.** A
+  ticket's state holds the secret a resumed connection is keyed from, and
+  that secret, not the server's certificate, is what authenticates the
+  server on resumption. Whoever can read the file can decrypt those
+  connections; whoever can write it can stand in for every server it
+  names.
 - **Proxies.** A ticket received through a proxy is filed under a hash of
   the proxy's URL, credentials included, never the URL itself. It resumes
   only through the same proxy URL. A weak proxy password can be guessed
   from the hash by someone who also knows the proxy's host and user name.
 - **One identity per cache.** A ticket links the connections that use it,
   as a cookie does. Don't share a cache between identities or profiles.
-- **Expiry.** Tickets expire with their lifetime (7 days at most) or their
-  server certificate; expired ones are neither written nor loaded.
+- **Expiry.** TLS 1.3 tickets expire with their lifetime (7 days at most)
+  or their server certificate, whichever is first; TLS 1.2 tickets with
+  the certificate. Expired ones are neither written nor loaded.
 - **Versions.** The session encoding is uTLS's and may change between
   mimicry versions; `ReadJSON` then fails, and the identity starts with
   full handshakes.
