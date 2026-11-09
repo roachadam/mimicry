@@ -1064,6 +1064,213 @@ var interopCases = []interopCase{
 			}
 		},
 	},
+	{
+		// HTTP/3 through an http proxy, carried by CONNECT-UDP to a proxy
+		// over HTTP/3 (Config.ConnectUDPProxy, decision 0066) that asks
+		// for credentials, given up front and, with BrowserProxyAuth,
+		// after its 407: each request names the default URI template with
+		// the capsule protocol; the server receives the client's first
+		// flight as it does without the proxy (datagram sizes and count,
+		// through a tap in front of e.relay), and only from the proxy's
+		// relay sockets; downloads and, where the profile resumes, 0-RTT
+		// work. A profile whose HTTP/3 has no datagrams (Safari) stays on
+		// TCP and never reaches the proxy.
+		name:  "connect-udp",
+		limit: 40 * time.Second,
+		run: func(e *interopEnv) {
+			px := newConnectUDPProxy(e, true, "user", "pass")
+			udp := px.url(url.UserPassword("user", "pass"))
+
+			if !connectUDPProfile(e.p) {
+				next := e.viaConnectUDP(connectProxy(e.t), udp, false, nil)
+				for range 3 {
+					next.onTCP("a request through the proxy with a profile without datagrams")
+				}
+
+				settle(e.ctx)
+
+				if conns, _, _ := px.stats(); conns != 0 {
+					e.t.Errorf("a profile without datagrams made %d connections to the CONNECT-UDP proxy", conns)
+				}
+
+				return
+			}
+
+			tap := newUDPTap(e.t, e.relay.Addr())
+
+			e.another(e.altSvcAt(tap.port())).untilH3("a request sent directly")
+
+			direct := tap.firstFlights()[0]
+
+			for i, browserAuth := range []bool{false, true} {
+				_, before, _ := px.stats()
+				next := e.viaConnectUDP(connectProxy(e.t), udp, browserAuth, e.altSvcAt(tap.port()))
+				start := len(tap.firstFlights())
+				what := fmt.Sprintf("through the CONNECT-UDP proxy (BrowserProxyAuth %v)", browserAuth)
+
+				next.untilH3("a request " + what)
+
+				if got := tap.firstFlights()[start]; !slices.Equal(got, direct) {
+					e.t.Errorf("%s the server received a first flight of %v bytes; directly %v", what, got, direct)
+				}
+
+				next.download(256*kib, uint64(50+i))
+
+				if e.p.QUIC.ZeroRTT {
+					next.newConnection()
+
+					if info, _ := next.download(64*kib, uint64(52+i)); !info.Used0RTT {
+						e.t.Errorf("%s the resumed connection sent no 0-RTT: %+v", what, info)
+					}
+				}
+
+				_, reqs, _ := px.stats()
+
+				reqs = reqs[len(before):]
+
+				want := []connectUDPRequest{
+					{
+						auth:   true,
+						status: http.StatusOK,
+					},
+				}
+				if browserAuth {
+					want = append([]connectUDPRequest{
+						{
+							status: http.StatusProxyAuthRequired,
+						},
+					}, want...)
+				}
+
+				for j, r := range reqs {
+					if r.path != connectUDPPath(tap.port()) || r.capsule != "?1" {
+						e.t.Errorf("%s CONNECT-UDP %d asked for %q with Capsule-Protocol %q", what, j, r.path, r.capsule)
+					}
+
+					if j < len(want) && (r.auth != want[j].auth || r.status != want[j].status) {
+						e.t.Errorf("%s CONNECT-UDP %d carried credentials %v and was answered %d; want %v and %d", what, j, r.auth, r.status, want[j].auth, want[j].status)
+					}
+				}
+
+				if len(reqs) < len(want) {
+					e.t.Errorf("%s the proxy got %d CONNECT-UDP requests, want at least %d", what, len(reqs), len(want))
+				}
+			}
+
+			_, _, relays := px.stats()
+			for _, c := range tap.clients()[1:] {
+				if !slices.Contains(relays, c) {
+					e.t.Errorf("the server received datagrams from %v, not from the proxy's relay sockets %v", c, relays)
+				}
+			}
+		},
+	},
+	{
+		// A CONNECT-UDP proxy that cannot carry HTTP/3 (answering 501, or
+		// its connection without HTTP/3 datagrams) leaves requests on TCP
+		// through the http proxy at once, and is asked once whatever the
+		// origin; one that never answers leaves them on TCP within the
+		// race delay (decision 0066).
+		name:  "connect-udp-refused",
+		limit: 40 * time.Second,
+		run: func(e *interopEnv) {
+			if !connectUDPProfile(e.p) {
+				e.t.Skip("the profile's HTTP/3 has no datagrams (the connect-udp row checks it stays on TCP)")
+			}
+
+			_, otherPort, _ := net.SplitHostPort(e.altSvcServer())
+			refusing := newConnectUDPProxy(e, true, "", "")
+
+			refusing.setRefuse(http.StatusNotImplemented)
+
+			for what, px := range map[string]*connectUDPProxy{
+				"answering 501":            refusing,
+				"without HTTP/3 datagrams": newConnectUDPProxy(e, false, "", ""),
+			} {
+				next := e.viaConnectUDP(connectProxy(e.t), px.url(nil), false, e.altSvcAt(e.relay.Addr().Port()))
+				for range 3 {
+					start := time.Now()
+
+					next.onTCP("a request through a CONNECT-UDP proxy " + what)
+
+					if d := time.Since(start); d > 2*time.Second {
+						e.t.Errorf("a request through a CONNECT-UDP proxy %s took %v", what, d)
+					}
+				}
+
+				other := *next
+
+				other.origin = "https://" + interopHost + ":" + otherPort
+
+				var err error
+				if other.page, err = url.Parse(other.origin + "/"); err != nil {
+					e.t.Fatal(err)
+				}
+
+				for range 3 {
+					other.onTCP("a request to another origin through a CONNECT-UDP proxy " + what)
+				}
+
+				settle(e.ctx)
+
+				if conns, reqs, _ := px.stats(); conns != 1 || px == refusing && len(reqs) != 1 {
+					e.t.Errorf("the CONNECT-UDP proxy %s had %d connections and %d requests, want 1 (and 1)", what, conns, len(reqs))
+				}
+			}
+
+			silent, err := net.ListenUDP("udp4", &net.UDPAddr{
+				IP: net.IPv4(127, 0, 0, 1),
+			})
+			if err != nil {
+				e.t.Fatal(err)
+			}
+
+			e.t.Cleanup(func() {
+				_ = silent.Close()
+			})
+
+			nowhere := &url.URL{
+				Scheme: "https",
+				Host:   silent.LocalAddr().String(),
+			}
+			next := e.viaConnectUDP(connectProxy(e.t), nowhere, false, e.altSvcAt(e.relay.Addr().Port()))
+			start := time.Now()
+
+			next.onTCP("a request through a CONNECT-UDP proxy that never answers")
+
+			if d, limit := time.Since(start), interopRaceDelay*time.Millisecond+2*time.Second; d > limit {
+				e.t.Errorf("a request through a CONNECT-UDP proxy that never answers took %v, over %v", d, limit)
+			}
+		},
+	},
+	{
+		// The CONNECT-UDP proxy ends the stream under a live HTTP/3
+		// connection and refuses new ones: the connection ends with it,
+		// and the next request goes on TCP through the http proxy at
+		// once, not once the connection idles out.
+		name:  "connect-udp-teardown",
+		limit: 20 * time.Second,
+		run: func(e *interopEnv) {
+			if !connectUDPProfile(e.p) {
+				e.t.Skip("the profile's HTTP/3 has no datagrams (the connect-udp row checks it stays on TCP)")
+			}
+
+			px := newConnectUDPProxy(e, true, "", "")
+			next := e.viaConnectUDP(connectProxy(e.t), px.url(nil), false, nil)
+
+			next.warm()
+			px.setRefuse(http.StatusNotImplemented)
+			px.dropStreams()
+
+			start := time.Now()
+
+			next.onTCP("the request after the CONNECT-UDP stream ended")
+
+			if d := time.Since(start); d > 2*time.Second {
+				e.t.Errorf("the request after the CONNECT-UDP stream ended took %v", d)
+			}
+		},
+	},
 }
 
 // interopEnv is one case's world: a backend behind the relay, the TCP

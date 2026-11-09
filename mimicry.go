@@ -251,6 +251,19 @@ type Config struct {
 	// Browsers never use HTTP/3 through a proxy, so by default those
 	// requests stay on TCP. A proxy that refuses UDP keeps them on TCP.
 	HTTP3OverSOCKS5 bool
+	// ConnectUDPProxy lets requests through an http:// or https:// proxy
+	// use HTTP/3, carried by CONNECT-UDP (RFC 9298, MASQUE). It is given
+	// such a request's proxy and returns the CONNECT-UDP proxy for it: an
+	// https:// URL (port 443 by default) reached over HTTP/3, its
+	// credentials (as user:password) given as the proxy's are. Return the
+	// provider's MASQUE endpoint (https://user:pass@masque.oxylabs.io:50000
+	// beside http://user:pass@pr.oxylabs.io:7777), the proxy itself where it
+	// also serves HTTP/3, or nil to keep that proxy's requests on TCP; it
+	// must not change its argument. Browsers never use HTTP/3 through a
+	// proxy, so by default (nil) those requests stay on TCP. A CONNECT-UDP
+	// proxy that refuses it keeps them on TCP, as do Safari profiles (their
+	// HTTP/3 has no datagrams). See docs/concepts/proxies.md.
+	ConnectUDPProxy func(proxy *url.URL) (*url.URL, error)
 	// HTTP3ReadBufferSize is the receive buffer, in bytes, each HTTP/3
 	// connection asks the OS for. Zero asks for 1 MB, as Chrome does;
 	// negative keeps the OS default. The OS may grant less. Raise it for
@@ -461,6 +474,7 @@ func NewTransport(cfg Config) (*Transport, error) {
 			IdleConnTimeout:     cfg.IdleConnTimeout,
 			MaxIdleProxies:      cfg.MaxIdleProxies,
 			HTTP3OverSOCKS5:     cfg.HTTP3OverSOCKS5,
+			ConnectUDPProxy:     cfg.ConnectUDPProxy,
 			HTTP3ReadBufferSize: cfg.HTTP3ReadBufferSize,
 			HTTP3ACKEvery:       cfg.HTTP3ACKEvery,
 			BrowserProxyAuth:    cfg.BrowserProxyAuth,

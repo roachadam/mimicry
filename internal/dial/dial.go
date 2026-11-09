@@ -1,9 +1,10 @@
 // Package dial is the single path from an address to a connected socket,
 // directly or through an HTTP, HTTPS or SOCKS5 proxy (the TLS to an https
 // proxy and its HTTP/2 streams are the engine's, through ProxyTLS and
-// TunnelH2), and to a UDP socket for QUIC, directly or through a SOCKS5
-// UDP association. Every step honours the context and its deadline
-// (decision 0010); no other package opens connections.
+// TunnelH2), and to a UDP socket for QUIC, directly, through a SOCKS5 UDP
+// association, or as a CONNECT-UDP stream of the engine's HTTP/3
+// connection to a proxy (ConnectUDP). Every step honours the context and
+// its deadline (decision 0010); no other package opens connections.
 package dial
 
 import (
@@ -72,8 +73,8 @@ type Dialer struct {
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
 	asked sync.Map
-	// udpRefused holds the SOCKS5 proxies (by URL) that refused a UDP
-	// association (ListenUDPVia).
+	// udpRefused holds the proxies (by URL) that refused a SOCKS5 UDP
+	// association (ListenUDPVia) or CONNECT-UDP (ConnectUDP).
 	udpRefused sync.Map
 }
 
@@ -481,8 +482,8 @@ func (d *Dialer) associate(ctx context.Context, ctrl net.Conn, p *url.URL, metho
 	return a, nil
 }
 
-// UDPRefused reports whether p has refused a UDP association: its
-// requests stay on TCP.
+// UDPRefused reports whether p has refused a UDP association or
+// CONNECT-UDP: its requests stay on TCP.
 func (d *Dialer) UDPRefused(p *url.URL) bool {
 	_, ok := d.udpRefused.Load(p.String())
 	return ok
@@ -490,7 +491,7 @@ func (d *Dialer) UDPRefused(p *url.URL) bool {
 
 // Forget drops what d has learned of the proxy whose URL is via
 // (url.URL.String): that it asked for credentials, or refused a UDP
-// association. It is then a proxy d has never used.
+// association or CONNECT-UDP. It is then a proxy d has never used.
 func (d *Dialer) Forget(via string) {
 	d.asked.Delete(via)
 	d.udpRefused.Delete(via)
@@ -557,7 +558,7 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 // answered once, on a new connection if the proxy closed this one. A
 // failure is a *ProxyError.
 func (d *Dialer) ConnectOn(ctx context.Context, conn net.Conn, p *url.URL, addr string) (net.Conn, error) {
-	return d.tunnel(ctx, p, addr, d.Proxy.Connect, d.Proxy.ConnectAuth, &h1Exchange{
+	return tunnel(ctx, d, p, addr, d.Proxy.Connect, d.Proxy.ConnectAuth, &h1Exchange{
 		d:    d,
 		p:    p,
 		addr: addr,
@@ -575,15 +576,89 @@ type ConnectStream func(ctx context.Context, header []profile.Header) (proxy.Ans
 // credential flow of ConnectOn, the 407 answered on a new stream of the
 // same connection. A failure is a *ProxyError wrapping open's error.
 func (d *Dialer) TunnelH2(ctx context.Context, p *url.URL, addr string, open ConnectStream) (net.Conn, error) {
-	return d.tunnel(ctx, p, addr, d.Proxy.HTTPS.Connect, d.Proxy.HTTPS.ConnectAuth, open)
+	return tunnel(ctx, d, p, addr, d.Proxy.HTTPS.Connect, d.Proxy.HTTPS.ConnectAuth, open)
+}
+
+// ConnectUDPStream sends one CONNECT-UDP request (RFC 9298) as a new
+// stream of an HTTP/3 connection to a proxy, header its fields after the
+// pseudo-header fields, and returns the proxy's answer and, after a 2xx,
+// the stream as a socket. A connection that cannot carry CONNECT-UDP
+// fails with an error wrapping ErrNoConnectUDP before sending anything.
+type ConnectUDPStream func(ctx context.Context, header []profile.Header) (proxy.Answer, net.PacketConn, error)
+
+// ErrNoConnectUDP is a proxy whose HTTP/3 connection cannot carry
+// CONNECT-UDP (ConnectUDPStream).
+var ErrNoConnectUDP = errors.New("the proxy offers no CONNECT-UDP")
+
+// CONNECT-UDP requests' fields, without and with credentials: the capsule
+// protocol (RFC 9297, section 3.4, as RFC 9298 asks), the profile's
+// User-Agent as its CONNECTs carry it, and Proxy-Authorization. No browser
+// sends CONNECT-UDP to a configured proxy, so neither the fields nor their
+// order is measured (decision 0066).
+var (
+	connectUDPFields = []profile.Header{
+		{
+			Name:  "capsule-protocol",
+			Value: "?1",
+		},
+		{
+			Name: "user-agent",
+		},
+	}
+	connectUDPAuthFields = []profile.Header{
+		{
+			Name:  "capsule-protocol",
+			Value: "?1",
+		},
+		{
+			Name: "user-agent",
+		},
+		{
+			Name: "proxy-authorization",
+		},
+	}
+)
+
+// ConnectUDP opens a CONNECT-UDP stream through the proxy p, an HTTP/3
+// one, with open (a request on its connection) and the credential flow of
+// TunnelH2, the 407 answered on a new stream of the same connection. A
+// proxy that cannot carry CONNECT-UDP, or refuses it whatever the target
+// (refusesConnectUDP), is remembered (UDPRefused): its requests stay on
+// TCP. A failure is a *ProxyError wrapping open's error.
+func (d *Dialer) ConnectUDP(ctx context.Context, p *url.URL, open ConnectUDPStream) (net.PacketConn, error) {
+	pc, err := tunnel(ctx, d, p, "", connectUDPFields, connectUDPAuthFields, open)
+	if err == nil {
+		return pc, nil
+	}
+
+	if pe, ok := errors.AsType[*ProxyError](err); ok && (refusesConnectUDP(pe.StatusCode) || errors.Is(err, ErrNoConnectUDP)) {
+		d.udpRefused.Store(p.String(), true)
+	}
+
+	return nil, err
+}
+
+// refusesConnectUDP reports whether a proxy answering a CONNECT-UDP with
+// code refuses it for every target: it does not understand it (400, 404,
+// 405, 501) or turned the credentials down (407 after them). Others (403,
+// 502, 503, 504...) may be the target's, which another may not share:
+// Oxylabs refuses some UDP targets (decision 0066).
+func refusesConnectUDP(code int) bool {
+	switch code {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusProxyAuthRequired, http.StatusNotImplemented:
+		return true
+	}
+
+	return false
 }
 
 // exchanger sends a tunnel's CONNECTs: over HTTP/1.1 on one connection
-// (h1Exchange), or as streams of an HTTP/2 connection (ConnectStream).
-type exchanger interface {
+// (h1Exchange), or as streams of an HTTP/2 or HTTP/3 connection
+// (ConnectStream, ConnectUDPStream). T is the tunnel.
+type exchanger[T any] interface {
 	// connect sends one CONNECT carrying header and returns the proxy's
 	// answer and, after a 2xx, the tunnel.
-	connect(ctx context.Context, header []profile.Header) (proxy.Answer, net.Conn, error)
+	connect(ctx context.Context, header []profile.Header) (proxy.Answer, T, error)
 	// again readies the CONNECT that answers a, a 407; on failure it
 	// holds nothing open.
 	again(ctx context.Context, a proxy.Answer) error
@@ -594,7 +669,9 @@ type exchanger interface {
 // tunnel is the browser's credential flow for a CONNECT to addr through
 // p, its lists plain and withAuth (without and with credentials), sent by
 // x.
-func (d *Dialer) tunnel(ctx context.Context, p *url.URL, addr string, plain, withAuth []profile.Header, x exchanger) (net.Conn, error) {
+func tunnel[T any](ctx context.Context, d *Dialer, p *url.URL, addr string, plain, withAuth []profile.Header, x exchanger[T]) (T, error) {
+	var none T
+
 	unasked := p.User != nil && (!d.BrowserAuth || d.askedConnect(p))
 	header := d.connectHeader(addr, plain, "")
 
@@ -607,7 +684,7 @@ func (d *Dialer) tunnel(ctx context.Context, p *url.URL, addr string, plain, wit
 	case err != nil:
 		x.abandon()
 
-		return nil, proxyError(p, err)
+		return none, proxyError(p, err)
 
 	case answer.StatusCode/100 == 2:
 		return tunnel, nil
@@ -620,19 +697,19 @@ func (d *Dialer) tunnel(ctx context.Context, p *url.URL, addr string, plain, wit
 			what = "CONNECT with credentials"
 		}
 
-		return nil, answerError(p, answer, fmt.Errorf("answered %s with %s", what, answer.Status))
+		return none, answerError(p, answer, fmt.Errorf("answered %s with %s", what, answer.Status))
 	}
 
 	if err := basicChallenge(answer.Header); err != nil {
 		x.abandon()
 
-		return nil, answerError(p, answer, err)
+		return none, answerError(p, answer, err)
 	}
 
 	d.asked.Store(p.String(), true)
 
 	if err := x.again(ctx, answer); err != nil {
-		return nil, proxyError(p, err)
+		return none, proxyError(p, err)
 	}
 
 	answer, tunnel, err = x.connect(ctx, d.connectHeader(addr, withAuth, Credentials(p)))
@@ -640,12 +717,12 @@ func (d *Dialer) tunnel(ctx context.Context, p *url.URL, addr string, plain, wit
 	case err != nil:
 		x.abandon()
 
-		return nil, proxyError(p, err)
+		return none, proxyError(p, err)
 
 	case answer.StatusCode/100 != 2:
 		x.abandon()
 
-		return nil, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
+		return none, answerError(p, answer, fmt.Errorf("answered CONNECT with credentials with %s", answer.Status))
 	}
 
 	return tunnel, nil
@@ -710,6 +787,20 @@ func (ConnectStream) again(context.Context, proxy.Answer) error {
 // abandon does nothing: a refused stream has ended, and the connection
 // is the engine's.
 func (ConnectStream) abandon() {}
+
+func (s ConnectUDPStream) connect(ctx context.Context, header []profile.Header) (proxy.Answer, net.PacketConn, error) {
+	return s(ctx, header)
+}
+
+// again does nothing: the next CONNECT-UDP is a new stream of the same
+// connection.
+func (ConnectUDPStream) again(context.Context, proxy.Answer) error {
+	return nil
+}
+
+// abandon does nothing: a refused stream has ended, and the connection
+// is the engine's.
+func (ConnectUDPStream) abandon() {}
 
 // askedConnect reports whether, the browser's way (BrowserAuth), a
 // CONNECT to p carries credentials unasked: p asked before and the

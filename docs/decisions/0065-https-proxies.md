@@ -1,6 +1,6 @@
 # 0065: https:// proxies as each browser uses them
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-09 by [0066](0066-http3-over-connect-udp.md) (HTTP/3 through an https proxy by CONNECT-UDP)
 - Date: 2026-11-09
 - Commits: `0adcd6c`
 
@@ -123,3 +123,10 @@ macOS or iOS offers an https proxy; a browser is captured sending plain
 HTTP or `ws://` through one, answering a proxy's CertificateRequest, or
 partitioning its proxy connections; Firefox's proxy resumption rule is
 found.
+
+## Amendment 2026-11-09: HTTP/3 through an https proxy
+
+HTTP/3 still never goes through the https proxy's own tunnels, but
+`Config.ConnectUDPProxy` may name a CONNECT-UDP proxy over HTTP/3 (the
+https proxy itself, where it serves both) that carries it; see
+[0066](0066-http3-over-connect-udp.md).

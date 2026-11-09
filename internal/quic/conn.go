@@ -319,6 +319,9 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 		// mimicry: disable_active_migration; the client never moves
 		// (clientMove).
 		c.client.pathState.migrationDisabled = p.disableActiveMigration
+
+		// mimicry: max_datagram_frame_size (client_datagram.go).
+		c.clientPeerDatagrams(p.maxDatagramFrameSize)
 	}
 
 	// mimicry: the windows first, under tableMu (conn_streams.go): a

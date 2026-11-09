@@ -36,6 +36,7 @@ type transportParameters struct {
 	initialSrcConnID               []byte
 	retrySrcConnID                 []byte
 	versionInfo                    []byte // mimicry: version_information, RFC 9368
+	maxDatagramFrameSize           int64  // mimicry: max_datagram_frame_size, RFC 9221
 }
 
 const (
@@ -284,6 +285,9 @@ func unmarshalTransportParams(params []byte) (transportParameters, error) {
 			// non-nil when present, even empty.
 			p.versionInfo = append([]byte{}, val...)
 			n = len(val)
+		case paramMaxDatagramFrameSize:
+			// mimicry: RFC 9221, for DialConfig.Datagrams.
+			p.maxDatagramFrameSize, n = quicwire.ConsumeVarintInt64(val)
 
 		default:
 			n = len(val)

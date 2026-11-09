@@ -73,6 +73,11 @@ type DialConfig struct {
 	// connection resuming the ticket finds that state in
 	// Conn.RememberedApplicationState.
 	RememberApplication bool
+	// Datagrams lets the connection send and receive DATAGRAM frames (RFC
+	// 9221: SendDatagram, ReceiveDatagram), for HTTP/3 datagrams. The
+	// profile must announce max_datagram_frame_size; otherwise DATAGRAM
+	// frames it receives are dropped.
+	Datagrams bool
 }
 
 // ErrIdleTimeout is the error of a connection closed by its idle timeout
@@ -370,6 +375,9 @@ type clientState struct {
 	// downgradeErr is the error code of a failed version_information
 	// check (QUICVersionNegotiation.DowngradeError, or RFC 9368's).
 	downgradeErr transportError
+	// datagrams are the DATAGRAM frames sent and received; nil unless
+	// DialConfig.Datagrams.
+	datagrams *clientDatagrams
 }
 
 // newClientConfig validates cfg and makes the connection's draws.
@@ -410,6 +418,14 @@ func newClientConfig(cfg DialConfig) (*clientState, *Config, error) {
 	}
 
 	cc.sentVersionInfo, cc.available = clientVersions(p)
+
+	if cfg.Datagrams {
+		if !cc.announces(paramMaxDatagramFrameSize) {
+			return nil, nil, errors.New("quic: DATAGRAM frames for a profile that announces no max_datagram_frame_size")
+		}
+
+		cc.datagrams = newClientDatagrams()
+	}
 
 	switch cfg.Version {
 	case 0, quicVersion1:
@@ -602,8 +618,9 @@ var minAckDelayParams = []profile.TransportParameterID{
 
 // handleExtensionFrame consumes a frame of an extension the client
 // announced, and returns its length; -1 for any other frame type. DATAGRAM
-// frames are dropped and ACK_FREQUENCY/IMMEDIATE_ACK ignored (browser
-// behaviour unmeasured).
+// frames go to ReceiveDatagram on a connection that asked for them
+// (client_datagram.go) and are dropped otherwise; ACK_FREQUENCY and
+// IMMEDIATE_ACK are ignored (browser behaviour unmeasured).
 func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int {
 	cc := c.client
 	if cc == nil || ptype&(packetType0RTT|packetType1RTT) == 0 {
@@ -618,13 +635,17 @@ func (c *Conn) handleExtensionFrame(_ time.Time, ptype packetType, b []byte) int
 	switch {
 	case (typ == frameTypeDatagram || typ == frameTypeDatagramWithLen) && cc.announces(paramMaxDatagramFrameSize):
 		if typ == frameTypeDatagram {
+			c.clientReceivedDatagram(b[n:])
+
 			return len(b)
 		}
 
-		_, m := quicwire.ConsumeVarintBytes(b[n:])
+		payload, m := quicwire.ConsumeVarintBytes(b[n:])
 		if m < 0 {
 			return -1
 		}
+
+		c.clientReceivedDatagram(payload)
 
 		return n + m
 
