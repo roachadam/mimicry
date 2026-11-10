@@ -792,6 +792,15 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s, unsupported on the iPhone: %s", sc.Name, why))
 			continue
 
+		case shared && !iphone && (sc.Proxy == server.ProxySOCKS4 || sc.Proxy == server.ProxySOCKS4A) != (rep.SafariProxy == "socks4"):
+			if rep.SafariProxy == "socks4" {
+				p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: the system sends every URL Safari loads to the SOCKS4 proxy setting, which serves only the SOCKS4 scenarios", sc.Name))
+			} else {
+				p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: Safari speaks SOCKS4 only through the system's SOCKS proxy setting at 127.0.0.1:15355 as SOCKS4 (now: %s), which takes every URL: set it with scutil --prefs as an administrator for a run of the SOCKS4 scenarios alone (docs/capturing.md, Proxy scenarios)", sc.Name, rep.SafariProxy))
+			}
+
+			continue
+
 		case iphone && sc.Clicks():
 			p.Warnings = append(p.Warnings, fmt.Sprintf("skipping %s: %s (docs/capturing.md, Safari on an iPhone)", sc.Name, browser.IOSNoTaps))
 			continue
@@ -905,7 +914,7 @@ func (r *refreshRun) planCaptures(p *plan, rep *preflightReport, cfg config) err
 		if slices.ContainsFunc(p.Captures, func(c planned) bool {
 			sc, err := server.ScenarioByName(c.Scenario)
 			return err == nil && sc.Proxy != ""
-		}) && rep.SafariProxy != "pac" {
+		}) && rep.SafariProxy != "pac" && rep.SafariProxy != "socks4" {
 			p.Problems = append(p.Problems, fmt.Sprintf("the proxy scenarios need the system to send Safari to the capture tool's proxy script on %s (now: %s):\n    %s\n  and after the run:\n    %s",
 				r.machine(p), rep.SafariProxy,
 				onMachine(p.Host, "sudo networksetup -setautoproxyurl <service> http://127.0.0.1:15356/mimicry.pac"),
@@ -987,9 +996,10 @@ func estimate(sc *server.Scenario, tool string, samples int) time.Duration {
 
 // inherit is capturesFrom for p: every scenario it does not capture, and
 // every replay, from the profile holding the previous profile's captures
-// of it. The default scenario is always captured; on iOS a scenario whose
-// macOS captures differ from the iPhone's (Scenario.NotInheritedOnIOS) is
-// not inherited.
+// of it, where that profile has captures of it (SOCKS4 was captured from
+// some profiles only). The default scenario is always captured; on iOS a
+// scenario whose macOS captures differ from the iPhone's
+// (Scenario.NotInheritedOnIOS) is not inherited.
 func inherit(p *plan, builtins map[string]*profile.Spec) map[string]string {
 	prev := builtins[p.Previous]
 	if prev == nil {
@@ -1029,9 +1039,16 @@ func inherit(p *plan, builtins map[string]*profile.Spec) map[string]string {
 			continue
 		}
 
-		if src := capture.Source(prev, name); src != p.Name {
-			out[name] = src
+		src := capture.Source(prev, name)
+		if src == p.Name {
+			continue
 		}
+
+		if files, err := filepath.Glob(filepath.Join(capturesDir, src+"."+name+".*")); err != nil || len(files) == 0 {
+			continue
+		}
+
+		out[name] = src
 	}
 
 	if len(out) == 0 {

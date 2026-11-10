@@ -6,7 +6,34 @@ import (
 	"testing"
 
 	"github.com/roachadam/mimicry/profile"
+	"github.com/roachadam/mimicry/profiles"
 )
+
+// A new profile inherits a scenario only from a profile holding captures
+// of it: Chrome 156 captured proxy-socks4 but, having no SOCKS4A, never
+// proxy-socks4a, and its proxy-socks5 captures are Chrome 155's.
+func TestInheritOnlyCapturedScenarios(t *testing.T) {
+	t.Chdir("../..") // capturesDir is relative to internal/harness
+
+	prev := profiles.Chrome156MacOS().Spec()
+	got := inherit(&plan{
+		Name:     "chrome-157-macos",
+		Previous: prev.Name,
+		Platform: prev.Platform,
+	}, map[string]*profile.Spec{
+		prev.Name: prev,
+	})
+
+	for scenario, want := range map[string]string{
+		"proxy-socks4":  "chrome-156-macos",
+		"proxy-socks4a": "",
+		"proxy-socks5":  "chrome-155-macos",
+	} {
+		if got[scenario] != want {
+			t.Errorf("capturesFrom[%q] = %q, want %q", scenario, got[scenario], want)
+		}
+	}
+}
 
 // A new profile starts from the browser's newest one on its platform; the
 // first there from the browser's macOS one, and the first of a Chromium

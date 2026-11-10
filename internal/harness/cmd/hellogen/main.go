@@ -3,8 +3,8 @@
 // reuse, ECH), how it cuts a new HTTP/2 connection's opening and an
 // HTTP/1.1 upload into TLS records, how it answers a server's GOAWAY, how
 // it sends a client certificate (tls.clientAuth) and how it uses an
-// https:// proxy (proxy.https) from its captures, and writes them into the
-// profile and the capture's JSON.
+// https:// or SOCKS4 proxy (proxy.https, proxy.socks4) from its captures,
+// and writes them into the profile and the capture's JSON.
 //
 //	go run ./cmd/hellogen -captures testdata/captures -profile ../../profiles/data/chrome-155-macos.json
 //
@@ -151,6 +151,10 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 	if p.Proxy != nil {
 		if p.Proxy.HTTPS, err = proxyHTTPS(dir, p); err != nil {
 			return nil, nil, fmt.Errorf("proxy.https: %w", err)
+		}
+
+		if p.Proxy.SOCKS4, err = proxySOCKS4(dir, p); err != nil {
+			return nil, nil, fmt.Errorf("proxy.socks4: %w", err)
 		}
 	}
 

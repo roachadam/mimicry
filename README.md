@@ -78,7 +78,7 @@ Runnable examples are in [`example_test.go`](example_test.go).
 - **Cookies:** each client has a jar with the browser's rules. [Cookies](docs/concepts/cookies.md)
 - **Saving an identity:** cookies, Alt-Svc, client hints and TLS session tickets (`Config.Tickets`) save and load as JSON, to carry an identity to another process. [Saving an identity](docs/concepts/sessions.md)
 - **Client hints:** Chrome profiles honour a site's `Accept-CH`, `Critical-CH` and `Clear-Site-Data` as Chrome does, with no setup. `Config.ClientHintStore` keeps (and saves) each site's opt-in, `Config.ClientHints` picks the machine the hints describe (`profiles.RandomMachine("windows")`), and `Request.ClientHints` says when a page delegates its hints to another origin. [Client hints](docs/concepts/client-hints.md)
-- **Proxies:** `http`, `socks5` and `socks5h`, chosen per request with `Config.Proxy`. [Proxies](docs/concepts/proxies.md)
+- **Proxies:** `http`, `https`, `socks5`, `socks5h`, `socks4` and `socks4a` (each for the profiles captured with it), chosen per request with `Config.Proxy`. [Proxies](docs/concepts/proxies.md)
 - **Your own headers:** they go where a page's script would put them. [How a request is built](docs/concepts/how-a-request-is-built.md)
 - **Certificate pins:** `go run github.com/roachadam/mimicry/cmd/pins https://example.com/`, then `Config.Pins`.
 - **Client certificates (mutual TLS):** `Config.GetClientCertificate` answers a server that asks, signed and resumed as the profile's browser does (Chrome and Edge also drop the first connection a host asks on, as the browsers do). [Client certificates](docs/concepts/client-certificates.md)

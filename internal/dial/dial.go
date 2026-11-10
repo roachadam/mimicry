@@ -1,6 +1,6 @@
 // Package dial is the single path from an address to a connected socket,
-// directly or through an HTTP, HTTPS or SOCKS5 proxy (the TLS to an https
-// proxy and its HTTP/2 streams are the engine's, through ProxyTLS and
+// directly or through an HTTP, HTTPS, SOCKS5 or SOCKS4 proxy (the TLS to an
+// https proxy and its HTTP/2 streams are the engine's, through ProxyTLS and
 // TunnelH2), and to a UDP socket for QUIC, directly, through a SOCKS5 UDP
 // association, or as a CONNECT-UDP stream of the engine's HTTP/3
 // connection to a proxy (ConnectUDP). Every step honours the context and
@@ -266,15 +266,27 @@ const (
 	SchemeHTTPS   = "https"
 	SchemeSOCKS5  = "socks5"
 	SchemeSOCKS5H = "socks5h"
+	// SchemeSOCKS4 resolves the host locally (Resolver) and sends its
+	// IPv4 address; SchemeSOCKS4A sends the host name (SOCKS4A).
+	SchemeSOCKS4  = "socks4"
+	SchemeSOCKS4A = "socks4a"
 )
 
 // CheckProxy reports whether p is a proxy URL the dialer can use. The
 // engine checks that the profile describes the proxy protocol.
 func (d *Dialer) CheckProxy(p *url.URL) error {
-	switch {
-	case p.Scheme != SchemeHTTP && p.Scheme != SchemeHTTPS && p.Scheme != SchemeSOCKS5 && p.Scheme != SchemeSOCKS5H:
-		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, https, socks5, socks5h)", p.Scheme)
-	case p.Host == "":
+	switch p.Scheme {
+	case SchemeHTTP, SchemeHTTPS, SchemeSOCKS5, SchemeSOCKS5H:
+	case SchemeSOCKS4, SchemeSOCKS4A:
+		if _, ok := p.User.Password(); ok {
+			return fmt.Errorf("mimicry: proxy URL %q has a password, which SOCKS4 cannot carry (only a user ID)", p.Redacted())
+		}
+
+	default:
+		return fmt.Errorf("mimicry: proxy scheme %q is not supported (http, https, socks5, socks5h, socks4, socks4a)", p.Scheme)
+	}
+
+	if p.Host == "" {
 		return fmt.Errorf("mimicry: proxy URL %q has no host", p.Redacted())
 	}
 
@@ -350,11 +362,14 @@ func (d *Dialer) dialProxy(ctx context.Context, p *url.URL) (net.Conn, error) {
 	return d.ProxyTLS(ctx, conn, p)
 }
 
-// DialVia connects to addr through the proxy p, an http or SOCKS5 one: an
-// HTTP proxy's CONNECT tunnel or a SOCKS5 connection, as the profile's
-// browser asks for them. An https proxy's tunnels are the engine's
-// (DialProxy, then ConnectOn or TunnelH2 by the protocol it picked). A
-// failure before the tunnel is up is a *ProxyError.
+// DialVia connects to addr through the proxy p, an http, SOCKS5 or SOCKS4
+// one: an HTTP proxy's CONNECT tunnel or a SOCKS5 or SOCKS4 connection, as
+// the profile's browser asks for them. An https proxy's tunnels are the
+// engine's (DialProxy, then ConnectOn or TunnelH2 by the protocol it
+// picked). Through socks4, addr's host is resolved first, as the browser
+// does, to an IPv4 address. A failure on the way to or at the proxy is a
+// *ProxyError; a SOCKS4 target its request cannot carry, or that lookup's
+// failure, is not: no proxy was asked, and none would do better.
 func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn, error) {
 	if d.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -364,13 +379,49 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 		defer cancel()
 	}
 
+	var socks4 []byte
+
+	if p.Scheme == SchemeSOCKS4 || p.Scheme == SchemeSOCKS4A {
+		target := addr
+		if p.Scheme == SchemeSOCKS4 {
+			var err error
+			if target, err = d.resolve4(ctx, addr); err != nil {
+				return nil, err
+			}
+		}
+
+		// A host name goes only through socks4a, for a profile with
+		// proxy.socks4.hostname, whose hostnameDstip the checked profile
+		// holds; socks4 sends an address.
+		var hostnameIP [4]byte
+		if px := d.Proxy; px != nil && px.SOCKS4 != nil {
+			if ip, err := netip.ParseAddr(px.SOCKS4.HostnameDSTIP); err == nil && ip.Is4() {
+				hostnameIP = ip.As4()
+			}
+		}
+
+		// Browsers send an empty USERID; a user in the URL goes there.
+		var err error
+		if socks4, err = proxy.SOCKS4Request(target, p.User.Username(), hostnameIP); err != nil {
+			return nil, fmt.Errorf("mimicry: %w", err)
+		}
+	}
+
 	conn, err := d.dial(ctx, proxyAddr(p))
 	if err != nil {
 		return nil, proxyError(p, err)
 	}
 
-	if p.Scheme == SchemeHTTP {
+	switch p.Scheme {
+	case SchemeHTTP:
 		return d.ConnectOn(ctx, conn, p, addr)
+	case SchemeSOCKS4, SchemeSOCKS4A:
+		if err := proxy.SOCKS4(ctx, conn, socks4); err != nil {
+			_ = conn.Close()
+			return nil, proxyError(p, err)
+		}
+
+		return conn, nil
 	}
 
 	methods, err := d.socksMethods(p)
@@ -385,6 +436,37 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 	}
 
 	return conn, nil
+}
+
+// resolve4 is addr ("host:port") with its host looked up (Resolver) to
+// its first IPv4 address, as browsers resolve for a SOCKS4 proxy (Chrome
+// looks up IPv4 only). An IP address stays as it is (SOCKS4Request
+// refuses an IPv6 one).
+func (d *Dialer) resolve4(ctx context.Context, addr string) (string, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := netip.ParseAddr(host); err == nil {
+		return addr, nil
+	}
+
+	resolver := d.Resolver
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+
+	ips, err := resolver.LookupNetIP(ctx, "ip4", host)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ips) == 0 {
+		return "", fmt.Errorf("mimicry: %s has no IPv4 address for a SOCKS4 proxy", host)
+	}
+
+	return net.JoinHostPort(ips[0].Unmap().String(), port), nil
 }
 
 // socksMethods are the SOCKS5 methods offered to p: the profile's, and

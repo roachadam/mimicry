@@ -9913,6 +9913,10 @@
       ],
       "address": "domain"
     },
+    "socks4": {
+      "hostname": true,
+      "hostnameDstip": "0.0.0.1"
+    },
     "connectNoResume": true,
     "https": {
       "connect": [

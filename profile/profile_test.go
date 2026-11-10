@@ -1422,6 +1422,28 @@ func TestValidate(t *testing.T) {
 			want: `must be "domain"`,
 		},
 		{
+			name: "SOCKS4A without its DSTIP",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.Proxy = validProxy()
+				p.Proxy.SOCKS4 = &SOCKS4{
+					Hostname: true,
+				}
+			},
+			path: "proxy.socks4.hostnameDstip",
+			want: "must be SOCKS4A's 0.0.0.x",
+		},
+		{
+			name: "SOCKS4 host names only, without SOCKS4A",
+			mutate: func(_ *testing.T, p *Spec) {
+				p.Proxy = validProxy()
+				p.Proxy.SOCKS4 = &SOCKS4{
+					HostnameOnly: true,
+				}
+			},
+			path: "proxy.socks4",
+			want: "need hostname",
+		},
+		{
 			name: "WebSocket through a proxy, unknown ws:// way",
 			mutate: func(_ *testing.T, p *Spec) {
 				p.Proxy = validProxy()

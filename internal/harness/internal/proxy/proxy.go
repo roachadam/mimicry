@@ -1,7 +1,7 @@
-// Package proxy is the capture proxy: HTTP (CONNECT and absolute-form) and
-// SOCKS5 on one port, or an HTTP proxy over TLS. It records how a client
-// asks for each connection and hands the connection on to the capture
-// server.
+// Package proxy is the capture proxy: HTTP (CONNECT and absolute-form),
+// SOCKS5 and SOCKS4 (4a included) on one port, or an HTTP proxy over TLS.
+// It records how a client asks for each connection and hands the
+// connection on to the capture server.
 package proxy
 
 import (
@@ -28,7 +28,7 @@ import (
 )
 
 // Proxy accepts proxy clients. Connections it lets through come out of
-// Listener: CONNECT and SOCKS5 tunnels after the proxy's reply, or, when
+// Listener: CONNECT and SOCKS tunnels after the proxy's reply, or, when
 // Plain, absolute-form HTTP requests as they are, first request included.
 // With PlainPort, those for that port come out of PlainListener instead.
 type Proxy struct {
@@ -38,7 +38,9 @@ type Proxy struct {
 	Allow func(host string) bool
 	// PassThrough carries requests for other hosts to the network, without
 	// credentials or records, for a proxy the whole system uses while
-	// capturing (Safari through a manual proxy).
+	// capturing (Safari through a manual web proxy or the SOCKS proxy
+	// setting): absolute-form requests, CONNECTs and SOCKS4 CONNECTs.
+	// SOCKS5 requests for other hosts are refused even so.
 	PassThrough bool
 	// Plain means the server behind speaks plain HTTP: absolute-form
 	// requests for allowed hosts are passed on (others get 403) and CONNECT
@@ -211,8 +213,10 @@ func (p *Proxy) handle(ctx context.Context, conn net.Conn) error {
 		conn = tc
 		pass, target, err = p.http(conn, bufio.NewReader(tc), id)
 
-	case first[0] == 5:
+	case first[0] == socksVersion:
 		pass, target, err = p.socks5(conn, br, id)
+	case first[0] == socks4Version:
+		pass, target, err = p.socks4(conn, br, id)
 	default:
 		pass, target, err = p.http(conn, br, id)
 	}
@@ -329,7 +333,7 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 
 		if !p.Allow(host) {
 			if p.PassThrough {
-				return nil, "", tunnel(conn, br, target)
+				return nil, "", tunnel(conn, br, target, connectGranted, connectRefused)
 			}
 
 			_, err := io.WriteString(conn, "HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
@@ -368,16 +372,22 @@ func (p *Proxy) http(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string
 	}
 }
 
-// tunnel connects conn to target and copies both ways until either side
-// closes.
-func tunnel(conn net.Conn, br *bufio.Reader, target string) error {
+// The answers to a CONNECT the proxy passes through.
+var (
+	connectGranted = []byte("HTTP/1.1 200 Connection established\r\n\r\n")
+	connectRefused = []byte("HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+)
+
+// tunnel connects conn to target, answers granted (refused when target
+// cannot be reached) and copies both ways until either side closes.
+func tunnel(conn net.Conn, br *bufio.Reader, target string, granted, refused []byte) error {
 	dst, err := net.DialTimeout("tcp", target, 10*time.Second) //nolint:noctx // bounded by the timeout; lives as long as the client's connection
 	if err != nil {
-		_, werr := io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+		_, werr := conn.Write(refused)
 		return errors.Join(err, werr, conn.Close())
 	}
 
-	if _, err := io.WriteString(conn, "HTTP/1.1 200 Connection established\r\n\r\n"); err != nil {
+	if _, err := conn.Write(granted); err != nil {
 		return errors.Join(err, dst.Close())
 	}
 
@@ -566,6 +576,82 @@ func (p *Proxy) socks5(conn net.Conn, br *bufio.Reader, id int) (io.Reader, stri
 	return br, req.Target, nil
 }
 
+// SOCKS4 constants (SOCKS4a: openssh's socks4a.protocol). The command
+// codes are SOCKS5's.
+const (
+	socks4Version  = 4
+	socks4Granted  = 0x5a
+	socks4Rejected = 0x5b
+	// socks4MaxField bounds USERID and SOCKS4a's host name, NUL included.
+	socks4MaxField = 256
+)
+
+// socks4 reads a SOCKS4 request (VN CD DSTPORT DSTIP USERID NUL, then,
+// when DSTIP is 0.0.0.x with x nonzero, SOCKS4a's host name and NUL),
+// records it as sent, and answers; it returns what to read the tunnel from
+// and its target. id numbers the connection.
+func (p *Proxy) socks4(conn net.Conn, br *bufio.Reader, id int) (io.Reader, string, error) {
+	msg := &keeper{
+		r: br,
+	}
+
+	head, err := msg.take(8)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if _, err := msg.field(); err != nil {
+		return nil, "", err
+	}
+
+	host := netip.AddrFrom4([4]byte(head[4:8])).String()
+	if head[4] == 0 && head[5] == 0 && head[6] == 0 && head[7] != 0 {
+		name, err := msg.field()
+		if err != nil {
+			return nil, "", err
+		}
+
+		host = string(name)
+	}
+
+	req := capture.ProxyRequest{
+		Kind:    capture.ProxySOCKS4,
+		Conn:    id,
+		Target:  net.JoinHostPort(host, strconv.Itoa(int(binary.BigEndian.Uint16(head[2:4])))),
+		Request: hex.EncodeToString(msg.kept),
+	}
+
+	reply := func(code byte) []byte {
+		return []byte{0, code, 0, 0, 0, 0, 0, 0}
+	}
+
+	if !p.Allow(host) {
+		if p.PassThrough && head[1] == socksConnect {
+			// Safari through macOS's SOCKS proxy setting: the whole Mac
+			// uses it.
+			return nil, "", tunnel(conn, br, req.Target, reply(socks4Granted), reply(socks4Rejected))
+		}
+
+		_, err := conn.Write(reply(socks4Rejected))
+
+		return nil, "", errors.Join(err, conn.Close())
+	}
+
+	p.record(req)
+
+	if head[1] != socksConnect {
+		_, err := conn.Write(reply(socks4Rejected))
+
+		return nil, "", errors.Join(err, conn.Close())
+	}
+
+	if _, err := conn.Write(reply(socks4Granted)); err != nil {
+		return nil, "", err
+	}
+
+	return br, req.Target, nil
+}
+
 // keeper reads a message in parts and keeps its bytes as sent.
 type keeper struct {
 	r    io.Reader
@@ -581,6 +667,24 @@ func (k *keeper) take(n int) ([]byte, error) {
 	k.kept = append(k.kept, b...)
 
 	return b, nil
+}
+
+// field reads a NUL-terminated SOCKS4 field of at most socks4MaxField
+// bytes, NUL included, and returns it without the NUL.
+func (k *keeper) field() ([]byte, error) {
+	start := len(k.kept)
+	for len(k.kept)-start < socks4MaxField {
+		b, err := k.take(1)
+		if err != nil {
+			return nil, err
+		}
+
+		if b[0] == 0 {
+			return k.kept[start : len(k.kept)-1], nil
+		}
+	}
+
+	return nil, fmt.Errorf("SOCKS4 field longer than %d bytes", socks4MaxField)
 }
 
 func (p *Proxy) record(r capture.ProxyRequest) {

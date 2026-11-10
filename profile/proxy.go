@@ -34,6 +34,10 @@ type Proxy struct {
 	// SOCKS5 is the browser's SOCKS5 handshake. Nil: not measured, so a
 	// SOCKS5 proxy is an error.
 	SOCKS5 *SOCKS5 `json:"socks5,omitempty"`
+	// SOCKS4 is the browser's SOCKS4 request. Nil: not measured, so a
+	// socks4 or socks4a proxy is an error. hellogen derives it from the
+	// proxy-socks4 and proxy-socks4a captures.
+	SOCKS4 *SOCKS4 `json:"socks4,omitempty"`
 	// ConnectNoResume: TLS connections through a CONNECT tunnel, an
 	// http:// or an https:// proxy's, offer no earlier session; through
 	// SOCKS5, and directly, they resume as TLS.Resumption says (Firefox).
@@ -159,3 +163,22 @@ type SOCKS5Address string
 const (
 	SOCKS5Domain SOCKS5Address = "domain"
 )
+
+// SOCKS4 is a browser's SOCKS4 request: CONNECT, with an empty USERID.
+// Through socks4:// the browser resolves the host itself and sends its
+// IPv4 address (Chrome, Firefox); an IP address goes out as itself
+// through either scheme.
+type SOCKS4 struct {
+	// Hostname: the browser can instead send the host name for the proxy
+	// to resolve (SOCKS4A), which socks4a:// asks for (Firefox, with
+	// network.proxy.socks_remote_dns; Safari). False: a socks4a proxy is an
+	// error (Chrome has no SOCKS4A).
+	Hostname bool `json:"hostname,omitempty"`
+	// HostnameOnly: the browser always sends a host name (SOCKS4A) and
+	// never resolves it itself, so a socks4 proxy is an error (Safari,
+	// through macOS's SOCKS proxy setting as SOCKS4). Requires Hostname.
+	HostnameOnly bool `json:"hostnameOnly,omitempty"`
+	// HostnameDSTIP is DSTIP in a SOCKS4A request, 0.0.0.x with x not 0:
+	// "0.0.0.1" (Firefox) or "0.0.0.16" (Safari). Required with Hostname.
+	HostnameDSTIP string `json:"hostnameDstip,omitempty"`
+}

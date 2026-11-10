@@ -10195,6 +10195,7 @@
       ],
       "address": "domain"
     },
+    "socks4": {},
     "https": {
       "connect": [
         {

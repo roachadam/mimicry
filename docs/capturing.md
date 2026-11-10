@@ -235,8 +235,9 @@ serves only addresses on the `-listen` network.
 Unsupported on the iPhone (`Scenario.UnsupportedOnIOS`; the tool skips
 them, logged): the proxy-credential scenarios (Safari on iOS answers no
 407, even with the credentials in the Wi-Fi proxy setting: decision
-0051), the SOCKS5 proxy scenarios (the phone's setting takes an HTTP
-proxy only) and `cookies-edge` (its `lo-*` steps navigate to
+0051), the SOCKS5 and SOCKS4 proxy scenarios (the phone's setting takes an HTTP
+proxy or a proxy script, and no iOS setting carries macOS's SOCKS version
+key; SOCKS4 is never inherited from macOS Safari) and `cookies-edge` (its `lo-*` steps navigate to
 `http://localhost`, the phone itself, so the page stops there). The click
 scenarios need `manual`. Wi-Fi adds latency and loss that the loopback
 captures never see, which the HTTP/3 and timing scenarios can show: from
@@ -500,8 +501,8 @@ Safari's window: leave the machine alone while it runs.
 ### Proxy scenarios
 
 Proxy scenarios (`proxy-*`) put the capture proxy (`internal/proxy`:
-HTTP CONNECT, absolute-form, SOCKS5, all recorded, or CONNECT over TLS;
-see [HTTPS proxy scenarios](#https-proxy-scenarios)) in front of the server;
+HTTP CONNECT, absolute-form, SOCKS5, SOCKS4 and 4a, all recorded, or CONNECT
+over TLS; see [HTTPS proxy scenarios](#https-proxy-scenarios)) in front of the server;
 a scenario with a plain port gets what goes to that port (tunnels and
 absolute-form requests) on the server's plain side, as if the proxy had
 connected there, and each connection the server records carries the proxy
@@ -511,6 +512,40 @@ connection it came through (`capture.WebSocket.ProxyConn`). Chrome gets
 407 over Chrome's DevTools protocol (browser-level `Fetch`) and Firefox's
 WebDriver BiDi (with `remote.prefs.recommended` off, so the remote agent
 changes no networking prefs), as a user typing into the login dialog.
+
+The two SOCKS4 scenarios record the browser's one SOCKS4 request as sent
+(`kind: socks4`, `request` in hex). `proxy-socks4` gives the browser
+`socks4://`: Chrome and Edge get it as `--proxy-server`, Firefox
+`network.proxy.socks_version` 4 with `network.proxy.socks_remote_dns`
+off; both resolve the host themselves and send its IPv4 address.
+`proxy-socks4a` has the browser send the host name (SOCKS4a, `DSTIP`
+0.0.0.x): Firefox with `network.proxy.socks_remote_dns` on, and Safari.
+Chromium has no SOCKS4a (given `socks4a://`, Chrome 156 sent nothing to
+the proxy), so the tool skips `proxy-socks4a` for Chrome, Edge and Brave
+(`Scenario.UnsupportedBy`; logged, and the browser counts as failed;
+`cmd/refresh` leaves it out of those browsers' runs).
+
+Safari speaks SOCKS4 only through the Mac's SOCKS proxy setting with
+`kCFStreamPropertySOCKSVersion` set to `kCFStreamSocketSOCKSVersion4` in
+the service's proxies, which neither System Settings nor `networksetup`
+writes (its proxy script's `SOCKS` is SOCKS5, `SOCKS4` is ignored;
+[decision 0063](decisions/0063-socks4-proxies.md)); given it, Safari sends
+SOCKS4A for both scenarios. That setting sends every URL the Mac loads to
+the capture proxy at `127.0.0.1:15355`, which passes other hosts through
+unrecorded, so the tool (and `cmd/refresh`, preflight `socks4`) runs only
+the SOCKS4 scenarios with it and skips them without it. Set it as an
+administrator at the Mac's own screen (over ssh `scutil --prefs` is
+denied), `<id>` being the active service's (`scutil --prefs`, then
+`list /NetworkServices`), run, and remove it at once after:
+
+```sh
+printf 'get /NetworkServices/<id>/Proxies\nd.add SOCKSEnable # 1\nd.add SOCKSProxy 127.0.0.1\nd.add SOCKSPort # 15355\nd.add kCFStreamPropertySOCKSVersion kCFStreamSocketSOCKSVersion4\nset /NetworkServices/<id>/Proxies\ncommit\napply\nquit\n' | scutil --prefs
+go run ./cmd/refresh -browser safari -scenarios proxy-socks4:3,proxy-socks4a:3 -capture-only -yes
+printf 'get /NetworkServices/<id>/Proxies\nd.remove SOCKSEnable\nd.remove SOCKSProxy\nd.remove SOCKSPort\nd.remove kCFStreamPropertySOCKSVersion\nset /NetworkServices/<id>/Proxies\ncommit\napply\nquit\n' | scutil --prefs
+```
+
+The removal leaves the service's proxies as they were, unless they held
+SOCKS keys before (check `scutil --proxy` first).
 
 Safari takes its proxy from the system: point the active network service at
 the tool's PAC script once, which proxies only `*.test`, and turn it off
@@ -529,7 +564,8 @@ request through to the network unrecorded, since the whole Mac uses the
 proxy, and the Mac has no working proxy between samples or after the run
 until the proxies are turned off. Manual proxies send everything to the
 HTTP proxy, so with them the tool skips Safari's SOCKS5 scenarios (logged,
-and Safari counts as failed); those need the PAC script.
+and Safari counts as failed); those need the PAC script. Safari's SOCKS4
+scenarios need the SOCKS proxy setting instead (above).
 
 For Safari's credential flow (`proxy-auth`, `proxy-plain-auth`,
 `proxy-websocket-auth`) macOS itself must hold the credentials: install a
@@ -892,7 +928,7 @@ does not describe:
    certificate went in) and `restart` (per sample: no first connection to
    a host answered the request, a later one carried it, and no connection
    answered with an empty Certificate; samples must agree), left out for
-   a profile without the captures (decision 0064); and `proxy.https`,
+   a profile without the captures (decision 0064); `proxy.https`,
    how the browser uses an `https://` proxy, from the four `proxy-https*`
    captures: the HTTP/2 CONNECT's fields, its HEADERS weight, the code
    that resets a tunnel's stream, and whether TLS to the proxy resumes
@@ -901,7 +937,12 @@ does not describe:
    to the proxy that are not the profile's, HTTP/2 openings that are not
    its `http2` section's, HTTP/1.1 CONNECTs that are not `proxy.connect`'s
    and tunnels that contradict `proxy.connectNoResume`; left out for a
-   profile without the captures (decision 0065).
+   profile without the captures (decision 0065); and `proxy.socks4`, from
+   the `proxy-socks4` and `proxy-socks4a` captures: every request a SOCKS4
+   CONNECT with an empty user ID, through `proxy-socks4` a resolved IPv4
+   address alone, through `proxy-socks4a` SOCKS4A's `0.0.0.x` and the
+   host name (`hostname` true); left out for a profile without the
+   captures (decision 0063).
 2. `go run ./cmd/h3gen`: `quic`, and `http3` but for kindsgen's header lists
    and priorities. It checks every value against every connection and pins
    the few samples that differ in `sampleGaps`.

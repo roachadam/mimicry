@@ -143,10 +143,15 @@ type Config struct {
 	// "https" (TLS to the proxy with the profile's hello, CONNECT over
 	// the HTTP/2 or HTTP/1.1 it picks; https:// requests only, and
 	// profiles without proxy.https, Safari's among them, refuse it),
-	// "socks5" and "socks5h"; a failed proxy returns a *ProxyError.
-	// RootCAs, Pins, VerifyConnection and KeyLogWriter apply to an https
-	// proxy's TLS too, for its host; GetClientCertificate does not. See
-	// docs/concepts/proxies.md.
+	// "socks5", "socks5h", "socks4" (the host looked up here, as the
+	// browser does, with Resolver; not for Safari profiles, whose browser
+	// never does) and "socks4a" (the host name sent; not for Chrome, Edge
+	// or Brave profiles); profiles without proxy.socks4 refuse socks4 and
+	// socks4a. A failed proxy returns a *ProxyError; a
+	// target SOCKS4 cannot carry, or a socks4 lookup that fails, does not
+	// (no proxy was asked). RootCAs, Pins, VerifyConnection and
+	// KeyLogWriter apply to an https proxy's TLS too, for its host;
+	// GetClientCertificate does not. See docs/concepts/proxies.md.
 	Proxy func(*http.Request) (*url.URL, error)
 
 	// Headers and cookies.

@@ -39,7 +39,7 @@ type preflightReport struct {
 	// it), empty when it is available.
 	Aioquic string `json:"aioquic,omitempty"`
 	// SafariProxy is how the system sends Safari to the capture proxy
-	// (safariProxyConfig): "none", "pac" or "manual".
+	// (safariProxyConfig): "none", "pac", "manual" or "socks4".
 	SafariProxy string `json:"safariProxy"`
 	// Platform, Admin, Certutil and Missing are set on Windows and Linux
 	// only: Platform is "windows" or "linux"; Admin says the tool runs
@@ -150,6 +150,7 @@ func printPreflight(caDir, iosDevice string) error {
 		safariProxyNone:   "none",
 		safariProxyPAC:    "pac",
 		safariProxyManual: "manual",
+		safariProxySOCKS4: "socks4",
 	}[safariProxyConfig(ctx)]
 
 	if err := preflightPlatform(ctx, &r); err != nil {

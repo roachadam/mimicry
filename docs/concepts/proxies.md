@@ -1,7 +1,7 @@
 # Proxies
 
-Set `Config.Proxy` to send requests through an HTTP, HTTPS or SOCKS5
-proxy. It takes the same function as `http.Transport.Proxy`:
+Set `Config.Proxy` to send requests through an HTTP, HTTPS, SOCKS5 or
+SOCKS4 proxy. It takes the same function as `http.Transport.Proxy`:
 
 ```go
 client, err := mimicry.NewClient(mimicry.Config{
@@ -30,6 +30,20 @@ The proxy sees what the browser sends a proxy:
 - **`socks5://` or `socks5h://` proxy:** the browser's SOCKS5 handshake.
   It offers no authentication and sends the host name for the proxy to
   resolve. Both schemes behave the same.
+- **`socks4://` proxy:** the browser's SOCKS4 request. The browser looks
+  the host up itself (mimicry with `Config.Resolver`, IPv4 only) and sends
+  its IPv4 address, with an empty user ID. Chrome, Edge, Brave and Firefox
+  do this. Safari never does (below), so a Safari profile refuses
+  `socks4://` with `ErrNotMeasured`.
+- **`socks4a://` proxy:** SOCKS4A, the host name sent for the proxy to
+  resolve, with an empty user ID: Firefox with
+  `network.proxy.socks_remote_dns` (address field `0.0.0.1`), and Safari
+  (`0.0.0.16`). Chrome has no SOCKS4A, so a Chrome, Edge or Brave profile
+  refuses `socks4a://` with `ErrNotMeasured`. Safari speaks SOCKS4 only
+  when the Mac's SOCKS proxy setting carries a SOCKS version of 4, a
+  hidden key (`kCFStreamPropertySOCKSVersion`) that no settings screen
+  offers; its proxy script's `SOCKS` is SOCKS5. safari-27-macos sends
+  what Safari 27 sent so configured.
 - **`https://` proxy:** see [HTTPS proxies](#https-proxies).
 
 ## HTTPS proxies
@@ -93,7 +107,10 @@ mimicry never does
 ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
 
 SOCKS5 credentials are sent when the URL has them. No browser sends
-SOCKS5 credentials, so this is a fingerprint no browser produces.
+SOCKS5 credentials, so this is a fingerprint no browser produces. A
+SOCKS4 URL's user name goes in the request's user ID field, which
+browsers leave empty; SOCKS4 has no password, so a SOCKS4 URL with one
+is an error.
 
 ## Connections
 
@@ -283,9 +300,13 @@ It covers every failure before the server is reached:
 - the connection to the proxy fails, its TLS handshake included (an
   `https://` proxy's certificate, `Config.Pins`, `VerifyConnection`);
 - a CONNECT is answered with anything but 2xx, including a 407;
-- the SOCKS5 handshake is refused;
+- the SOCKS5 handshake or the SOCKS4 request is refused;
 - the deadline passes. `errors.Is(err, context.DeadlineExceeded)` still
   holds.
+
+Not a `ProxyError`: an IPv6 target through SOCKS4, which it cannot
+carry, and a failed lookup through `socks4://`. Both fail before any
+proxy is dialled, and another proxy would do no better.
 
 For a plain-HTTP request sent to the proxy, only a failed connection or a
 final 407 is a `ProxyError`. Any other answer is returned as the
@@ -293,7 +314,7 @@ response, because it cannot be told apart from the server's.
 
 `ProxyError.Proxy` is the proxy's URL without its password; `Error()`
 never shows the password. `StatusCode` and `Header` are the proxy's
-answer: 0 and nil for SOCKS5 or when it gave none. Failures after the
+answer: 0 and nil for SOCKS or when it gave none. Failures after the
 tunnel is up are the server's, not the proxy's. See
 `ExampleConfig_proxy`.
 
@@ -312,10 +333,21 @@ tunnel is up are the server's, not the proxy's. See
   ClientHello with GREASE ECH, never real Encrypted Client Hello; the TLS
   to an `https://` proxy uses GREASE too. No capture shows what the
   browsers do there ([decision 0068](../decisions/0068-real-ech.md)).
+  Through `socks4://` too: mimicry looks the host's address up for the
+  SOCKS4 request, but not its HTTPS record.
 - HTTP/3 through an `http://` or `https://` proxy goes only by
   CONNECT-UDP over HTTP/3, with the default URI template; CONNECT-UDP
   over HTTP/2 or HTTP/1.1 (capsules), and other templates, are not
-  supported. Safari and the iPhone profiles never use it.
+  supported. Safari and the iPhone profiles never use it. SOCKS4 has no
+  UDP: requests through a SOCKS4 proxy always stay on TCP.
+- Through `socks4://` the host must have an IPv4 address; when it has
+  several, the first the resolver returns is sent (which address a
+  browser picks, and whether it tries another when the proxy refuses, is
+  not measured).
+- WebSockets through a SOCKS4 proxy were not measured, and Safari 26, the
+  iPhone profiles and the older versions (Chrome 155, Firefox 158) were
+  never captured with SOCKS4: they fail a SOCKS4 proxy with
+  `ErrNotMeasured`.
 - A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing, and a
   CONNECT-UDP proxy that never answers, are not remembered: each origin
   waits up to the race delay per request until it is marked as not
@@ -330,5 +362,6 @@ Background: decisions [0014](../decisions/0014-proxies.md),
 [0039](../decisions/0039-proxy-credentials-up-front.md),
 [0040](../decisions/0040-idle-connection-cleanup.md),
 [0044](../decisions/0044-profile-fingerprint.md),
+[0063](../decisions/0063-socks4-proxies.md),
 [0065](../decisions/0065-https-proxies.md),
 [0066](../decisions/0066-http3-over-connect-udp.md).
