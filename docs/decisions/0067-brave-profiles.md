@@ -12,8 +12,8 @@ from Brave's macOS one. Brave sends Chrome's user agent word for word but
 differs on the wire, and three of its Shields defaults change what goes
 out: a randomised (farbled) Accept-Language q value per top-level page
 origin, third-party cookies kept per top-level site, and no cross-site
-beacons. Each is a profile rule derived from the captures. Opera, which
-#109 also names, is not done here: the issue stays open for it.
+beacons. Each is a profile rule derived from the captures. Opera is not
+part of this decision: it has no captures and no profile.
 
 ## Problem
 
@@ -151,7 +151,6 @@ each. A trial on this Mac (macOS 27.0.1) showed the same headers.
   process group of its own and ends the whole group, and takes again a
   sample whose browser exited before it reached the page
   (`browser.ErrWarmupExit`, with the browser's output in the error).
-- Opera remains open in #109.
 
 ## Revisit when
 
