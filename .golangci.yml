@@ -23,6 +23,7 @@ linters:
             - ${config-path}/internal/quic/qlog/*.go
             - ${config-path}/internal/quic/quicwire/*.go
             - ${config-path}/internal/quic/testcert/*.go
+            - ${config-path}/internal/rpc/wire/*.go
             - ${config-path}/internal/testutil/*.go
             - ${config-path}/internal/weburl/*.go
             - ${config-path}/internal/zdeflate/*.go
