@@ -1,20 +1,23 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-10
-- Commits: none yet (this record is for review before any code)
+- Commits: `0c3dd34` (proposed), the commit accepting it (no code yet)
 
 **Summary.** Python and Node reach mimicry through `mimicry-core`, a
 static Go binary (no cgo) that each host process starts as its own child.
-They talk over an anonymous socketpair (Python) or Node's `'pipe'` stdio
-(a socketpair on Unix), with a small framed, multiplexed protocol whose
-messages are protobuf. Not in-process cgo: a Python parent that has merely
-loaded a Go `c-shared` library hangs every forked child, on macOS and on
-Linux (measured). Not a shared daemon, a local HTTP proxy (#110), gRPC or
-JSON-RPC. The protocol and the core are built so a shared daemon (option 2)
-can be added later without changing either. Nothing ships yet: this
-records the design for [#111](https://github.com/roachadam/mimicry/issues/111)
-and the five pull requests that will build it.
+They talk over an anonymous socketpair (Python on Linux and macOS), Node's
+`'pipe'` stdio (a socketpair on Unix), or anonymous pipes (Windows), with
+a small framed, multiplexed protocol whose messages are protobuf. Not
+in-process cgo: a Python parent that has merely loaded a Go `c-shared`
+library hangs every forked child, on macOS and on Linux (measured). Not a
+shared daemon, a local HTTP proxy (#110), gRPC or JSON-RPC. The SDKs use
+Go's names in each language's casing; v1 has WebSockets, Windows, every
+callback as data, and `VerifyConnection` as a reverse call. The protocol
+and the core are built so a shared daemon (option 2) can be added later
+without changing either. Nothing ships yet: this records the design for
+[#111](https://github.com/roachadam/mimicry/issues/111) and the five pull
+requests that will build it.
 
 ## Problem
 
@@ -278,8 +281,9 @@ length ≤ 65,536
   grow memory without bound.
 - **RESET** cancels a stream from either side: the SDK's cancellation or
   timeout becomes the request's `context` being cancelled.
-- **EVENT** is one-way: `OnSetCookie`, key log lines, connection-level
-  notices.
+- **EVENT** is a notice from the core: one-way for `OnSetCookie` and
+  connection-level notices; for `VerifyConnection` it opens a core stream
+  the host answers with a REPLY.
 - **Hello** is the first CALL on every connection: protocol major/minor,
   core version, feature bits. A mismatch fails at start with both
   versions named.
@@ -295,6 +299,14 @@ holds the id, frees it with `close()` (plus `weakref.finalize` /
 `FinalizationRegistry` as a backstop), and the core frees everything a
 connection owned when it drops. The core has no global state.
 
+A WebSocket is one bidirectional stream: `DialWebSocket` is its CALL and
+REPLY (with the handshake response), then each message is DATA frames in
+either direction (END closes the message, a one-byte message type leads
+it), `Close(code, reason)` is a CALL on the connection naming the
+WebSocket, and RESET aborts it. Credit applies per direction, so a reader
+that stops reading stops the server's messages at the core, not in host
+memory.
+
 ### What keeps option 2 open, at no cost now
 
 - The server is `Serve(io.ReadWriteCloser)`, not stdio-specific; the
@@ -306,21 +318,57 @@ connection owned when it drops. The core has no global state.
   between clients.
 - Each SDK's connection takes any socket, not only a child it spawned.
 
-### Callbacks: data where possible
+### The SDKs' API: Go's names
 
-| Go callback | Binding |
+Both SDKs mirror Go's names in their own casing: Python `snake_case` for
+functions, methods, fields and arguments, `UPPER_CASE` enum members;
+Node `camelCase` members and `PascalCase` types and enum members.
+Initialisms keep Go's capitals in Node (`disableHTTP3`, `noCORS`) and are
+lower-case words in Python (`disable_http3`, `no_cors`). A
+[`docs/concepts/`](../concepts/) page per SDK is the translation of the
+Go guides, not a second design.
+
+Three Go names cannot be kept. Python reserves `as`, `with` and `from`,
+and neither SDK uses a trailing-underscore spelling, so both use the
+same alternatives: `As` → `as_kind`/`asKind`, `With` →
+`with_options`/`withOptions`, and `From` → `page` (it is the page making
+the request). `With`'s argument, Go's `mimicry.Request`, is `Options` in
+both SDKs: Python's HTTP libraries and Node's `fetch` already have a
+`Request` class.
+
+| Go | Python | Node |
+|---|---|---|
+| `mimicry.NewClient(cfg)` | `mimicry.new_client(config)` | `newClient(config)` |
+| `mimicry.NewTransport(cfg)` | `mimicry.new_transport(config)` | `newTransport(config)` |
+| `client.Do(req)` | `client.do(req)` / `await client.do(req)` | `await client.do(req)` |
+| `Config{DialTimeout, DisableHTTP3, MaxConnsPerHost, HTTP3OverSOCKS5, …}` | `Config(dial_timeout=, disable_http3=, max_conns_per_host=, http3_over_socks5=, …)` | `{dialTimeout, disableHTTP3, maxConnsPerHost, http3OverSOCKS5, …}` |
+| `mimicry.Navigate`, `AsyncScript`, `Fetch`, `XHR`, … (`Kind`) | `Kind.NAVIGATE`, `Kind.ASYNC_SCRIPT`, `Kind.FETCH`, `Kind.XHR` | `Kind.Navigate`, `Kind.AsyncScript`, `Kind.Fetch`, `Kind.XHR` |
+| `mimicry.As(req, k)` | `as_kind(req, k)` | `asKind(req, k)` |
+| `mimicry.With(req, mimicry.Request{…})` | `with_options(req, Options(…))` | `withOptions(req, {…}: Options)` |
+| `Request.Kind`, `From`, `Priority`, `CrossOrigin`, `Credentials`, `NoCORS`, `Stylesheet`, `IgnoreCORS`, `HeaderPlacement`, `ClientHints` | `Options.kind`, `page`, `priority`, `cross_origin`, `credentials`, `no_cors`, `stylesheet`, `ignore_cors`, `header_placement`, `client_hints` | `Options.kind`, `page`, `priority`, `crossOrigin`, `credentials`, `noCORS`, `stylesheet`, `ignoreCORS`, `headerPlacement`, `clientHints` |
+| `mimicry.Exact(req)`, `HeaderOrderKey` | `exact(req)`, `header_order=` | `exact(req)`, `headerOrder` |
+| `Transport.Plan(req)` | `transport.plan(req)` | `transport.plan(req)` |
+| `Transport.DialWebSocket(ctx, url, WebSocketOptions{From, Protocols, Header})` | `transport.dial_websocket(url, WebSocketOptions(page=, protocols=, header=))` | `transport.dialWebSocket(url, {page, protocols, header})` |
+| `WebSocket.ReadMessage`, `WriteMessage`, `Close(code, reason)` | `read_message`, `write_message`, `close(code, reason)` | `readMessage`, `writeMessage`, `close(code, reason)` |
+| `Jar`, `TicketCache`, `AltSvcCache` `.WriteJSON(w)` / `.ReadJSON(r)` | `.write_json(f)` / `.read_json(f)` | `.writeJSON(stream)` / `.readJSON(stream)` |
+| `ErrNotMeasured`, `ErrBlocked`, `ErrPlacement` | `NotMeasuredError`, `BlockedError`, `PlacementError` | same as Python |
+| `*CORSError`, `*ProxyError`, `*PinError`, `*CloseError` | `CORSError`, `ProxyError`, `PinError`, `CloseError` | same |
+| `context.Context` | `timeout=` and asyncio cancellation | `signal: AbortSignal` |
+
+### Callbacks: data, plus VerifyConnection
+
+| Go | v1 binding |
 |---|---|
 | `Proxy` | Data: a proxy URL per client plus a per-request override |
-| `GetClientCertificate` | Data: certificate chain and key (PEM, PKCS#12) |
 | `ConnectUDPProxy` | Data: proxy → MASQUE endpoint map |
+| `GetClientCertificate` | Data: certificate and key files per host. A signer callback (keys in an HSM or keychain) later, on request |
 | `KeyLogWriter` | Data: a file path the core opens |
+| `Resolver` | Data: a DNS server address |
+| `http.Client.CheckRedirect` | Data: follow or not, a maximum number of hops |
+| `VerifyConnection` | **v1**: the core sends an EVENT on a stream of its own (even id) with the connection state as data; the handshake waits for the host's REPLY on that stream (accept, or an error that fails the connection). A RESET or a disconnect fails the handshake |
 | `OnSetCookie` | EVENT, no reply |
-| `CheckRedirect` | Data: follow or not, a hop limit |
-| `VerifyConnection` | Later: an EVENT the host answers with a reply on the same stream (the handshake waits) |
-| `DialContext` | Not offered (it returns a `net.Conn`); `LocalAddrs`, `Proxy` and a resolver as data cover the uses |
-| Custom `ClientHintStore` | Not offered; the built-in store plus save/load |
-
-Which of the optional callbacks are in v1 is open (below).
+| `DialContext` | Not offered (it returns a `net.Conn`); `LocalAddrs`, proxies and the DNS server cover the uses |
+| Custom `ClientHintStore` | Not offered; the built-in store, saved and loaded |
 
 ### Errors
 
@@ -334,12 +382,14 @@ both `except ProxyError` and `except TimeoutError` catch. Each SDK has one
 exception class per code under a common base. A core that dies raises a
 `CoreExited` error with its exit status and the last lines of its stderr.
 
-### Saved state
+### Cookies, tickets, Alt-Svc
 
-The SDK exposes save and load for the stores mimicry already serializes:
-cookies (`cookies.Jar.WriteJSON`/`ReadJSON`, Netscape), tickets
-(`TicketCache`), Alt-Svc (`AltSvcCache`). The bytes cross the connection;
-the SDK writes files 0600.
+These are core objects with ids, as in Go: the jar (`cookies.Jar`), the
+`TicketCache` and the `AltSvcCache`, shared by the clients that name
+them. The SDK gets and sets their contents (the jar's cookies by URL or
+all of them, `set`, `clear`) and saves and loads them with Go's
+serializations (`write_json`/`read_json`, the jar's Netscape format too).
+The bytes cross the connection; a file the SDK writes is created 0600.
 
 ### Packaging
 
@@ -348,10 +398,11 @@ the SDK writes files 0600.
   move in lockstep with the core.
 - Six static binaries: linux, darwin and windows, each amd64 and arm64.
   One Linux binary per architecture serves glibc and musl.
-- Python: `py3-none-<platform>` wheels, manylinux and musllinux, each
-  carrying its binary. Node: one package per platform in
+- Python: `py3-none-<platform>` wheels, manylinux, musllinux, macOS and
+  Windows, each carrying its binary. Node: one package per platform in
   `optionalDependencies` with `os`, `cpu` and `libc`. No install scripts,
   no runtime download.
+- Windows is in v1, with Windows CI for the SDKs.
 
 ## Security
 
@@ -370,6 +421,37 @@ the SDK writes files 0600.
   ([sessions](../concepts/sessions.md#tickets)).
 - **No secrets on the core's stderr**: no cookies, header values, ticket
   bytes, proxy credentials or key material in logs or crash text.
+- **Windows, Python (PR 3): anonymous pipes, never `socket.socketpair()`.**
+  Windows has no `AF_UNIX` socketpair in Python; `socket.socketpair()`
+  falls back to a pair of loopback TCP sockets, and before CPython
+  3.10.15, 3.11.10, 3.12.5 and 3.13.0 it did not check that the accepted
+  connection was its own, so a local process could win the race
+  (CVE-2024-3219, [PSF-2024-7](https://osv.dev/vulnerability/PSF-2024-7),
+  [cpython#122133](https://github.com/python/cpython/issues/122133); last
+  affected releases 3.10.14, 3.11.9, 3.12.4, 3.13.0b4, from OSV's data).
+  3.10 and 3.11 were in security-only maintenance by then, which ships no
+  Windows installers, so Windows users of those lines are likely still on
+  affected builds [INFERENCE]. Even fixed, it is a loopback TCP connection
+  that firewalls and antivirus see. The sync driver uses `subprocess.PIPE`
+  (`_winapi.CreatePipe`, anonymous pipes). If the async driver uses
+  `asyncio.create_subprocess_exec`, its pipes are named pipes
+  (`asyncio.windows_utils.pipe`: a random name, one instance,
+  `FILE_FLAG_FIRST_PIPE_INSTANCE`, the client end opened at once); PR 3
+  either uses those after checking that no other client can connect, or
+  drives the anonymous pipes from a thread. asyncio on Windows needs the
+  Proactor loop for subprocess pipes (the survey's Playwright
+  [#2696](https://github.com/microsoft/playwright-python/issues/2696)).
+- **Windows, Node (PR 4): check that the child's stdio pipes accept no
+  other client.** libuv creates them as named pipes
+  (`\\?\pipe\uv\<number>-<pid>`, one instance,
+  `FILE_FLAG_FIRST_PIPE_INSTANCE`, the default security descriptor) and
+  opens the client end immediately
+  ([`src/win/pipe.c`](https://github.com/libuv/libuv/blob/v1.x/src/win/pipe.c),
+  `uv__pipe_server`, `uv__create_stdio_pipe_pair`). With one instance,
+  another process that connects first should make the spawn fail rather
+  than take over the channel [INFERENCE from the source]; the name is
+  guessable, so PR 4 tests it (a third client racing the spawn, another
+  user connecting) and fails closed.
 - **For a future daemon** (not built): a Unix socket 0600 in a 0700
   directory plus a peer-credential check (`SO_PEERCRED`, `getpeereid`);
   never plain HTTP on localhost; TCP only with TLS and a token.
@@ -379,37 +461,30 @@ the SDK writes files 0600.
 - Fork-safe: a child that inherits the SDK detects it (`os.register_at_fork`
   or a pid check), drops the parent's connection and starts its own core
   (measured: 10 of 10). A core crash is an exception, not a dead host.
-- Every platform with a static Go build is supported, musl included, with
-  no C toolchain in the release.
+- Every platform with a static Go build is supported, musl and Windows
+  included, with no C toolchain in the release.
 - Each host process pays ~5–8 ms at first use and ~9–14 MB per core, and
   each call 3–25 µs of host CPU (more for a single caller on WSL2).
+  Windows is not measured; PRs 3 and 4 record it.
+- Users of the Go guides find the same names in both SDKs, except
+  `as_kind`, `with_options`, `Options` and `page`.
 
 What users lose without a daemon, and what they do instead:
 
 | Lost | Workaround |
 |---|---|
 | One browser identity used from several processes (gunicorn workers, Celery) | One process = one browser identity; async for concurrency inside it |
-| Cookies and tickets surviving the process | Save and load: `cookies.Jar.WriteJSON/ReadJSON`, `TicketCache`, `AltSvcCache` |
+| Cookies and tickets surviving the process | Save and load: the jar's, `TicketCache`'s and `AltSvcCache`'s `write_json`/`read_json` |
 | A ticket cache owned by one process at a time across workers | Load it into one process only, as [sessions](../concepts/sessions.md#tickets) already requires |
 | One egress point for many processes | Proxies |
-| `DialContext`, custom `ClientHintStore` | `LocalAddrs`, proxies, resolver as data; the built-in store plus save/load |
+| `DialContext`, custom `ClientHintStore`, a client-certificate signer | `LocalAddrs`, proxies, a DNS server; the built-in store, saved and loaded; certificate files (a signer later, on request) |
 
-Windows has no socketpair for child stdio; anonymous pipes there are
-reachable only through handle duplication by a process with access to the
-host [INFERENCE: untested]. Windows support is an open question.
+## Open questions
 
-## Open questions (for the maintainer)
-
-- **Package names.** `mimicry` is taken on PyPI (an unrelated optimisation
-  library) and on npm (an inactive 2022 browser-mimic client); the
-  `@mimicry` npm scope appears taken; `mimicry-http` was free on both on
-  2026-11-10.
-- **Python API shape.** `get`/`fetch` helpers, or explicit `kind=` and
-  `from_=` on one `request`.
-- **WebSockets in v1.**
-- **Windows in v1.**
-- **Which callbacks in v1** (`VerifyConnection` as EVENT + reply, a
-  signer for client certificates in an HSM, a proxy callback).
+- **Package names**, decided in the Python SDK pull request. `mimicry` is
+  taken on PyPI (an unrelated optimisation library) and on npm (an
+  inactive 2022 browser-mimic client); the `@mimicry` npm scope appears
+  taken; `mimicry-http` was free on both on 2026-11-10.
 
 ## Plan
 
@@ -417,14 +492,17 @@ host [INFERENCE: untested]. Windows support is an open question.
    RESET, Hello; language-neutral test vectors (byte files) every SDK
    runs.
 2. **Core server, schema and command**: `proto/`, `internal/rpc/server`
-   and `convert`, `cmd/mimicry-core`; a harness e2e test proving requests
-   through the core are byte-identical to the Go client's.
-3. **Python SDK**: async first, then sync on the same protocol; wheels
-   built in CI, not published.
-4. **Node SDK**.
+   and `convert`, `cmd/mimicry-core`; every callback as data,
+   `VerifyConnection` as EVENT + reply, WebSockets as one stream; a
+   harness e2e test proving requests through the core are byte-identical
+   to the Go client's.
+3. **Python SDK**: async first, then sync on the same protocol; Go's
+   names; WebSockets; `VerifyConnection`; Windows with anonymous pipes and
+   Windows CI; wheels built in CI, not published; package name decided.
+4. **Node SDK**: the same, with the Windows named-pipe check.
 5. **Release pipeline**: six cross-compiled binaries; wheels including
-   musllinux; npm per-platform packages with `os`/`cpu`/`libc`; Trusted
-   Publishing and provenance.
+   musllinux and Windows; npm per-platform packages with
+   `os`/`cpu`/`libc`; Trusted Publishing and provenance.
 
 ## Revisit when
 
@@ -437,3 +515,5 @@ host [INFERENCE: untested]. Windows support is an open question.
   could be reconsidered for its lower single-caller latency.
 - The host CPU per call shows up in a user's profile next to their HTTP
   library's own cost.
+- Users ask for a client-certificate signer callback, or Windows numbers
+  show the pipes cost more than the socketpair numbers here.
