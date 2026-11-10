@@ -160,8 +160,9 @@ func fakeSOCKS4(t *testing.T, mode string) string {
 
 // What a SOCKS4 proxy cannot be asked fails before the proxy is dialled,
 // and is not a *ProxyError (no proxy failed; rotating would not help): a
-// password in the URL, an IPv6 target, and a host the lookup through
-// socks4 cannot resolve.
+// password in the URL, an IPv6 target, a host the lookup through socks4
+// cannot resolve, and a lookup through socks4 that would bypass
+// Config.DialContext (no Resolver.Dial).
 func TestSOCKS4CallerErrors(t *testing.T) {
 	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -199,14 +200,17 @@ func TestSOCKS4CallerErrors(t *testing.T) {
 		scheme string
 		user   *url.Userinfo
 		target string
+		// dialContext sets Config.DialContext and no Resolver.
+		dialContext bool
 	}{
-		{"password in the URL", "socks4", url.UserPassword("alice", "s3cr3t-pw"), "https://127.0.0.1/"},
-		{"IPv6 target through socks4a", "socks4a", nil, "https://[2001:db8::1]/"},
-		{"IPv6 target through socks4", "socks4", nil, "https://[2001:db8::1]/"},
-		{"lookup failure through socks4", "socks4", nil, "https://www.shop.test/"},
+		{"password in the URL", "socks4", url.UserPassword("alice", "s3cr3t-pw"), "https://127.0.0.1/", false},
+		{"IPv6 target through socks4a", "socks4a", nil, "https://[2001:db8::1]/", false},
+		{"IPv6 target through socks4", "socks4", nil, "https://[2001:db8::1]/", false},
+		{"lookup failure through socks4", "socks4", nil, "https://www.shop.test/", false},
+		{"lookup through socks4 bypassing DialContext", "socks4", nil, "https://www.shop.test/", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tr, err := mimicry.NewTransport(mimicry.Config{
+			cfg := mimicry.Config{
 				// Firefox: the one with SOCKS4A.
 				Profile:  profiles.FirefoxMacOS(),
 				Resolver: failingDNS,
@@ -215,7 +219,13 @@ func TestSOCKS4CallerErrors(t *testing.T) {
 					Host:   ln.Addr().String(),
 					User:   tc.user,
 				}),
-			})
+			}
+			if tc.dialContext {
+				cfg.Resolver = nil
+				cfg.DialContext = new(net.Dialer).DialContext
+			}
+
+			tr, err := mimicry.NewTransport(cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -234,6 +244,10 @@ func TestSOCKS4CallerErrors(t *testing.T) {
 
 			if _, ok := errors.AsType[*mimicry.ProxyError](err); ok {
 				t.Errorf("a *ProxyError: %v", err)
+			}
+
+			if tc.dialContext && !strings.Contains(err.Error(), "DialContext") {
+				t.Errorf("not the DialContext refusal: %v", err)
 			}
 
 			if strings.Contains(err.Error(), "s3cr3t-pw") {

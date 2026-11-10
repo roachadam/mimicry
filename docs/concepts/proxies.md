@@ -305,8 +305,11 @@ It covers every failure before the server is reached:
   holds.
 
 Not a `ProxyError`: an IPv6 target through SOCKS4, which it cannot
-carry, and a failed lookup through `socks4://`. Both fail before any
-proxy is dialled, and another proxy would do no better.
+carry, a failed lookup through `socks4://`, and a `socks4://` host name
+with `Config.DialContext` set and no `Config.Resolver` with its own
+`Dial` (the lookup would bypass your dialer; use `socks4a://` or such a
+resolver). All fail before any proxy is dialled, and another proxy would
+do no better.
 
 For a plain-HTTP request sent to the proxy, only a failed connection or a
 final 407 is a `ProxyError`. Any other answer is returned as the

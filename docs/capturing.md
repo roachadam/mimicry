@@ -544,8 +544,10 @@ go run ./cmd/refresh -browser safari -scenarios proxy-socks4:3,proxy-socks4a:3 -
 printf 'get /NetworkServices/<id>/Proxies\nd.remove SOCKSEnable\nd.remove SOCKSProxy\nd.remove SOCKSPort\nd.remove kCFStreamPropertySOCKSVersion\nset /NetworkServices/<id>/Proxies\ncommit\napply\nquit\n' | scutil --prefs
 ```
 
-The removal leaves the service's proxies as they were, unless they held
-SOCKS keys before (check `scutil --proxy` first).
+The removal leaves the service's proxies as they were only if they held
+no SOCKS proxy before: it removes the SOCKS keys, a SOCKS proxy set
+earlier included. Note `scutil --proxy` first and set any such proxy
+again after.
 
 Safari takes its proxy from the system: point the active network service at
 the tool's PAC script once, which proxies only `*.test`, and turn it off

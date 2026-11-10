@@ -69,6 +69,12 @@ caller with one had no way to send through it as a browser would.
   `*ProxyError` (decision 0033) would gain nothing by trying another.
   This narrows 0033's "every failure before the server is reached" to
   failures on the way to or at a proxy.
+- The `socks4://` lookup follows 0068's rule for HTTPS records: with
+  `Config.DialContext` set and no `Config.Resolver` with its own `Dial`,
+  a lookup would leave outside the caller's dialer (and could reveal the
+  host on another path), so a host name through `socks4://` is refused
+  the same way (not a `*ProxyError`), naming `socks4a://` and such a
+  resolver. IP literals still go.
 
 ## Evidence
 

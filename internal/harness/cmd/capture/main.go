@@ -353,7 +353,7 @@ func run() error {
 			log.Printf("%s: the system does not send %s to the capture proxy. Point the active network service at the tool's proxy script (an administrator's password), and turn it off after:\n"+
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
 				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead. "+
-				"For the SOCKS4 scenarios, set the service's SOCKS proxy to %s as SOCKS4 instead (as an administrator; scutil --prefs, list /NetworkServices, gives <id>), and remove it after:\n  %s\n  %s",
+				"For the SOCKS4 scenarios, set the service's SOCKS proxy to %s as SOCKS4 instead (as an administrator at the Mac's screen; scutil --prefs, list /NetworkServices, gives <id>), and remove it after; the removal drops any SOCKS proxy the service had before, so note scutil --proxy first:\n  %s\n  %s",
 				b.Name, b.Name, safariPACURL, safariHTTPProxy, safariSOCKSProxy, set, unset)
 
 			failed++
@@ -418,7 +418,7 @@ func run() error {
 
 				if socks4 {
 					set, _ := safariSOCKS4Setup()
-					log.Printf("%s: skipping scenario %s: Safari speaks SOCKS4 only through the system's SOCKS proxy setting as SOCKS4 (decision 0063); for a run of the SOCKS4 scenarios alone, set it (as an administrator; scutil --prefs, list /NetworkServices, gives <id>):\n  %s", b.Name, sc.Name, set)
+					log.Printf("%s: skipping scenario %s: Safari speaks SOCKS4 only through the system's SOCKS proxy setting as SOCKS4 (decision 0063); for a run of the SOCKS4 scenarios alone, set it (as an administrator at the Mac's screen; scutil --prefs, list /NetworkServices, gives <id>; it replaces any SOCKS proxy the service has, and removing it after does not bring that back, so note scutil --proxy first):\n  %s", b.Name, sc.Name, set)
 				} else {
 					log.Printf("%s: skipping scenario %s: the system sends every URL to the SOCKS4 proxy at %s, which serves only the SOCKS4 scenarios", b.Name, sc.Name, safariSOCKSProxy)
 				}

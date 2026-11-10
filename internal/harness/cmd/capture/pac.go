@@ -117,7 +117,8 @@ func safariProxyConfig(ctx context.Context) safariProxy {
 
 // safariSOCKS4Setup is how to point the system's SOCKS proxy setting at
 // safariSOCKSProxy as SOCKS4 (safariProxySOCKS4), and how to undo it;
-// <id> is the service's ID (scutil --prefs: list /NetworkServices).
+// <id> is the service's ID (scutil --prefs: list /NetworkServices). The
+// undo removes the SOCKS keys, a SOCKS proxy set before included.
 func safariSOCKS4Setup() (set, unset string) {
 	host, port, _ := net.SplitHostPort(safariSOCKSProxy)
 	path := "/NetworkServices/<id>/Proxies"

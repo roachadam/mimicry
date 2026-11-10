@@ -35,8 +35,11 @@ type Dialer struct {
 	// DialContext, when set, opens the connection (to the proxy, when
 	// there is one) instead of net.Dialer; Timeout still bounds it.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
-	// Resolver looks host names up for net.Dialer; nil uses
-	// net.DefaultResolver. DialContext does its own lookups.
+	// Resolver looks host names up for net.Dialer, and for a socks4
+	// proxy's target; nil uses net.DefaultResolver. DialContext does its
+	// own lookups; with it, a socks4 target's host is looked up only
+	// through a Resolver with its own Dial (else refused, as it would
+	// bypass DialContext).
 	Resolver *net.Resolver
 	// Proxy is how the profile's browser talks to proxies; nil (not
 	// measured) makes proxies an error.
@@ -441,15 +444,20 @@ func (d *Dialer) DialVia(ctx context.Context, p *url.URL, addr string) (net.Conn
 // resolve4 is addr ("host:port") with its host looked up (Resolver) to
 // its first IPv4 address, as browsers resolve for a SOCKS4 proxy (Chrome
 // looks up IPv4 only). An IP address stays as it is (SOCKS4Request
-// refuses an IPv6 one).
+// refuses an IPv6 one). With DialContext and no Resolver.Dial a lookup
+// would bypass the caller's dialer, so a host name is refused.
 func (d *Dialer) resolve4(ctx context.Context, addr string) (string, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("mimicry: %w", err)
 	}
 
 	if _, err := netip.ParseAddr(host); err == nil {
 		return addr, nil
+	}
+
+	if d.DialContext != nil && (d.Resolver == nil || d.Resolver.Dial == nil) {
+		return "", fmt.Errorf("mimicry: socks4:// would look %s up outside Config.DialContext; use socks4a:// (the proxy resolves), or a Config.Resolver with its own Dial", host)
 	}
 
 	resolver := d.Resolver
@@ -459,7 +467,7 @@ func (d *Dialer) resolve4(ctx context.Context, addr string) (string, error) {
 
 	ips, err := resolver.LookupNetIP(ctx, "ip4", host)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("mimicry: SOCKS4 lookup of %s: %w", host, err)
 	}
 
 	if len(ips) == 0 {
