@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-09
-- Commits: the one that adds `brave-157-macos`, `brave-157-windows` and `brave-157-linux` (#109)
+- Commits: `cf433d6`
 
 **Summary.** `brave-157-macos`, `brave-157-windows` and `brave-157-linux`
 are Brave 1.99.55 (Chromium 157) on macOS, Windows and Linux, captured

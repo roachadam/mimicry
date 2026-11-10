@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-09
-- Commits: (this change)
+- Commits: `2f691eb`
 
 **Summary.** `Config.ConnectUDPProxy` (nil by default) lets requests
 through an `http://` or `https://` proxy use HTTP/3: each QUIC connection
