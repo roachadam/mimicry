@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
-- Commits: `4db496d`, `23feef8`, `5e62b11`, `5c0f346`, `0167826`, `a1b86cd`, `3b7a80b`, `c177223`
+- Commits: `22ebfb3`
 
 **Summary.** A profile with `tls.realEch` looks up the HTTPS record (RFC
 9460) of every host it connects to directly over TLS, and to a host whose
