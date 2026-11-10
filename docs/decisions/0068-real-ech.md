@@ -15,7 +15,7 @@ Edge and Brave 157 and Firefox 159 profiles send real ECH; Safari 27's
 records that Safari ignores the configs, so it looks nothing up. Every
 other profile, and every QUIC, proxied and WebSocket-only connection,
 keeps the GREASE extension as before. This depends on the uTLS fork's
-`fork/ech-inner-spec` branch, which is not yet merged to the fork's `main`.
+`v1.8.3`.
 
 ## Problem
 
@@ -118,12 +118,9 @@ hello is encrypted.
   connection, ECH and all.
 - **The uTLS fork**: the inner hello's shape, the outer hello around it,
   a HelloRetryRequest accepting ECH and the rejection's checks need four
-  fork commits on branch `fork/ech-inner-spec` (`f6aff4d`, `00ede91`,
-  `d88ff1a` "Let an ECHInnerSpec shape ClientHelloInner", `c977278`),
-  which `go.mod` names by
-  pseudo-version. It is not merged to the fork's `main`; merge it there
-  and `go get github.com/roachadam/utls@main` before this lands, as
-  AGENTS.md requires.
+  fork commits (roachadam/utls#19: `73b64b5`, `ebfc5ca`, `7cd971a` "Let an
+  ECHInnerSpec shape ClientHelloInner", `d257b9e`), merged to the fork's
+  `main` and tagged `v1.8.3`, which every module's `go.mod` names.
 
 ## Evidence
 
