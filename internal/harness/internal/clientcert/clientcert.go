@@ -158,11 +158,12 @@ func AutoSelectEntries(hosts []string) []string {
 	return out
 }
 
-// LinuxPolicyFiles are where Chrome and Edge on Linux read LinuxPolicy:
-// managed policy, writable by root only.
+// LinuxPolicyFiles are where Chrome, Edge and Brave on Linux read
+// LinuxPolicy: managed policy, writable by root only.
 var LinuxPolicyFiles = map[string]string{
 	"chrome": "/etc/opt/chrome/policies/managed/mimicry-client-cert.json",
 	"edge":   "/etc/opt/edge/policies/managed/mimicry-client-cert.json",
+	"brave":  "/etc/brave/policies/managed/mimicry-client-cert.json",
 }
 
 // LinuxPolicy is a managed policy file holding AutoSelectEntries for hosts.

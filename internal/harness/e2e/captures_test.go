@@ -5,10 +5,10 @@
 // Tests check the profiles MIMICRY_PROFILES selects (testprofiles, decision
 // 0035), against their own captures or those capturesFrom names. Gap tables
 // are keyed by the profile that took the capture and listed in
-// profiles/EVIDENCE.md (Not covered by any claim); a pinned gap that stops appearing fails, except in five
+// profiles/EVIDENCE.md (Not covered by any claim); a pinned gap that stops appearing fails, except in six
 // tables that never check that they were used: redirectsLineGaps (it only
-// logs), redirectsSampleGaps, redirectsMerged, connectionsPreconnects and
-// raceCookieLabels.
+// logs), redirectsSampleGaps, redirectsMerged, connectionsPreconnects,
+// raceCookieLabels and clientCertH1Resumes.
 // Timer-driven behaviour is tested in internal/h2 with a fake clock, not
 // here.
 package e2e
@@ -46,11 +46,20 @@ func testProfiles(t testing.TB) []string {
 	return names
 }
 
-// loadProfile returns a copy of the profile under test called name.
+// loadProfile returns a copy of the profile under test called name, its
+// Accept-Language farbling off (profile.Context.AcceptLanguageQ): the
+// tests compare mimicry's requests with the samples unfarbled (the
+// loaders below, capture.UnfarblePages), and TestAcceptLanguageFarbling
+// checks the farbling on its own.
 func loadProfile(name string) (*profile.Spec, error) {
 	p, _, err := testprofiles.Load(name)
 
-	return p.Spec(), err
+	s := p.Spec()
+	if s.Context != nil {
+		s.Context.AcceptLanguageQ = nil
+	}
+
+	return s, err
 }
 
 // checked returns s checked, for a client: when s is a profile under test
@@ -102,6 +111,7 @@ func loadPages(t testing.TB, p *profile.Spec, scenario, rest string) ([]*capture
 	}
 
 	rw.Pages(pages)
+	capture.UnfarblePages(p.Browser, pages)
 
 	return pages, nil
 }
@@ -120,6 +130,7 @@ func loadH2Traces(t testing.TB, p *profile.Spec, scenario string) ([]*h2trace.Tr
 	}
 
 	rw.Traces(traces)
+	capture.UnfarbleTraces(p.Browser, traces)
 
 	return traces, nil
 }
@@ -163,6 +174,15 @@ func loadSamples[T any](t *testing.T, p *profile.Spec, scenario, rest string) []
 	var samples []T
 	if err := json.Unmarshal(data, &samples); err != nil {
 		t.Fatal(err)
+	}
+
+	switch s := any(samples).(type) {
+	case []*capture.Page:
+		capture.UnfarblePages(p.Browser, s)
+	case [][]capture.H1Request:
+		for _, sample := range s {
+			capture.UnfarbleH1(p.Browser, sample)
+		}
 	}
 
 	if rw == nil {

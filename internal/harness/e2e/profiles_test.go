@@ -134,7 +134,9 @@ func captureRequests(t *testing.T, p *profile.Spec, n int) []*capture.Capture {
 	return got
 }
 
-// loadCapture reads the default page's capture p is checked against.
+// loadCapture reads the default page's capture p is checked against, its
+// Accept-Language unfarbled where its browser farbles it (Brave: the
+// first sample's draw).
 func loadCapture(t *testing.T, p *profile.Spec) *profile.Spec {
 	t.Helper()
 
@@ -149,6 +151,8 @@ func loadCapture(t *testing.T, p *profile.Spec) *profile.Spec {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	capture.UnfarbleHeaders(p.Browser, c.Headers)
 
 	return c
 }

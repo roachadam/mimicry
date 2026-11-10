@@ -18,6 +18,7 @@ import (
 var autoSelectKeys = map[string]string{
 	"chrome": `HKCU:\Software\Policies\Google\Chrome\AutoSelectCertificateForUrls`,
 	"edge":   `HKCU:\Software\Policies\Microsoft\Edge\AutoSelectCertificateForUrls`,
+	"brave":  `HKCU:\Software\Policies\BraveSoftware\Brave\AutoSelectCertificateForUrls`,
 }
 
 // clientCertRefusal says why b cannot take a client-certificate scenario
@@ -28,8 +29,8 @@ func clientCertRefusal(*browser.Browser) string {
 
 // installClientCert imports the identity in the PKCS#12 file p12 into the
 // user's store (Cert:\CurrentUser\My, its CA among the user's intermediate
-// CAs), where Chrome and Edge read identities, and Firefox through its
-// osclientcerts module (browser.Target.ClientCert); for Chrome and Edge it
+// CAs), where the Chromium browsers read identities, and Firefox through its
+// osclientcerts module (browser.Target.ClientCert); for the Chromium browsers it
 // adds AutoSelectCertificateForUrls entries for hosts to the user's
 // policies after any there.
 func installClientCert(ctx context.Context, b *browser.Browser, p12 string, hosts []string) (func(context.Context) error, error) {

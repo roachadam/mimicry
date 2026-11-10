@@ -66,7 +66,8 @@ server (on a warm Mac, rebuilds come 0.4–3 s after launch). A cold
 Mac can take longer: a single-host page whose finishing connection does not
 start with the navigation (`/`) moved connection partway, and the tool
 takes that sample again, up to twice, rather than record a subresource as
-the profile's request.
+the profile's request. It does the same for a browser that exits before
+it is sent to the page.
 
 `-chrome-app PATH` captures another Chrome build than
 `/Applications/Google Chrome.app`: Chrome for Testing, for a version no
@@ -93,12 +94,16 @@ for the keychain on screen.
 
 ## Browser setup
 
-- **Chrome, Edge and Firefox** run with throwaway profiles (no
+- **Chrome, Edge, Brave and Firefox** run with throwaway profiles (no
   extensions, default settings) and resolve the capture hosts to
-  127.0.0.1 themselves; Chrome and Edge (both Chromium, launched with the
-  same flags) ignore certificate errors and Firefox gets a certificate
+  127.0.0.1 themselves; Chrome, Edge and Brave (Chromium, launched with
+  the same flags) ignore certificate errors and Firefox gets a certificate
   exception (or, for pages across several hosts, trusts the system's
-  roots). Nothing on the system changes.
+  roots). Nothing on the system changes. Brave keeps its Shields'
+  defaults (decision 0067); its own background requests (`*.brave.com`)
+  never reach the capture hosts, and through the capture proxy they are
+  refused and not recorded. Its user agent is Chrome's, so its captures
+  are named after the browser launched.
 - **Safari** cannot be isolated: it opens a tab in the user's own window
   (closed afterwards), so leave a Safari window open: with none, closing
   the first sample's tab closes its window, and the next sample opened
@@ -704,22 +709,23 @@ identity (a PKCS#12 file holding it and the untrusted CA) where the
 browser reads identities, and takes it out after the scenario, however
 it ends:
 
-- **Chrome and Edge on macOS**: a temporary keychain in the user's
+- **Chrome, Edge and Brave on macOS**: a temporary keychain in the user's
   search list (`mimicry-client-cert-*.keychain-db` in the temporary
   directory), its key open to the browser's code-signing team
   (`set-key-partition-list`), plus `AutoSelectCertificateForUrls`
   entries in the browser's policy domain (`defaults write
-  com.google.Chrome`, `com.microsoft.Edge`) for the page's hosts,
+  com.google.Chrome`, `com.microsoft.Edge`, `com.brave.Browser`) for the page's hosts,
   filtered on the CA's name; without the policy Chromium asks which
   identity to send even when one fits. Entries of the user's own stay.
   Over ssh (the second Mac) these commands run in the logged-in user's
   session through one-shot launchd jobs: a keychain unlocked from ssh
   stays locked to the browser, which then asks for its password on
   screen (2026-11-08, Edge 157 on macOS 26).
-- **Chrome, Edge and Firefox on Windows**: the user's store
+- **Chrome, Edge, Brave and Firefox on Windows**: the user's store
   (`Cert:\CurrentUser\My`, the CA among the user's intermediate CAs),
-  plus the policy entries for Chrome and Edge under
-  `HKCU\Software\Policies\Google\Chrome` and `Microsoft\Edge`
+  plus the policy entries for the Chromium browsers under
+  `HKCU\Software\Policies\Google\Chrome`, `Microsoft\Edge` and
+  `BraveSoftware\Brave`
   (`AutoSelectCertificateForUrls`); Firefox reads the store through its
   `osclientcerts` module (`security.osclientcerts.autoload`, its
   default there). On the PC measured, each handshake Firefox answered
@@ -728,10 +734,10 @@ it ends:
   database (`pk12util`, so NSS's tools are needed on macOS too: `brew
   install nss`), with `osclientcerts` off so no identity of the user's
   keychain is offered.
-- **Chrome and Edge on Linux**: the throwaway profile's NSS database
+- **Chrome, Edge and Brave on Linux**: the throwaway profile's NSS database
   (HOME is the profile), and the policy in a managed policy file only
   root may write (`/etc/opt/chrome/policies/managed/mimicry-client-cert.json`,
-  `/etc/opt/edge/...`): the tool refuses the scenarios without it and
+  `/etc/opt/edge/...`, `/etc/brave/policies/managed/...`): the tool refuses the scenarios without it and
   prints it; `cmd/refresh` writes it as root in WSL around the capture
   step and removes it after.
 

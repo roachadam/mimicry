@@ -22,8 +22,9 @@
 // profile holds only what was recorded from the real browser: asking for
 // anything else fails with ErrNotMeasured instead of guessing. Built-in
 // profiles are in package profiles: Chrome, Firefox and Safari on macOS and
-// the iPhone, Edge on macOS and Windows, Chrome and Firefox on Windows and
-// Linux (profiles.ChromeLinux, profiles.EdgeWindows, ...). Guides are in
+// the iPhone, Edge on macOS and Windows, Brave on macOS, Windows and Linux,
+// Chrome and Firefox on Windows and Linux (profiles.ChromeLinux,
+// profiles.EdgeWindows, profiles.BraveMacOS, ...). Guides are in
 // the repository's docs directory.
 package mimicry
 
@@ -370,6 +371,9 @@ type Transport struct {
 	connectRTT *atomic.Int64
 	// netHints holds each noiseKey's network hint values (netHints).
 	netHints sync.Map
+	// languageQs holds the q value each top-level page origin's farbled
+	// Accept-Language took (languageQ).
+	languageQs sync.Map
 }
 
 // specOf returns the checked, read-only Spec a profile.Profile holds, or
@@ -807,7 +811,7 @@ func (t *Transport) prepare(req *http.Request, r Request, exact bool) (*sending,
 		from = t.pageFor(req.URL)
 	}
 
-	s, err := resolve(t.profile, req, r, from, t.headers, t.hintsFor(req, r, from))
+	s, err := resolve(t.profile, req, r, from, t.headers, t.hintsFor(req, r, from), t.languageQ(topPage(req, r, from)))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -880,7 +884,7 @@ func (t *Transport) preflightFor(req *http.Request, r Request, from *url.URL, cr
 
 	s, err := resolve(t.profile, pre, Request{
 		Kind: Preflight,
-	}, from, t.preflightHeaders, nil)
+	}, from, t.preflightHeaders, nil, "")
 	if err != nil {
 		return true, nil, err
 	}

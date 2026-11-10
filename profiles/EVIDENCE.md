@@ -4,19 +4,20 @@ This file lists every claim the built-in profiles make, where it comes
 from, and what keeps it true. A claim is one profile field, such as the
 TLS cipher list or a cookie rule.
 
-**Covered:** `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
+**Covered:** `brave-157-macos`, `brave-157-windows`, `brave-157-linux`,
+`chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
 `chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
 `edge-157-windows`, `firefox-158-macos`, `firefox-158-windows`,
 `firefox-159-macos`, `firefox-159-windows`, `firefox-159-linux`,
 `firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
 and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
-second Mac kept on macOS 26, as were Firefox 159 and Edge 157 for macOS
-(that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and 159 and Edge
-157 for Windows on Windows 10; Chrome 157.0.8103.38 and Firefox 159.0.1
-for Linux, Google's and Mozilla's own builds, in WSL2 (Ubuntu 24.04) on
-that Windows PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for
-iOS on an iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS
-26.7.1.
+second Mac kept on macOS 26, as were Firefox 159, Edge 157 and Brave 157
+for macOS (that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and
+159, Edge 157 and Brave 157 for Windows on Windows 10; Chrome
+157.0.8103.38, Firefox 159.0.1 and Brave 1.99.55 for Linux, Google's,
+Mozilla's and Brave's own builds, in WSL2 (Ubuntu 24.04) on that Windows
+PC; Safari 27.2, Chrome 157.0.8103.24 and Firefox 159.1 for iOS on an
+iPhone on iOS 27.2, Safari 26.6.2 on a second iPhone on iOS 26.7.1.
 
 **Headline:** about 85% of the classed cells in the tables below are **W** or
 **W+** (seen on the wire). The rest are fitted, copied, measured on another
@@ -48,9 +49,10 @@ with its 2026-11-01 captures (0053), `firefox-159-ios` with its
 hints rows with the 2026-11-04 `client-hints` captures (0055), the URL
 rows with the 2026-11-04 `urls` captures (0057), `chrome-157-linux` and
 `firefox-159-linux` with their 2026-11-05 captures (0058),
-`edge-157-macos` with its 2026-11-06 captures (0059), and the
+`edge-157-macos` with its 2026-11-06 captures (0059), the
 `tls.clientAuth` rows with the 2026-11-08 `client-cert-*` captures
-(0064). The "Not covered"
+(0064), and the Brave profiles with their 2026-11-09 captures (0067).
+The "Not covered"
 list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
@@ -421,6 +423,88 @@ headers, client-hint rules and QUIC parameters. Where Windows differs:
 `realcheck` on the Windows PC, the policies lifted again for it, found no
 difference between Edge and `edge-157-windows` on the echo endpoints;
 browserleaks' HTTP/2 page logged Edge's own `/favicon.ico` request.
+
+**`brave-157-macos`** (2026-11-09, Brave 1.99.55, reported as 157.1.99.55,
+on the second Mac, macOS 26.2,
+[report](../internal/harness/reports/refresh-brave-157-macos-2026-11-09.md);
+[decision 0067](../docs/decisions/0067-brave-profiles.md)) has no column
+of its own. It inherits nothing: every scenario and replay, and the four
+`proxy-https*` ones, captured from Brave with its Shields at their
+defaults, three samples each; its profile started as `chrome-156-macos`'s.
+Each row has the class and value of `edge-157-macos`'s (the same hello,
+JA4 `t13d1516h2_8daaf6152771_806a8c22fdea`, HTTP/2 preface, QUIC transport
+parameters and `shared_second_long`) but where Brave differs:
+
+- **The browser:** the user agent is Chrome's, word for word;
+  `sec-ch-ua` names `"Brave"`; `sec-gpc: 1` after `accept` in every list.
+- **W, `accept`:** the navigation's keeps `image/jxl` (Edge's has none)
+  but has no `application/signed-exchange;v=b3;q=0.7`.
+- **W, `context.acceptLanguageQ`:** 0.5 to 0.9, all five seen; kindsgen
+  derives the set from every request of every capture as sent (CORS
+  preflights excluded, which all carry the lists' `en-US,en;q=0.9`).
+  `TestAcceptLanguageFarbling` checks the rule (one q per page origin,
+  redirect hops keeping the first URL's) against the samples and
+  mimicry's draws; every other test compares the captures unfarbled.
+- **W, `cookies.thirdParty`:** `partition_all` (hand-written): no
+  first-party cookie on a cross-site request (`cookies`: `c-part.cs`,
+  `c-third.so`), every cookie, CORS, redirect and WebSocket scenario
+  matching.
+- **W, `context.blocksCrossSiteBeacons`:** the kinds pages' beacon to
+  `cdn.kinds-b.test` absent in 9 of 9 samples, the same-site ones sent.
+- **W, client hints:** only the platform version, arch, bitness, model,
+  WoW64 and the full version list (every brand `157.0.0.0`, so
+  `fullVersion` 157.0.0.0); the machine's other fields are the seed's and
+  never sent.
+- **W, from the edge captures (h3gen):** `tcpDelayMs` 3–5 (Chrome 305,
+  Edge 313), read as a race since the 0-RTT attempt held its request to
+  its give-up (`zeroRttHolds`); `pathDegrading.afterPtos` 3 (Chrome and
+  Edge 4); 143 of 150 second Initials in 2 bytes, the 7 others with a
+  token; dial delays for resumed attempts.
+- **Pinned:** as Edge's (NEW_TOKEN reconnections, the XHR header order,
+  the error-page reload, markup images' hops at `u=1` in 3 of 6 samples,
+  the plain-HTTP page's link navigation, the client-hints third party's
+  connection, the blackhole resend, the resumed probes, the idle origin's
+  move to one new TCP connection, the fast fallback, the burst order);
+  one second Initial in 1 byte; the one connection that acknowledged the
+  server's Initial (1 of 21), numbered after the Handshake and 1-RTT
+  packets it led (`coalescedOrder`); one `h3-broken` sample's path move
+  after 3.72 PTOs by the e2e measure (`pathMoveGaps`).
+
+**`brave-157-windows`** (2026-11-09, Brave 1.99.55 on the Windows PC,
+Windows 10, a per-user install,
+[report](../internal/harness/reports/refresh-brave-157-windows-2026-11-09.md))
+started from `brave-157-macos` and inherits nothing. Its rows are
+`brave-157-macos`'s but for the platform strings, the machine's client
+hints, `tcpDelayMs` and the dial delays (h3gen), and the pins: 138 of 150
+second Initials in 2 bytes (12 with a token in 1); one `h3-page`
+PRIORITY_UPDATE read 1 ms after its HEADERS and one `h3-streams-blocked`
+sample with 2 more STREAMS_BLOCKED (h3gen's `sampleGaps`); the second
+page's image at `u=1` in 2 of 3 `h3-discovery` samples (kindsgen's
+`h3PriorityGaps`); one markup image's hop at `u=1` in 1 of 6
+`redirects2` samples; two `h3-broken` samples' path moves after 3.87 and
+3.89 PTOs by the e2e measure; 3 of 5 HTTP/1.1 connections resumed on
+`client-cert-ec` (`clientCertH1Resumes`); and the replay's scheduling on
+`h3-resume-table`, `h3-too-early` and `h3-broken`
+(`h3EdgeSchedulingGaps`).
+
+**`brave-157-linux`** (2026-11-09, Brave 1.99.55 from Brave's apt
+repository in WSL2, Ubuntu 24.04, on the Windows PC, on Xvfb,
+[report](../internal/harness/reports/refresh-brave-157-linux-2026-11-09.md))
+started from `brave-157-macos` and inherits nothing. Its rows are
+`brave-157-macos`'s but for the platform strings, the machine's client
+hints (`x86`, an empty platform version, as Chrome on Linux), and from
+the edge captures (h3gen): `tcpDelayMs` 2–5; no dial delays (every one
+within the `?t=` clock's 3 ms); `pathDegrading.afterPtos` 4 (moves after
+3.93–3.97 PTOs by the e2e measure, as Chrome and Edge); 148 of 156
+second Initials in 2 bytes (8 with a token in 1). Pinned: the token
+cache's reconnections; one `h3-discovery` PRIORITY_UPDATE read 1 ms after
+its HEADERS; one download credit raise 2.01% above 3 MiB; `h3-broken`
+sample 1, which opened a second TCP connection to `www.h3-b.test` 9.2 s
+in, so its fresh attempt after the give-up came with no new TCP (h3gen's
+`hold`; the e2e test logs the features its samples then disagree on);
+markup images and their hops at `u=1` in 4 to 5 of 6 `redirects2`
+samples; and the replay's scheduling on `h3-resume-table` and the fast
+fallback.
 
 **`safari-27-ios`** (2026-11-01, Safari 27.2 on an iPhone 15 Pro, iOS
 27.2, over Wi-Fi,
@@ -852,6 +936,8 @@ cookies and `Access-Control-Request-*` headers, not their header order.
 | `context.sameOriginElementOrigin` | W: Chrome, Safari | Origin on same-origin CORS element requests |
 | `context.stylesheetReferrer` | W: Chrome, Firefox | Safari refers CSS fonts to the page; only same-origin fonts captured, at `/` |
 | `context.anonymousConnections`, `frameConnections` | W: Chrome | Requests without credentials, and a cross-site frame's navigation, go on connections of their own; checked by `TestKindsMatchBrowserTraces` (which requests share a connection, every sample). Safari: one connection per host, as mimicry's default. Firefox: no rule (see "Not covered"); the test pins its known differences label by label (`partitionGaps`), and fails on any other or on one no longer seen |
+| `context.acceptLanguageQ` (Brave's farbled Accept-Language: the last language's q drawn per top-level page origin and session; preflights keep the lists' value) | W: Brave, 0.5–0.9, all five in every platform's captures; every other browser none | Derived by kindsgen from every request of every capture as sent (it refuses a preflight farbled); checked by `TestAcceptLanguageFarbling` (one q per page on `page` and `kinds`, a redirect keeping its first URL's on `nav-redirect-cs`, and mimicry's draws over 200 origins); the other tests compare Brave's captures unfarbled (`capture.Unfarble*`) with the farbling off |
+| `context.blocksCrossSiteBeacons` | W: Brave (the kinds pages' `beacon.cs` absent, 9 of 9 samples per platform; `beacon.so`, `beacon.ss` sent) | Derived by kindsgen; `TestKindsMatchBrowserTraces` holds mimicry to refusing it and every sample to not sending it |
 | Referer by strict-origin-when-cross-origin; Origin per the Fetch standard; credentials per mode | W where captured, otherwise the standard | The page sits at `/`, so full URL and origin coincide except for the CSS font |
 | After a redirect: sec-fetch-site the chain's most distant relation (a navigation's: `redirects.navigationSite`), `Origin: null` once the chain is tainted, the page's Referer (not `http.Client`'s) with the policy applied to each hop in turn (origin only once the chain left the page's origin), storage access by the URL's own relation | W (`fetch-redirect`, `image-redirect`, both directions; `nav-redirect-page` for the Referer back on the page's origin) | |
 
@@ -1275,13 +1361,14 @@ A difference closed is removed here, with its pinned gap entry.
 - **Resumed hello record version** (all): assumed 0x0301, not compared; detection none; add it to the resumed-hello diff.
 - **Client certificates from Safari** (Safari, every iPhone profile): not capturable: Safari 27 sent an empty Certificate holding the identity in a temporary keychain, and stalled with it in the login keychain (2026-11-08); nothing installs an identity on the iPhone; no `tls.clientAuth`, so a certificate is `ErrNotMeasured`; detection none (refused); a way to give Safari an identity without a prompt ([0064](../docs/decisions/0064-client-certificates.md)).
 - **Client certificates over QUIC** (all): no browser was captured answering a CertificateRequest over QUIC; with `GetClientCertificate` set, a server asking over HTTP/3 sends the request, and the origin's later ones, over TCP, where the certificate is sent as measured (not counted as a QUIC failure); detection low (a browser might answer over QUIC); an h3 client-certificate capture.
-- **A CertificateRequest not allowing the browser's scheme** (Chrome, Edge, Firefox): what a browser does when the server's `signature_algorithms` leave out the scheme it signs the key with is not captured; mimicry fails the request with `ErrNotMeasured`; detection none (refused); a capture server sending a narrower list.
-- **Coalescing onto a connection with a client certificate** (Chrome, Edge, Firefox): not captured (no scenario has two hosts on one certificate); mimicry never coalesces onto a connection that sent a certificate or resumed a session that did, as Chrome's and Firefox's source say they do not; detection low; a client-certificate scenario with two hosts on one certificate.
+- **A CertificateRequest not allowing the browser's scheme** (Chrome, Edge, Brave, Firefox): what a browser does when the server's `signature_algorithms` leave out the scheme it signs the key with is not captured; mimicry fails the request with `ErrNotMeasured`; detection none (refused); a capture server sending a narrower list.
+- **Coalescing onto a connection with a client certificate** (Chrome, Edge, Brave, Firefox): not captured (no scenario has two hosts on one certificate); mimicry never coalesces onto a connection that sent a certificate or resumed a session that did, as Chrome's and Firefox's source say they do not; detection low; a client-certificate scenario with two hosts on one certificate.
 - **Firefox's speculative connections to a server asking for a certificate** (Firefox): connections that carry no request, some dropped at the CertificateRequest, some answering it with an empty Certificate (55 and 115 over 36 samples, no pattern across samples); mimicry makes none; detection low (a connection count); not planned, as Chrome's preconnect ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects); pinned in `clientCertSpeculative`).
 - **Chrome's preconnect meeting a CertificateRequest** (Chrome): dropped like the request's first connection, so Chrome drops two connections to the page's host where mimicry drops one; see Chrome's preconnect below (pinned in `clientCertPreconnects`).
-- **Client key types** (Chrome, Edge, Firefox): only ECDSA P-256 and RSA-2048 identities were captured; any other key (P-384, P-521, Ed25519) is `ErrNotMeasured`, and RSA of another size is assumed to sign as RSA-2048 does; detection none for refused keys; a scenario per key type.
-- **Client certificate chains** (Chrome, Edge, Firefox): every browser sent its identity's leaf alone, but none held an identity with intermediates, so what a browser sends then is not measured; mimicry sends the chain the caller gives; detection low; a capture with an intermediate CA.
-- **No client identity** (Chrome, Edge): whether Chrome drops the first connection when it holds no identity to send is not captured; without `GetClientCertificate` mimicry answers on the first connection with an empty Certificate; detection low; a client-certificate scenario with no identity installed.
+- **Client key types** (Chrome, Edge, Brave, Firefox): only ECDSA P-256 and RSA-2048 identities were captured; any other key (P-384, P-521, Ed25519) is `ErrNotMeasured`, and RSA of another size is assumed to sign as RSA-2048 does; detection none for refused keys; a scenario per key type.
+- **Client certificate chains** (Chrome, Edge, Brave, Firefox): every browser sent its identity's leaf alone, but none held an identity with intermediates, so what a browser sends then is not measured; mimicry sends the chain the caller gives; detection low; a capture with an intermediate CA.
+- **No client identity** (Chrome, Edge, Brave): whether Chrome drops the first connection when it holds no identity to send is not captured; without `GetClientCertificate` mimicry answers on the first connection with an empty Certificate; detection low; a client-certificate scenario with no identity installed.
+- **Parallel HTTP/1.1 connections resumed with a client certificate** (Brave on Windows): on `client-cert-ec` Brave resumed 3 of its 5 HTTP/1.1 connections to `h1.kinds-a.test` in 3 of 3 samples, where mimicry resumed 2 (as Brave on macOS, 6 of 6): how many open before the first one's ticket arrives is timing, which no field holds; detection low; none planned (`clientCertH1Resumes`).
 
 **HTTP/1.1**
 
@@ -1297,7 +1384,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's re-prioritisation** (Chrome): a PRIORITY frame mid-load, and a mid-upload stream kept in its lists ([INFERENCE]); never sent; detection medium; model `OnStreamUpdate` against the page traces.
 - **Several requests in the opening record** (Safari on iOS): with three requests waiting as a connection opened, the iPhone put all three HEADERS in the opening's TLS record; `http2.openingRecords` describes the first request's only; detection low; a capture with requests of known count waiting, and a record rule for them.
 - **Upload of unknown length** (all): ends with an empty END_STREAM DATA frame; streamed bodies; detection low to medium; a streaming-upload capture.
-- **Idle origin moved to new TCP** (Chrome on macOS and Linux, Edge): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples; Edge: 8.0 s, and again after 10.0 s, 3 of 3); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Idle origin moved to new TCP** (Chrome on macOS and Linux, Edge, Brave): after a broken HTTP/3 origin, a new TCP connection after 6–10 s idle (Linux: 8.0 s, 3 of 3 samples; Edge: 8.0 s, and again after 10.0 s, 3 of 3; Brave: one new connection, 3 of 3 on macOS, Windows and Linux); detection low; captures to find the cause ([`h3EdgeGaps`](../internal/harness/e2e/http3_edge_test.go)).
+- **Brave on Linux's early second connection** (Brave on Linux): in 1 of 3 `h3-broken` samples Brave opened a second, resumed TCP connection to the page's second host 4.0 s after its first, which carried nothing until the page's next request to that host 35 s later; mimicry opens none; detection low; more samples (h3gen's `hold`, `braveLinuxBrokenVaries`).
 - **Upload DATA chunking** (all; Firefox entirely): 65535-byte chunks match only the first chunk; uploads over 64 KiB; detection low; upload captures of several sizes.
 - **Blob and File bodies joined with the head** (Chrome): Chrome sends a Blob or File body apart from its head even when the two fit 1400 bytes (`http1-upload`'s `/up/blob-100`, `-500`); mimicry cannot tell a Blob from bytes and joins every small body up to `http1.uploadRecords.joinUpTo`; small file uploads over HTTP/1.1; detection low; none planned (decision 0052).
 - **Chunked HTTP/1.1 request bodies** (all): no browser sends one from a page (Chrome and Safari refuse a ReadableStream body over HTTP/1.1, Firefox sends its string form); mimicry's chunked body, which a caller asks for with an unknown length, goes out with its head as one stream in 16 KiB writes; detection low; none planned (decision 0052).
@@ -1328,8 +1416,9 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's packet numbers in some resumed first flights** (Chrome): in some edge resumed attempts (`h3-broken` sample 1 connection 3, `h3-early` sample 1 connection 2) the 0-RTT packets do not continue the shared numbering the `h3-discovery` connections follow; not checked (as the GREASE line); detection low; a look at those flights.
 - **nginx drops Chrome's port migration** (Chrome): nginx answers nothing on the new path, so a 30 s stall; mimicry migrates as Chrome; detection none; a capture of Chrome doing it.
 - **Chrome after declining to move** (Chrome): a server's `disable_active_migration` keeps Chrome on its degrading path ([Chromium source](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.85/net/quic/quic_chromium_client_session.cc#3282), a lead; [RFC 9000 §18.2](https://www.rfc-editor.org/rfc/rfc9000#section-18.2)), and mimicry stays with its keep-alives, probes and idle timeout; what Chrome does then (probes, close timing, where the stuck request goes) is not captured; detection low; a Chrome `h3-broken` capture against a server sending the parameter.
-- **Chrome's blackhole close** (Chrome, Edge): Chrome closes after 54–61 s and resends on TCP (Edge 54.4–54.5 s, macOS and Windows); mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
+- **Chrome's blackhole close** (Chrome, Edge, Brave): Chrome closes after 54–61 s and resends on TCP (Edge and Brave 54.4–54.5 s, macOS and Windows, Brave on Linux too); mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
 - **Edge on Windows's early path move** (Edge on Windows): in 1 of 3 `h3-broken` samples Edge moved its silenced connection to a new path after 2.91 of its PTOs, 13 ms after its second probe, where the others and every other Chromium sample moved after about 4; mimicry moves after 4 (`afterPtos`); detection low; more Windows samples, to tell a rule from a timer (`pathMoveGaps`).
+- **Brave's path move timing** (Brave, macOS and Windows): Brave moved its silenced connection 3.3–3.9 of its PTOs after its last request by the e2e test's measure (macOS 3.41, 3.48, 3.72; Windows 3.29, 3.87, 3.89), which h3gen's measure rounds to `afterPtos` 3; mimicry moves after 3, so the later moves differ by about 100 ms; detection low; more samples, to tell a rule from a timer (`pathMoveGaps`).
 - **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
 - **Firefox's short-lived QUIC side connections** (Firefox, macOS, Windows and Linux): Firefox intermittently opens QUIC connections beside the page's that carry no request and closes each 1–5 ms after its handshake, H3_NO_ERROR: Firefox 158 on Windows in 2 of its 36 HTTP/3 page samples (`h3-broken`, `h3-download`, one per request: 14 and 7); Firefox 159 in 3 of 6 macOS and 4 of 6 Windows `h3-discovery`/`h3-page` samples with locally trusted roots (8–20 per sample, about 300 ms apart), after which later connections to the host in the sample resume nothing and carry no token, and the server's close in `h3-discovery` got no TCP race; on Linux in about half of the `h3-*` samples (15 per sample) and in every `h3-streams-blocked` sample (6, each within 4 ms of a fetch), and in those samples no GET or HEAD went in 0-RTT and the resumed attempt after the server's close ended silently; mimicry opens none; trigger unknown; detection low; more samples to find when (h3gen's `sampleGaps`, kindsgen's `h3AltUsedGaps`, `h3EdgeGaps`).
 - **Firefox on Windows's resumed attempt** (Firefox on Windows): after the server's close, its resumed attempt first probed 1.7–1.9 s after its first flight (`cachedRtt` false) and gave up at 9.8 s or 10.2 s, or (1 of 3 samples) probed from a cached RTT and ended silently at 4.5 s with nothing held (6 further samples: 9.8, 9.8, 10.2, 10.3, 5.0 s and one silent end); mimicry gives up at 9.8 s; only to a silent server; detection low; more samples to find what decides (h3gen's `sampleGaps`).
@@ -1346,8 +1435,9 @@ A difference closed is removed here, with its pinned gap entry.
 - **Server QPACK dynamic table** (all): the decoder side is not measured; detection low to medium; such a server.
 - **A navigation's 0-RTT** (Chrome, Edge): on a resumed connection Chrome and Edge held a navigation (GET) until after the Finished, 3 of 3 `h3-resume-table` samples each, where their fetch, XHR and image GETs went in 0-RTT; `http3.earlyData` holds methods only, so mimicry sends the navigation in 0-RTT; detection low; a navigation rule in `http3.earlyData` (`h3EdgeGaps`).
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
-- **Edge's second Initial in 1 byte** (Edge, macOS and Windows): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte, all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
-- **Chrome's late PRIORITY_UPDATE** (Chrome 156): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
+- **Edge's second Initial in 1 byte** (Edge and Brave): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte (Brave: 7 of 150 on macOS, 12 of 150 on Windows, 8 of 156 on Linux), all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
+- **Brave's late Initial ACK out of order** (Brave on macOS): the one connection of 21 that acknowledged the server's Initial sent that Initial packet after the Handshake and 1-RTT packets it led; mimicry never acknowledges an Initial (`ackInitial` false); detection low (h3gen's `coalescedOrder` pin).
+- **Chrome's late PRIORITY_UPDATE** (Chrome 156, Brave on Windows and Linux): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
 - **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
@@ -1368,7 +1458,8 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari's common names** (Safari): page-set `Authorization`, `Cache-Control` may enter its hash table among its own; only `content-type` captured; detection medium; a `headers-order` capture.
 - **Safari on iOS's large page-set header sets** (Safari on iOS): with 26 or more page-set names its order is not CFNetwork's table as modelled, and its XHR puts a name set twice elsewhere; mimicry orders them as on macOS; detection low (`headersGaps` in kindsgen, `headersOrderGaps`).
 - **Chrome's `content-type` role** (Chrome): page header or its own, unresolved; Blink's source followed; detection low to medium; a `headers-order` capture.
-- **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API.
+- **Requests from a cross-site frame** (all): their top-level site, headers and preflights are not modelled; detection medium; a frame capture and an API. Brave farbles their `Accept-Language` by its tab's page; mimicry by `Request.From`, the frame's origin.
+- **Brave's blocking lists** (Brave): Shields refuse requests to listed ads and trackers before they leave; mimicry sends every request it is asked for (no capture page uses a listed URL); detection low (a blocked request never reaches a server); not planned.
 - **`Sec-Fetch-User` on frames and HTTP/1.1** (Chrome, Firefox): either accepted on frames; Firefox's clicked form POST over HTTP/1.1 refused; detection medium; a clicked form on `kinds-http1`.
 - **Pages below `/`** (all): the full-path `Referer` follows the standard, not a capture; detection medium if wrong; a deep kinds page.
 - **A lone `%` in a path** (all): browsers send it as written (`urls`, `p-lonepct`); Go's `url.Parse` refuses the URL, so `http.NewRequest` fails before mimicry sees it; a caller can send it with `req.URL.Opaque`, which mimicry sends as written (decision 0057); detection none (mimicry sends nothing otherwise) (`urlsKnown`).
@@ -1377,7 +1468,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **A host ending in a dot over HTTP/3** (all): the `urls` page is TCP only, so its SNI over QUIC follows `tls.trailingDotSni` by inference (each browser builds both hellos from the host); with `omit` (Safari) such a QUIC connection keeps no ticket, since uTLS keys QUIC tickets by server name, so it never resumes; detection low; an Alt-Svc case for a trailing-dot host.
 - **IPv6 literals** (all): kept as written; the URL standard compresses them (`[0:0::1]` is `[::1]`); not captured (the capture server listens on IPv4 only); detection low; a `::1` listener and `ip6-*` cases.
 - **`FontFace` loads and `crossorigin` stylesheets** (all): no kind; detection low to medium; add both to the kinds page.
-- **Layout-driven image priorities** (Firefox, Chrome, Edge): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
+- **Layout-driven image priorities** (Firefox, Chrome, Edge, Brave): layout changes them (`u=4`, `u=1`); detection low (`redirectsLineGaps`, `h3Gaps`, `h3PriorityGaps`).
 - **Safari 26's font cookie race** (Safari 26): it sent a font before a cookie was set; detection none (`raceCookieLabels`).
 - **Edges from source only** (Safari, all): Safari's hash tables past 1732 names or for names over 96 characters; the navigation's `content-length` slot, which no request reaches; detection none.
 - **Bodiless POST and PUT without a `bodiless` capture** (Chrome and Firefox on Windows, every iOS profile, `chrome-155-macos`, `safari-26-macos`): no `emptyBody`, so a POST or PUT with no body goes without `content-length: 0`, its stream ended on HEADERS. The `cors` captures already show every profile's cross-site fetch PUT with no body (`put.cs`, the `maxage.cs` PUT) sending `content-length: 0` (Chrome and Safari in the list's place with END_STREAM on HEADERS, Firefox last with an empty DATA frame); kindsgen does not read them for `emptyBody` yet, and POST is unmeasured there; detection medium; a `bodiless` capture per profile ([#56](https://github.com/roachadam/mimicry/issues/56)).
@@ -1405,7 +1496,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Safari 26's clicked navigations** (Safari 26): not captured; follow its script's; detection low (`missingCaptures`).
 - **Chrome 155's hop `cookie` slot** (Chrome 155): no twin captures, so cookies go after the list; detection medium; ends with its deprecation.
 - **`cookie` slot on hops no twin carried cookies on** (all): credentialed cross-site hops, hops from `http://`, Safari 27's same-site image hop; detection low to medium ([0048](../docs/decisions/0048-cookie-twins.md)).
-- **Chrome's error-page reload** (Chrome, Edge): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
+- **Chrome's error-page reload** (Chrome, Edge, Brave): reloads after the redirect limit; mimicry returns the error, by [decision 0022](../docs/decisions/0022-redirects-as-the-browser-follows-them.md); detection low (`redirectsReload`).
 - **Unmeasured chain rules** (all): `navigationSite` on longer chains; `hopPreflight` to another cross-site origin; CORS checks of style, font and preload redirects; Safari's `keep` Origin through a third origin; the frame redirect limit; detection low to medium; a `redirects2` step each.
 - **Safari's cold first sample** (Safari): a hop on a new connection with another order; detection low (`sampleGaps` in kindsgen).
 
@@ -1757,7 +1848,13 @@ the first on Linux the
 the first Edge profile the
 [Edge 157 on macOS report](../internal/harness/reports/refresh-edge-157-macos-2026-11-06.md)
 (on Windows: the
-[Edge 157 on Windows report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md)).
+[Edge 157 on Windows report](../internal/harness/reports/refresh-edge-157-windows-2026-11-06.md));
+the first Brave profile the
+[Brave 157 on macOS report](../internal/harness/reports/refresh-brave-157-macos-2026-11-09.md)
+(Windows: the
+[Brave 157 on Windows report](../internal/harness/reports/refresh-brave-157-windows-2026-11-09.md);
+Linux: the
+[Brave 157 on Linux report](../internal/harness/reports/refresh-brave-157-linux-2026-11-09.md)).
 
 ## Keeping it true
 

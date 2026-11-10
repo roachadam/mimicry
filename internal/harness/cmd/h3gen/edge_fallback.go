@@ -222,6 +222,7 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 
 	var (
 		waits  []int
+		short  []int
 		pinned []raceEvent
 	)
 
@@ -244,6 +245,8 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 			}
 
 			out.Mode = profile.FallbackBackground
+
+			short = append(short, max(int(ev.wait), 0))
 
 			continue
 		}
@@ -274,6 +277,15 @@ func (s *edgeSet) fallback(q *profile.QUIC, d *profile.Discovery, e *collector) 
 
 	out.AbandonOnTCP = s.abandonOnTCP(e)
 	s.afterClose(d, &out, e)
+
+	if out.Mode == profile.FallbackBackground && out.ZeroRTTHolds && len(short) > 0 {
+		// A 0-RTT attempt held its request to its give-up, as only a
+		// racing client's does: the short waits are a race's TCP delay,
+		// near none (Brave: 3–5 ms where Chrome waits about 300).
+		out.Mode = profile.FallbackRace
+		out.TCPDelayMillis = span(short)
+	}
+
 	s.broken(q, d, &out, e)
 	s.pending(&out, e)
 

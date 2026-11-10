@@ -444,13 +444,20 @@ func packetNumbers(s *captureSet, e *collector) string {
 // sharedNumbers: one counter from 1 across every space, the second
 // Initial's number in 2 bytes without a token, else 1; with alwaysLong, in
 // 2 bytes always, unless s pins the connection's "secondInitialLength".
+// With s, a pinned "coalescedOrder" lets a packet go before lower-numbered
+// ones (Brave's late ACK of the server's Initial, numbered after the
+// Handshake and 1-RTT packets it leads in their datagram).
 func sharedNumbers(c *conn, alwaysLong bool, s *captureSet) error {
 	next := uint64(1)
 	initials := 0
 
 	for _, pk := range c.packets() {
 		if pk.p.PN < next {
-			return fmt.Errorf("%s packet %d after %d", pk.p.Type, pk.p.PN, next-1)
+			if s == nil || !s.gap(c, "coalescedOrder") {
+				return fmt.Errorf("%s packet %d after %d", pk.p.Type, pk.p.PN, next-1)
+			}
+
+			continue
 		}
 
 		next = pk.p.PN + 1

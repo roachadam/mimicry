@@ -1029,6 +1029,12 @@ var h3Gaps = map[string]string{
 	// Edge's second Initial in 1 byte (h3gen's sampleGaps, secondInitialLength).
 	"edge-157-macos/rules h3-discovery.local-roots sample 1 connection 3 (www.h3-a.test): packet numbers: the second Initial's in 1 bytes, not 2":   "Edge sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte, as Chrome does with a token; Edge put it in 2 bytes in 115 of 123 connections, token or not, so quic.packetNumbers is shared_second_long; what decides is not on the wire (h3gen's sampleGaps pins the same connection as secondInitialLength)",
 	"edge-157-windows/rules h3-discovery.local-roots sample 2 connection 5 (www.h3-b.test): packet numbers: the second Initial's in 1 bytes, not 2": "as edge-157-macos's: Edge on Windows sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte, as Chrome does with a token; it put it in 2 bytes in 114 of 123 connections, token or not (1 byte in 9, all with a token), so quic.packetNumbers is shared_second_long; what decides is not on the wire (h3gen's sampleGaps pins the same connection as secondInitialLength)",
+	// Brave's, as Edge's (h3gen's sampleGaps, secondInitialLength and
+	// coalescedOrder).
+	"brave-157-macos/rules h3-discovery.local-roots sample 2 connection 3 (www.h3-a.test): packet numbers: the second Initial's in 1 bytes, not 2":             "as edge-157-macos's: Brave sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte; it put it in 2 bytes in 143 of 150 connections, token or not (all 7 one-byte ones with a token), so quic.packetNumbers is shared_second_long (h3gen's sampleGaps pins the same connection as secondInitialLength)",
+	"brave-157-macos/rules h3-discovery.local-roots sample 2 connection 1 (www.h3-a.test): packet numbers: Handshake 3 after 5, not one rising counter from 1": "the late ACK of the server's Initial went as Initial packet 5 at the head of the datagram with Handshake packet 3 and 1-RTT packet 4: numbered when built, after them; the one connection of the 21 that acknowledged an Initial (h3gen's sampleGaps pins it as coalescedOrder and ackInitial)",
+	"brave-157-windows/rules h3-discovery.local-roots sample 1 connection 5 (www.h3-b.test): packet numbers: the second Initial's in 1 bytes, not 2":           "as brave-157-macos's: Brave on Windows sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte; it put it in 2 bytes in 138 of 150 connections, token or not (all 12 one-byte ones with a token), so quic.packetNumbers is shared_second_long (h3gen's sampleGaps pins the same connection as secondInitialLength)",
+	"brave-157-linux/rules h3-discovery.local-roots sample 1 connection 5 (www.h3-b.test): packet numbers: the second Initial's in 1 bytes, not 2":             "as brave-157-macos's: Brave on Linux sent this resumed connection's second Initial (with its NEW_TOKEN token) with its packet number in 1 byte; it put it in 2 bytes in 148 of 156 connections, token or not (all 8 one-byte ones with a token), so quic.packetNumbers is shared_second_long (h3gen's sampleGaps pins the same connection as secondInitialLength)",
 	// Safari's kinds over HTTP/3 are measured for fetch() only.
 	"safari-27-ios/h3-page transport /h3/beacon.so":                                     iosBeacon,
 	"safari-27-ios/h3-page QUIC www.h3-a.test QUIC #1 starts with its TCP connection":   iosBeacon,
@@ -1050,6 +1056,12 @@ var h3Gaps = map[string]string{
 	"edge-157-macos/client-hints transport /h3/b.fetch #1":              noSitePartition,
 	"edge-157-windows/client-hints transport /h3/b.nav #1":              noSitePartition,
 	"edge-157-windows/client-hints transport /h3/b.fetch #1":            noSitePartition,
+	"brave-157-macos/client-hints transport /h3/b.nav #1":               noSitePartition,
+	"brave-157-macos/client-hints transport /h3/b.fetch #1":             noSitePartition,
+	"brave-157-windows/client-hints transport /h3/b.nav #1":             noSitePartition,
+	"brave-157-windows/client-hints transport /h3/b.fetch #1":           noSitePartition,
+	"brave-157-linux/client-hints transport /h3/b.nav #1":               noSitePartition,
+	"brave-157-linux/client-hints transport /h3/b.fetch #1":             noSitePartition,
 	"firefox-159-macos/client-hints transport /h3/b.nav #1":             noSitePartition,
 	"firefox-159-macos/client-hints transport /h3/b.fetch #1":           noSitePartition,
 	"firefox-159-linux/client-hints transport /h3/b.nav #1":             noSitePartition,

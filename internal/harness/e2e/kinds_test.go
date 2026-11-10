@@ -58,6 +58,16 @@ func TestKindsMatchBrowserTraces(t *testing.T) {
 
 						all = append(all, labels...)
 						for _, label := range labels {
+							if blockedBeacon(p, label) {
+								for i, w := range want {
+									if requestFields(w, "/k/"+label, h1, false) != nil {
+										t.Errorf("%s: sample %d sent the cross-site beacon its profile blocks", label, i+1)
+									}
+								}
+
+								continue
+							}
+
 							for _, preflight := range []bool{false, true} {
 								compareKind(t, got, want, label, h1, preflight)
 							}
@@ -484,10 +494,25 @@ func runKindsPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.P
 			r.req.Stylesheet = from.JoinPath("k", "style-fonts.so")
 		}
 
+		if blockedBeacon(p, r.label) {
+			// The browser drops it (Brave's Shields): mimicry refuses.
+			if err := s.do(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body); err == nil {
+				t.Errorf("%s: mimicry sent a cross-site beacon its profile blocks", r.label)
+			}
+
+			continue
+		}
+
 		s.send(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body)
 	}
 
 	return s.finish(s.url(hosts[0], "/done"))
+}
+
+// blockedBeacon reports whether label is the kinds page's cross-site
+// beacon and p's browser blocks it (profile.Context.BlocksCrossSiteBeacons).
+func blockedBeacon(p *profile.Spec, label string) bool {
+	return label == "beacon.cs" && p.Context != nil && p.Context.BlocksCrossSiteBeacons
 }
 
 // pageSession is a multi-host scenario's server and a mimicry client for a

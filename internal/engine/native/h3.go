@@ -596,8 +596,9 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 // await waits for a racing attempt (FallbackRace) up to TCPDelayMillis,
 // then returns nil for TCP; a failed attempt holds the request no longer
 // with fast fallback, until the delay with browser timing. With
-// ZeroRTTHolds a 0-RTT request waits for the handshake; with AbandonOnTCP
-// the attempt is dropped.
+// ZeroRTTHolds a 0-RTT attempt holds the request until it is dialled,
+// however short the delay (Brave's 3–5 ms), and on its connection for
+// the handshake; with AbandonOnTCP the attempt is dropped.
 //
 // held is how long the attempt's dial is held back for a request that
 // started it (Discovery.DialDelayMillis): TCPDelayMillis counts from the
@@ -608,6 +609,20 @@ func (e *Engine) await(ctx context.Context, a *attempt, held time.Duration) (*qu
 
 	if a.together {
 		delay = 0
+	}
+
+	if fb.ZeroRTTHolds && a.resumed && !a.together {
+		// The browser sends the request on the 0-RTT connection the
+		// moment it exists: no race against its dial.
+		select {
+		case <-a.done:
+			if a.conn != nil {
+				return a.conn, nil
+			}
+
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 
 	t := e.clock.NewTimer(delay)
@@ -697,14 +712,16 @@ func millis(n int) time.Duration {
 // server's first answer, with fast fallback or where the browser races its
 // 0-RTT attempts too (FallbackRace without ZeroRTTHolds: Safari): the
 // profile's race delay (Chrome's, which ZeroRTTHolds otherwise stretches
-// to the give-up), else its first probe timeout (Firefox: no race delay;
-// it probes then). Zero: no limit.
+// to the give-up), but no shorter than its first probe timeout, else that
+// timeout (Firefox: no race delay; it probes then). A race delay below it
+// (Brave's 3–5 ms) leaves the server no round trip. Zero: no limit.
 func (e *Engine) earlyLimit() time.Duration {
+	pto := millis(e.profile.QUIC.Loss.InitialPTOMillis)
 	if d := drawMillis(e.profile.HTTP3.Discovery.Fallback.TCPDelayMillis); d > 0 {
-		return d
+		return max(d, pto)
 	}
 
-	return millis(e.profile.QUIC.Loss.InitialPTOMillis)
+	return pto
 }
 
 // earlyWait is how much longer a request may wait on c for a handshake its

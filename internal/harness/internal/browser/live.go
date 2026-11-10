@@ -16,7 +16,7 @@ import (
 
 // Live is a browser on the public internet, driven one top-level navigation
 // at a time, for cmd/realcheck to compare against mimicry on public
-// fingerprinting services. Chrome, Edge and Firefox run on a throwaway
+// fingerprinting services. Chrome, Edge, Brave and Firefox run on a throwaway
 // profile with their defaults; Safari runs in a new window of the user's own
 // Safari and cannot report a page's status or cookies.
 type Live struct {

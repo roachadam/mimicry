@@ -59,6 +59,7 @@ type anchorDiff struct {
 var majorOnly = map[string]bool{
 	"chrome":  true,
 	"edge":    true,
+	"brave":   true,
 	"firefox": true,
 }
 
@@ -255,6 +256,53 @@ func parseEdge(platform string) func([]byte) (string, error) {
 	}
 }
 
+// parseBrave reads Brave's version feed (braveVersionsURL), every build
+// by tag: the highest release-channel build, as Brave reports itself,
+// its Chromium's major before its own version ("157.1.99.55" for 1.99.55
+// on Chromium 157.0.8103.39). The major is what Brave's profiles are named
+// and its user agent shows.
+func parseBrave(data []byte) (string, error) {
+	var builds map[string]struct {
+		Name         string `json:"name"`
+		Channel      string `json:"channel"`
+		Dependencies struct {
+			Chrome string `json:"chrome"`
+		} `json:"dependencies"`
+	}
+	if err := json.Unmarshal(data, &builds); err != nil {
+		return "", fmt.Errorf("brave versions: %w", err)
+	}
+
+	newest, chromium := "", ""
+
+	for tag, b := range builds {
+		if b.Channel != "release" {
+			continue
+		}
+
+		// It goes into the issue body: anything but numbers fails.
+		if !dottedVersion.MatchString(b.Name) || !dottedVersion.MatchString(b.Dependencies.Chrome) {
+			return "", fmt.Errorf("brave versions: %s: version %q on Chromium %q is not a version", tag, b.Name, b.Dependencies.Chrome)
+		}
+
+		if newest != "" {
+			if c, _ := compareVersions(b.Name, newest); c <= 0 {
+				continue
+			}
+		}
+
+		newest, chromium = b.Name, b.Dependencies.Chrome
+	}
+
+	if newest == "" {
+		return "", errors.New("brave versions: no release-channel build")
+	}
+
+	major, _, _ := strings.Cut(chromium, ".")
+
+	return major + "." + newest, nil
+}
+
 // safariTitle is a released version's page in Apple's Safari release notes;
 // a beta's title says Beta, and does not match.
 var safariTitle = regexp.MustCompile(`^Safari (\d+(?:\.\d+)*) Release Notes$`)
@@ -380,6 +428,7 @@ var (
 	browserNames = map[string]string{
 		"chrome":  "Chrome",
 		"edge":    "Edge",
+		"brave":   "Brave",
 		"firefox": "Firefox",
 		"safari":  "Safari",
 	}

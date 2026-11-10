@@ -215,6 +215,18 @@ type Context struct {
 	// OtherHeaders slot. Nil: those lists place them after the rest,
 	// sorted by name (Firefox's lists all have the slot).
 	HeaderTable *HeaderTable `json:"headerTable,omitempty"`
+	// AcceptLanguageQ are the q values one of which the browser puts on
+	// Accept-Language's last language instead of the lists' own, drawn
+	// for each top-level page's origin and kept for the session: Brave's
+	// Shields farbling, 0.5 to 0.9 (decision 0066). Every request takes
+	// its top-level page's (a navigation and its redirects, the one it
+	// started from) but a CORS preflight, which keeps the lists' value.
+	// Empty: the lists' value always.
+	AcceptLanguageQ []string `json:"acceptLanguageQ,omitempty"`
+	// BlocksCrossSiteBeacons sends no beacon (navigator.sendBeacon) to
+	// another site than the page's: Brave's Shields drop it, so a
+	// cross-site Beacon request is an error. Off: beacons go to any site.
+	BlocksCrossSiteBeacons bool `json:"blocksCrossSiteBeacons,omitempty"`
 }
 
 // HeaderTable models a browser's request header hash table: a fetch()'s or

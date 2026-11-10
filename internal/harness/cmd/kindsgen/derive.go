@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -117,7 +118,9 @@ func loadPages(dir string, p *profile.Spec) (*pages, error) {
 }
 
 // loadFile reads a page capture, its header values rewritten to the
-// version of the profile that inherits it.
+// version of the profile that inherits it and, for a browser that farbles
+// its Accept-Language, unfarbled (capture.UnfarblePages; the farbling is
+// acceptLanguageQ's).
 func loadFile(f capture.File) ([]*capture.Page, error) {
 	got, err := capture.LoadPages(f.Path)
 	if err != nil {
@@ -125,8 +128,16 @@ func loadFile(f capture.File) ([]*capture.Page, error) {
 	}
 
 	f.Rewriter.Pages(got)
+	capture.UnfarblePages(sourceBrowser(f.Source), got)
 
 	return got, nil
+}
+
+// sourceBrowser is the browser of profile name ("brave-157-macos": brave).
+func sourceBrowser(name string) string {
+	browser, _, _ := strings.Cut(name, "-")
+
+	return browser
 }
 
 // request is one captured request of the kinds, cookies, cors, cors-edge,
@@ -1550,7 +1561,7 @@ func contextOf(reqs []*request) (*profile.Context, error) {
 			return nil, fmt.Errorf("context, sample %d: %w", s+1, err)
 		}
 
-		if out != nil && *c != *out {
+		if out != nil && !reflect.DeepEqual(c, out) {
 			return nil, fmt.Errorf("context: samples disagree (%+v in sample %d, %+v in sample %d)", *out, samples[0]+1, *c, s+1)
 		}
 
@@ -1605,6 +1616,20 @@ func sampleContext(reqs []*request, sample int) (*profile.Context, error) {
 	c.StylesheetReferrer = strings.HasSuffix(ref, "/k/style-fonts.so")
 	c.AnonymousConnections = omitSO.conn != fetchSO.conn
 	c.FrameConnections = frameCS.conn != scriptCS.conn
+
+	sent := func(label string) bool {
+		return slices.ContainsFunc(reqs, func(r *request) bool {
+			return r.label == label && !r.hop && r.sample == sample
+		})
+	}
+
+	if !sent("beacon.so") {
+		return nil, errors.New("the captures lack the page's own beacon (beacon.so)")
+	}
+
+	// Brave's Shields drop a beacon to another site: the page's to
+	// cdn.kinds-b.test never went out.
+	c.BlocksCrossSiteBeacons = !sent("beacon.cs")
 
 	return c, nil
 }

@@ -89,6 +89,10 @@ func regenerate(data []byte, dir string) ([]byte, error) {
 		return nil, err
 	}
 
+	if p.Context.AcceptLanguageQ, err = acceptLanguageQ(dir, p); err != nil {
+		return nil, err
+	}
+
 	if err := checkProtocolPlace(p, pages.websocketH2); err != nil {
 		return nil, err
 	}

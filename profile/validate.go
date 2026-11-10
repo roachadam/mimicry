@@ -118,6 +118,8 @@ func (p *Spec) Validate() error {
 		c.add("context.preflightCache", "must be empty, %q or %q", PreflightCacheReplace, PreflightCacheMerge)
 	}
 
+	c.checkAcceptLanguageQ(p)
+
 	c.checkClientHints(p)
 	c.checkURLs(p.URLs)
 

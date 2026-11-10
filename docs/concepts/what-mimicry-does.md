@@ -148,6 +148,28 @@ that a Chrome answers as Chrome does.
   origin.
 - `Exact` requests neither send stored hints nor learn or restart.
 
+## Brave's Shields
+
+**What happens.** With a Brave profile, `Accept-Language`'s last q value
+is drawn from Brave's (0.5 to 0.9) once per top-level page origin and
+kept for the Transport's life: a navigation and its redirects take their
+first URL's draw, every other request (a WebSocket handshake too) its
+page's (`Request.From`, or the last navigation). CORS preflights keep the
+profile's own value, as Brave's do. Third-party cookies are kept apart
+per top-level site, and a cross-site `Beacon` is an error: Brave sends
+neither. Its client hints are the smaller set Brave answers with. See
+[decision 0067](../decisions/0067-brave-profiles.md).
+
+**Why.** These are Brave's defaults on the wire; a Brave whose
+`Accept-Language` never varies, or that sends third-party cookies, is not
+one.
+
+**How to change it.**
+- An `Accept-Language` in `Config.Header` or on the request is sent as
+  set, unfarbled, as Brave leaves a page's own value alone.
+- `Profile.With` can clear `Context.AcceptLanguageQ` (always the
+  profile's value) or `Context.BlocksCrossSiteBeacons`.
+
 ## Response decoding
 
 **What happens.** A body encoded with gzip, deflate, Brotli or zstd is

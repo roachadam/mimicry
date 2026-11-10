@@ -124,6 +124,13 @@ var redirectsReload = map[string]bool{
 	// redirects2-cookies) Edge on Windows's chain stopped after hop19 and
 	// the error page reloaded hop19, then followed it to hop25.
 	"edge-157-windows": true,
+	// As edge-157-macos's: in all six samples (redirects2 and
+	// redirects2-cookies) Brave's chain stopped after hop19 and the error
+	// page reloaded hop19, then followed it to hop25, on macOS and
+	// Windows alike, and on Linux.
+	"brave-157-macos":   true,
+	"brave-157-windows": true,
+	"brave-157-linux":   true,
 }
 
 // redirectsMerged are hosts whose connections are compared as one, per
@@ -178,6 +185,26 @@ var redirectsLineGaps = map[string]map[string]string{
 	"edge-157-windows": {
 		"/p/img-markup.ss":      "as edge-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge on Windows: 5 of 6 samples)",
 		"/p/img-markup.ss.hop1": "as edge-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Edge on Windows: 5 of 6 samples)",
+	},
+	// As edge-157-macos's: the layout priority, on the markup images' hops
+	// only (img-markup.so and img-markup.ss themselves u=2 in all six
+	// samples).
+	"brave-157-macos": {
+		"/p/img-markup.so.hop1": "as edge-157-macos's: markup images' hops go at u=1 in some samples, raised once layout found them visible (Brave: 3 of 6 samples)",
+		"/p/img-markup.ss.hop1": "as edge-157-macos's: markup images' hops go at u=1 in some samples, raised once layout found them visible (Brave: 3 of 6 samples)",
+	},
+	// As brave-157-macos's: the layout priority on one markup image's hop
+	// (every other markup image and hop u=2 in all six samples).
+	"brave-157-windows": {
+		"/p/img-markup.ss.hop1": "as brave-157-macos's: a markup image's hop goes at u=1 in some samples, raised once layout found it visible (Brave on Windows: 1 of 6 samples)",
+	},
+	// As brave-157-macos's, on more requests: Brave on Linux raised the
+	// markup images' hops, and img-markup.ss itself, in most samples
+	// (img-markup.so u=2 in all six).
+	"brave-157-linux": {
+		"/p/img-markup.so.hop1": "as brave-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Brave on Linux: 4 of 6 samples)",
+		"/p/img-markup.ss":      "as brave-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Brave on Linux: 4 of 6 samples)",
+		"/p/img-markup.ss.hop1": "as brave-157-macos's: markup images and their hops go at u=1 in some samples, raised once layout found them visible (Brave on Linux: 5 of 6 samples)",
 	},
 	// Markup images in some samples go at u=3, raised by layout.
 	"safari-27-ios": {

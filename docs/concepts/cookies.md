@@ -142,6 +142,10 @@ Where browsers differ, the jar follows the profile:
 | `http://` and `https://` of one host | different sites | same site | same site |
 | Cookies per site | 180; the 181st evicts the least recently used down to 150 | same | no limit |
 
+Edge's rules are Chrome's. Brave's are Chrome's but for third-party
+requests, where it keeps every cookie per top-level site as Firefox does
+(its Shields' default; decision 0067).
+
 A third-party request is one whose site differs from its page's. A
 top-level navigation's site is its own. Lax cookies go cross-site only on
 top-level navigations with a safe method such as GET.

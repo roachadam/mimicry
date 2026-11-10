@@ -17,7 +17,10 @@ go run ./cmd/refresh -browser chrome -dry-run -mini <alias>           # the plan
 go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>   # Chrome, then Firefox, on a Windows machine
 go run ./cmd/refresh -browser edge -mini <alias>             # Edge, on the second Mac
 go run ./cmd/refresh -browser edge-windows -windows <alias>  # Edge, on the Windows machine
+go run ./cmd/refresh -browser brave -mini <alias>            # Brave, on the second Mac
+go run ./cmd/refresh -browser brave-windows -windows <alias> # Brave, on the Windows machine
 go run ./cmd/refresh -browser chrome-linux,firefox-linux -linux <alias> -wsl Ubuntu-24.04 -wsl-user capture   # Chrome, then Firefox, in WSL on that machine
+go run ./cmd/refresh -browser brave-linux -linux <alias> -wsl Ubuntu-24.04 -wsl-user capture   # Brave, in WSL on that machine
 go run ./cmd/refresh -browser safari-ios -listen <mac-ip>   # Safari on an iPhone, served from this Mac
 go run ./cmd/refresh -browser chrome-ios -listen <mac-ip>   # Chrome on an iPhone, served from this Mac
 go run ./cmd/refresh -browser firefox-ios -listen <mac-ip>  # Firefox on an iPhone, served from this Mac
@@ -25,9 +28,10 @@ go run ./cmd/refresh -browser firefox-ios -listen <mac-ip>  # Firefox on an iPho
 
 The setup assumes two Macs: the one you work on, and a second Mac kept on
 macOS 26, reachable over ssh. Pass your ssh alias for it with `-mini` (no
-default; chrome, firefox, edge and safari-mini need it). Chrome, Firefox
-and Edge on Windows need a Windows machine reachable over ssh: pass your
-ssh alias for it with `-windows` (no default). Chrome and Firefox on Linux need a Linux
+default; chrome, firefox, edge, brave and safari-mini need it). Chrome,
+Firefox, Edge and Brave on Windows need a Windows machine reachable over
+ssh: pass your ssh alias for it with `-windows` (no default). Chrome,
+Firefox and Brave on Linux need a Linux
 machine reachable over ssh (`-linux`), or a WSL distribution on the Windows
 machine (`-linux` its alias, `-wsl` the distribution). Safari, Chrome and Firefox on iOS need an iPhone
 connected to this Mac by cable and on its Wi-Fi network: pass this Mac's
@@ -43,6 +47,8 @@ A weekly workflow, [Release watch](../.github/workflows/release-watch.yml)
   platform: Chrome on macOS, Windows and iOS (a new major; chromiumdash),
   Edge on macOS, Windows and Linux (a new major; Microsoft's update feed,
   `edgeupdates.microsoft.com/api/products`, its Stable releases),
+  Brave on macOS, Windows and Linux (a new Chromium major; Brave's feed,
+  `versions.brave.com/latest/brave-versions.json`, its release channel),
   Firefox on macOS and Windows (a new major; Mozilla's product-details) and
   Safari on macOS and iOS (any newer version with release notes, so 27.2
   is newer than a profile at 27.0.1; Apple's Safari release notes). Mozilla
@@ -107,14 +113,16 @@ supported one.
 
 | `-browser` | Machine | Notes |
 |---|---|---|
-| `chrome`, `firefox`, `edge` | the second Mac (`-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode; a first profile alone |
+| `chrome`, `firefox`, `edge`, `brave` | the second Mac (`-mini`) | at once in quick mode (`-serial` to not), one after the other in full mode; a first profile alone |
 | `safari` | the Mac you run it on | opens tabs in your own Safari window |
 | `safari-mini` | the second Mac | Safari 26, since that Mac stays on macOS 26 |
 | `chrome-windows` | the Windows machine (`-windows`) | profiles `chrome-<major>-windows`, for `profiles.ChromeWindows()`; the first one captures the full set |
 | `firefox-windows` | the Windows machine (`-windows`) | profiles `firefox-<major>-windows`, for `profiles.FirefoxWindows()`; the first one captures the full set; after `chrome-windows` when both are named, never at once |
 | `edge-windows` | the Windows machine (`-windows`) | profiles `edge-<major>-windows`; the first one captures the full set; Windows' browsers take turns |
+| `brave-windows` | the Windows machine (`-windows`) | profiles `brave-<major>-windows`; Brave's own installer run as the console user (a per-user install); as `edge-windows` |
 | `chrome-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `chrome-<major>-linux`, for `profiles.ChromeLinux()`; Google's own build; the first one captures the full set |
 | `firefox-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `firefox-<major>-linux`, for `profiles.FirefoxLinux()`; Mozilla's own build; the first one captures the full set |
+| `brave-linux` | the Linux machine (`-linux`, with `-wsl` a WSL distribution) | profiles `brave-<major>-linux`, for `profiles.BraveLinux()`; Brave's own build from its apt repository; the first one captures the full set |
 | `safari-ios` | the iPhone, served from this Mac (`-listen`) | profiles `safari-<major>-ios`; the iPhone set whatever `-mode`, the rest inherited from macOS Safari |
 | `chrome-ios` | the iPhone, served from this Mac (`-listen`) | profiles `chrome-<major>-ios`; the iPhone set whatever `-mode`; one after the other with `safari-ios` when both are named, never at once |
 | `firefox-ios` | the iPhone, served from this Mac (`-listen`) | profiles `firefox-<major>-ios`; as `chrome-ios` |
@@ -132,6 +140,14 @@ until reviewed: the report lists it under "Hand-written, copied from the
 previous profile" (cookies, proxy, redirects, connections, websocket, the
 rest of http2, tls.resumption), and the e2e tests check it against Edge's
 captures.
+
+Brave (`brave`, `brave-windows`, `brave-linux`; profiles
+`brave-<major>-<platform>`, the major Chromium's) is Chromium too, and is
+refreshed as Edge is (decision 0067). Its user agent is Chrome's, so the
+capture tool names its captures after the browser it launched. Its
+Shields stay at their defaults: the farbled `Accept-Language`, which
+makes every sample draw another q value, is derived by kindsgen
+(`context.acceptLanguageQ`) and compared unfarbled elsewhere.
 
 The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 `cmd/realcheck` for darwin/arm64, copies them over and runs them over ssh.
@@ -368,8 +384,8 @@ redirects", even restarted): take them again as single-sample runs and join the 
    any capture names another profile or user agent, or if the installed
    version changed afterwards: Chrome and Firefox update themselves, and an
    update between two launches would split the run. A sample whose page
-   moved to another connection before finishing is taken again, up to
-   twice.
+   moved to another connection before finishing, or whose browser exited
+   before reaching the page, is taken again, up to twice.
 3. **Derive.** The previous profile is copied and renamed. From the new
    captures it takes the ClientHello, the HTTP/2 preface, and the
    navigation's headers over HTTP/2 and HTTP/1.1. Headers the request fills

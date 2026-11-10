@@ -93,7 +93,7 @@ func run() error {
 		c = captured[0]
 	}
 
-	c.Identify()
+	c.Identify("")
 
 	// A client's capture is its profile and trace, whatever the server's
 	// scenario.

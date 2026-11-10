@@ -81,7 +81,7 @@ func (o options) samplesFor(sc *server.Scenario) int {
 
 func run() error {
 	out := flag.String("out", "testdata/captures", "directory to write captures to")
-	only := flag.String("browsers", "", "comma-separated browsers to capture, of chrome, edge, firefox and safari (default: every installed one); "+browser.IOSSafariName+", "+browser.IOSChromeName+" and "+browser.IOSFirefoxName+", Safari, Chrome and Firefox on an iPhone on this Mac's network, only when named here, with -listen")
+	only := flag.String("browsers", "", "comma-separated browsers to capture, of chrome, edge, brave, firefox and safari (default: every installed one); "+browser.IOSSafariName+", "+browser.IOSChromeName+" and "+browser.IOSFirefoxName+", Safari, Chrome and Firefox on an iPhone on this Mac's network, only when named here, with -listen")
 	headless := flag.Bool("headless", false, "hide browser windows; for checking the tool only: headless Chrome reports HeadlessChrome in its user agent")
 	samples := flag.Int("samples", 3, "connections to sample per browser and scenario; the default scenario needs 2 or more to tell whether a browser shuffles its extensions")
 	caDir := flag.String("ca-dir", "", "capture CA directory (default: <user config dir>/mimicry/capture-ca)")
@@ -89,8 +89,8 @@ func run() error {
 	scenarioNames := flag.String("scenarios", "", "comma-separated scenarios to capture (default: all but replays; see internal/server/scenario.go), each optionally name:samples to override -samples; "+
 		"replay-<site> replays -pages/<site>.json, replay all of them")
 	pages := flag.String("pages", "testdata/pages", "directory of recorded page shapes (cmd/pageshape) for replay scenarios")
-	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome, Edge and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
-		"(Chrome and Edge: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
+	h3LocalRoots := flag.Bool("h3-local-roots", false, "in scenarios serving HTTP/3, let Chrome, Edge, Brave and Firefox use QUIC with the capture CA's certificates, which they refuse by default "+
+		"(the Chromium browsers: --origin-to-force-quic-on with an unused port, Firefox: network.http.http3.disable_when_third_party_roots_found=false); "+
 		"the captures record the setting as a condition and are named <scenario>."+localRootsSuffix)
 	summary := flag.String("summary", "", "append one JSON line per written scenario to this file: browser, scenario, profile name, user agent, samples, seconds, files, and the iPhone's driver")
 	preflight := flag.Bool("preflight", false, "print what a capture here needs as JSON (browsers and versions, console user, capture CA trust, /etc/resolver/test, aioquic) and exit")
@@ -520,7 +520,7 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 
 	for i := range n {
 		c, err := sample(ctx, b, sc, opts)
-		for retake := 1; errors.Is(err, errPageMoved) && retake <= maxRetakes; retake++ {
+		for retake := 1; retakeable(err) && retake <= maxRetakes; retake++ {
 			log.Printf("%s: scenario %s, sample %d: %v; taking it again (%d of %d)", b.Name, sc.Name, i+1, err, retake, maxRetakes)
 
 			c, err = sample(ctx, b, sc, opts)
@@ -533,7 +533,7 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 		if i == 0 {
 			// The first sample names the capture: stop here if it exists
 			// rather than after every sample.
-			c.Identify()
+			c.Identify(b.Named())
 
 			if err := capture.CheckNew(opts.out, c); err != nil {
 				return nil, err
@@ -548,7 +548,7 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 		return nil, err
 	}
 
-	c.Identify()
+	c.Identify(b.Named())
 
 	return c, nil
 }
@@ -559,8 +559,14 @@ func captureScenario(ctx context.Context, b *browser.Browser, sc *server.Scenari
 // The sample is retaken, since the finishing connection lacks the navigation.
 var errPageMoved = errors.New("the page moved to another connection before /done")
 
-// maxRetakes is how many times a sample whose page moved is taken again.
+// maxRetakes is how many times a sample whose page moved, or whose browser
+// exited before it was sent to the page (browser.ErrWarmupExit), is taken
+// again: nothing of the page was captured.
 const maxRetakes = 2
+
+func retakeable(err error) bool {
+	return errors.Is(err, errPageMoved) || errors.Is(err, browser.ErrWarmupExit)
+}
 
 // tcpPort returns the port of ln, a TCP listener.
 func tcpPort(ln net.Listener) (int, error) {

@@ -17,10 +17,10 @@ import (
 )
 
 // On Windows a capture runs over ssh as an administrator: it trusts the
-// capture CA in the machine's Root store for the run (Chrome and Edge trust
+// capture CA in the machine's Root store for the run (the Chromium browsers trust
 // the machine's roots, so they also take HTTP/3 through Alt-Svc; Firefox
 // imports them, security.enterprise_roots.enabled) and opens the browser on
-// the console user's desktop through scheduled tasks. Chrome and Edge map
+// the console user's desktop through scheduled tasks. The Chromium browsers map
 // the capture hosts with --host-resolver-rules and Firefox with
 // network.dns.localDomains in its throwaway profile, so DNS is never touched.
 
@@ -90,14 +90,14 @@ func (h windowsHost) problems() []string {
 	}
 
 	if len(h.browsers) == 0 {
-		names := []string{"chrome", "edge", "firefox"}
+		names := []string{"chrome", "edge", "brave", "firefox"}
 		looked := make([]string, 0, 3*len(names))
 
 		for _, name := range names {
 			looked = append(looked, browser.Locations(name)...)
 		}
 
-		p = append(p, "none of Chrome, Edge and Firefox is installed: looked for "+strings.Join(looked, ", "))
+		p = append(p, "none of Chrome, Edge, Brave and Firefox is installed: looked for "+strings.Join(looked, ", "))
 	}
 
 	return p
@@ -194,7 +194,7 @@ func cleanUp(dataDir string) error {
 }
 
 // startDNSStub starts nothing on Windows: only Safari needs the stub, and
-// Chrome, Edge and Firefox map the capture hosts themselves. Serving a
+// Chrome, Edge, Brave and Firefox map the capture hosts themselves. Serving a
 // device on the network (-listen, for Safari on an iPhone) is for the Mac.
 func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
 	if clients.IsValid() {
@@ -221,7 +221,7 @@ func describeExecutable(ctx context.Context, b *browser.Browser, pb *preflightBr
 }
 
 // preflightPlatform adds what a Windows capture needs: elevation, a console
-// user who runs the tool, certutil, schtasks and Chrome, Edge or Firefox.
+// user who runs the tool, certutil, schtasks and Chrome, Edge, Brave or Firefox.
 func preflightPlatform(ctx context.Context, r *preflightReport) error {
 	h, err := checkHost(ctx)
 	if err != nil {

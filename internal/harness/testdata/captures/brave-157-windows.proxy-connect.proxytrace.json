@@ -1,0 +1,44 @@
+[
+  [
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:21249",
+      "lines": [
+        "CONNECT capture.mimicry.test:21249 HTTP/1.1",
+        "Host: capture.mimicry.test:21249",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:21268",
+      "lines": [
+        "CONNECT capture.mimicry.test:21268 HTTP/1.1",
+        "Host: capture.mimicry.test:21268",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
+      ]
+    }
+  ],
+  [
+    {
+      "kind": "connect",
+      "conn": 15,
+      "status": 200,
+      "target": "capture.mimicry.test:21287",
+      "lines": [
+        "CONNECT capture.mimicry.test:21287 HTTP/1.1",
+        "Host: capture.mimicry.test:21287",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36"
+      ]
+    }
+  ]
+]

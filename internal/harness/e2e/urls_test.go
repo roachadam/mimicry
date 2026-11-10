@@ -22,7 +22,7 @@ var urlsKnown = func() map[string]string {
 	}
 
 	const chromePool = "Chrome sent the fetch() of www.urls.test. on its www.urls.test connection and opened a new one for the navigation (its hello, keeping the dot, refused); mimicry runs the case once and coalesces it as the fetch. A navigation's own connection would be top-level-site partitioning, measured but not modelled (decisions 0011, 0029)"
-	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+	for _, name := range []string{"chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "brave-157-macos", "brave-157-windows", "brave-157-linux"} {
 		known[name+"/h-dotpool"] = chromePool
 	}
 

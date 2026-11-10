@@ -1,0 +1,428 @@
+[
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:55613/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "Content-Length: 200000",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Origin: http://capture.mimicry.test:55613",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "x-mimicry-huffman: {^}~",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55613/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55613",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55613/nav",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:55755/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "Content-Length: 200000",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Origin: http://capture.mimicry.test:55755",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "x-mimicry-huffman: {^}~",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55755/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55755",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55755/nav",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.7"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/ HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 1,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/style.css HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/css,*/*;q=0.1",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/img.png HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: image/jxl,image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/app.js HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/big HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "POST http://capture.mimicry.test:55893/upload HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "Content-Length: 200000",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Origin: http://capture.mimicry.test:55893",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/again HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "x-mimicry-huffman: {^}~",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/nav HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "Upgrade-Insecure-Requests: 1",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9",
+        "Cookie: mimicry_a=1; mimicry_b=2"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "capture.mimicry.test",
+      "line": "GET http://capture.mimicry.test:55893/done HTTP/1.1",
+      "headers": [
+        "Host: capture.mimicry.test:55893",
+        "Proxy-Connection: keep-alive",
+        "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36",
+        "Accept: */*",
+        "Sec-GPC: 1",
+        "Referer: http://capture.mimicry.test:55893/nav",
+        "Accept-Encoding: gzip, deflate",
+        "Accept-Language: en-US,en;q=0.9"
+      ]
+    }
+  ]
+]

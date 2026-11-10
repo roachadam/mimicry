@@ -65,6 +65,10 @@ Hint values describe one computer:
 - its connection type.
 
 By default these are the values of the machine the profile was captured on.
+A Brave profile sends only the hints Brave answers with (the platform
+version, architecture, bitness, model and WoW64, and the full version
+list with every brand at `157.0.0.0`): its machine's other values are
+carried in the profile but never sent.
 `Config.ClientHints` sets another machine:
 
 ```go

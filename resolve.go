@@ -17,9 +17,10 @@ import (
 )
 
 // resolve returns how to send req as r describes it, from page from (nil:
-// none), with config (Config.Header, keys canonical) added and client hints
-// as hints says (nil: the list's).
-func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, config http.Header, hints *hintsOut) (*sending, error) {
+// none), with config (Config.Header, keys canonical) added, client hints
+// as hints says (nil: the list's) and Accept-Language's last q value
+// languageQ (farbled, profile.Context.AcceptLanguageQ; "": the list's).
+func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, config http.Header, hints *hintsOut, languageQ string) (*sending, error) {
 	h := req.Header.Clone()
 	if h == nil {
 		h = http.Header{}
@@ -167,6 +168,11 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 		}
 
 		tainted = isTainted(from, chain)
+	}
+
+	if r.Kind == Beacon && targetSite == "cross-site" && p.Context != nil && p.Context.BlocksCrossSiteBeacons {
+		// Brave's Shields drop it: the browser never sends one.
+		return nil, fmt.Errorf("mimicry: profile %s sends no beacon to another site: its browser blocks them (profile.Context.BlocksCrossSiteBeacons)", p.Name)
 	}
 
 	values := map[string]string{}
@@ -469,6 +475,17 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 			return strings.EqualFold(hd.Name, "origin")
 		}) {
 			return nil, fmt.Errorf("%w: profile %s has no %s request with Origin for method %q, site %q, CORS-checked %v, page-set headers %v, redirected %v, non-secure %v", ErrNotMeasured, p.Name, r.Kind, cond.Method, cond.Site, cond.CORSChecked, cond.PageSet, cond.Redirected, cond.Insecure)
+		}
+	}
+
+	if languageQ != "" && r.Kind != Preflight {
+		value := valueOf(list, "accept-language")
+		if value == "" {
+			value = valueOf(h1, "Accept-Language")
+		}
+
+		if value != "" {
+			values["accept-language"] = withQ(value, languageQ)
 		}
 	}
 
