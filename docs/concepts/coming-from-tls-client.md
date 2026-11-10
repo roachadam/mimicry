@@ -159,6 +159,15 @@ browser's (`Transport.Plan` lists the first two: [below](#seeing-what-will-be-se
   Chrome's 17); Chrome's `accept`, if copied, also carries `image/jxl`,
   which Edge's lacks. `profiles.EdgeMacOS()` is Edge's own (decision
   0059).
+- **Brave:** tls-client's `profiles.Brave_146` and `Brave_146_PSK` become
+  `profiles.BraveMacOS()`, `profiles.BraveWindows()` or
+  `profiles.BraveLinux()` (Brave 157, decision 0067). Brave's user agent
+  is Chrome's, so the brands (`"Brave"` in `sec-ch-ua`), the hello (16
+  extensions with GREASE ECH and no Trust Anchor IDs, where `Brave_146`
+  has 15 and no ECH), `sec-gpc: 1` and what Brave's Shields change are
+  what tell it apart: a farbled `Accept-Language` per site, third-party
+  cookies kept per site, and no cross-site beacons. mimicry has no Opera
+  profile.
 - **A POST navigation needs its page.** A form POST is
   `mimicry.With(req, mimicry.Request{From: formPage})`; without `From` a
   navigation is a typed URL, which is GET or HEAD only.
@@ -269,6 +278,8 @@ Errors are returned, not encoded as a status code. Worth checking for:
 - `mimicry.ErrNotMeasured`: the profile cannot describe the request, so
   nothing was sent. This is a programming error; do not retry;
 - `*mimicry.CORSError`: the browser would not have sent the request;
+- `mimicry.ErrBlocked`: the profile's browser blocks the request (a
+  cross-site beacon with a Brave profile), so nothing was sent;
 - `*mimicry.ProxyError`: the proxy failed, not the site;
 - `*mimicry.PinError`: the certificate matched none of `Config.Pins`.
 
@@ -296,9 +307,9 @@ Speed and memory compared with tls-client are in
 
 ## Where mimicry is weaker
 
-- **Few profiles.** Thirteen desktop profiles (Chrome, Edge, Firefox and
-  Safari on macOS, Chrome, Edge and Firefox on Windows, Chrome and Firefox
-  on Linux) and four on iPhone, whose HTTP/3 failure timing and
+- **Few profiles.** Sixteen desktop profiles (Chrome, Edge, Brave,
+  Firefox and Safari on macOS, Chrome, Edge, Brave and Firefox on
+  Windows, Chrome, Brave and Firefox on Linux) and four on iPhone, whose HTTP/3 failure timing and
   challenge-answering proxy credentials are not measured. No Android or
   iPad, and no Linux distribution's own build of a browser. Making a new
   one needs a

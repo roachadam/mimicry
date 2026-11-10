@@ -4,6 +4,27 @@ package profiles
 
 import "github.com/roachadam/mimicry/profile"
 
+// BraveMacOS returns the newest brave profile on macos, now brave-157-macos (brave 157 on macos).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func BraveMacOS() profile.Profile {
+	return load("brave-157-macos")
+}
+
+// BraveLinux returns the newest brave profile on linux, now brave-157-linux (brave 157 on linux).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func BraveLinux() profile.Profile {
+	return load("brave-157-linux")
+}
+
+// BraveWindows returns the newest brave profile on windows, now brave-157-windows (brave 157 on windows).
+// It moves to each new version as that version is added; use a
+// versioned accessor where a version must stay fixed.
+func BraveWindows() profile.Profile {
+	return load("brave-157-windows")
+}
+
 // ChromeMacOS returns the newest chrome profile on macos, now chrome-156-macos (chrome 156 on macos).
 // It moves to each new version as that version is added; use a
 // versioned accessor where a version must stay fixed.
@@ -86,6 +107,21 @@ func SafariMacOS() profile.Profile {
 // versioned accessor where a version must stay fixed.
 func SafariIOS() profile.Profile {
 	return load("safari-27-ios")
+}
+
+// Brave157Linux returns the brave-157-linux profile (brave 157 on linux).
+func Brave157Linux() profile.Profile {
+	return load("brave-157-linux")
+}
+
+// Brave157MacOS returns the brave-157-macos profile (brave 157 on macos).
+func Brave157MacOS() profile.Profile {
+	return load("brave-157-macos")
+}
+
+// Brave157Windows returns the brave-157-windows profile (brave 157 on windows).
+func Brave157Windows() profile.Profile {
+	return load("brave-157-windows")
 }
 
 // Chrome155MacOS returns the chrome-155-macos profile (chrome 155 on macos).
@@ -174,6 +210,9 @@ func Safari27MacOS() profile.Profile {
 }
 
 var names = []string{
+	"brave-157-linux",
+	"brave-157-macos",
+	"brave-157-windows",
 	"chrome-155-macos",
 	"chrome-156-macos",
 	"chrome-156-windows",
@@ -194,6 +233,9 @@ var names = []string{
 }
 
 var supported = []string{
+	"brave-157-linux",
+	"brave-157-macos",
+	"brave-157-windows",
 	"chrome-155-macos",
 	"chrome-156-macos",
 	"chrome-156-windows",

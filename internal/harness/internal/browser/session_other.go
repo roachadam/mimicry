@@ -10,10 +10,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 )
 
 var macOSApps = map[string]string{
 	"edge":    "/Applications/Microsoft Edge.app",
+	"brave":   "/Applications/Brave Browser.app",
 	"firefox": "/Applications/Firefox.app",
 	"safari":  "/Applications/Safari.app",
 }
@@ -27,6 +30,10 @@ var linuxCommands = map[string][]string{
 		"microsoft-edge-stable",
 		"microsoft-edge",
 	},
+	"brave": {
+		"brave-browser-stable",
+		"brave-browser",
+	},
 	"firefox": {
 		"firefox",
 	},
@@ -38,11 +45,11 @@ func Supported([]string) error {
 	return nil
 }
 
-// Find returns the supported browsers installed here: Chrome, Edge,
+// Find returns the supported browsers installed here: Chrome, Edge, Brave,
 // Firefox, then Safari.
 func Find() []*Browser {
 	var found []*Browser
-	for _, name := range []string{"chrome", "edge", "firefox", "safari"} {
+	for _, name := range []string{"chrome", "edge", "brave", "firefox", "safari"} {
 		b := &Browser{
 			Name: name,
 		}
@@ -117,6 +124,11 @@ func (b *Browser) handTo(ctx context.Context, dir, url string) error {
 	return nil
 }
 
+// outputWait is how long a session's Wait reads a browser's output after
+// the browser exited (exec.Cmd.WaitDelay): its helper processes keep the
+// pipe open for as long as they run.
+const outputWait = 500 * time.Millisecond
+
 // start launches b with args on the profile directory dir, which the
 // session removes when it closes (and start, if it fails).
 func (b *Browser) start(ctx context.Context, dir string, args []string) (*Session, error) {
@@ -130,16 +142,32 @@ func (b *Browser) start(ctx context.Context, dir string, args []string) (*Sessio
 		cmd.Env = browserEnv(b, dir)
 	}
 
+	output := &tailWriter{}
+	if b.App == "" {
+		// What a browser that exits early said (ErrWarmupExit). Its
+		// helper processes inherit the pipe and outlive it: Wait stops
+		// reading a moment after it exits rather than waiting for them.
+		cmd.Stdout, cmd.Stderr = output, output
+		cmd.WaitDelay = outputWait
+		// A group of its own, signalled whole (stop, reap): Brave's
+		// launcher script on Linux runs the browser without exec, so a
+		// signal to the script alone left the browser and its helpers
+		// running, one more set per sample, until the display refused
+		// new windows.
+		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	}
+
 	if err := cmd.Start(); err != nil {
 		_ = os.RemoveAll(dir)
 		return nil, fmt.Errorf("starting %s: %w", b.Name, err)
 	}
 
 	s := &Session{
-		proc: cmd.Process,
-		dir:  dir,
-		app:  b.App != "",
-		done: make(chan struct{}),
+		proc:   cmd.Process,
+		dir:    dir,
+		app:    b.App != "",
+		done:   make(chan struct{}),
+		output: output,
 	}
 
 	go func() {
@@ -168,13 +196,21 @@ func (s *Session) stop(kill bool) {
 		return
 	}
 
+	signal := syscall.SIGINT
 	if kill {
-		_ = s.proc.Kill()
-		return
+		signal = syscall.SIGKILL
 	}
 
-	if err := s.proc.Signal(os.Interrupt); err != nil && !errors.Is(err, os.ErrProcessDone) {
+	if err := syscall.Kill(-s.proc.Pid, signal); err != nil && !errors.Is(err, syscall.ESRCH) {
 		_ = s.proc.Kill()
+	}
+}
+
+// reap kills what is left of a session's process group once its main
+// process exited: helpers that outlived it.
+func (s *Session) reap() {
+	if !s.app {
+		_ = syscall.Kill(-s.proc.Pid, syscall.SIGKILL)
 	}
 }
 

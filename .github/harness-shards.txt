@@ -59,6 +59,7 @@
 100        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^firefox-.*-linux            parallel=8
 100        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^safari-                     parallel=8
 140        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^edge-                       parallel=8
+185        main      ./e2e            TestHTTP3EdgeMatchesBrowser/^brave-                      parallel=8
 80         main      ./e2e            TestHTTP3EdgeMatchesBrowser                              parallel=8
 65         main      ./e2e            TestQUICInterop
 # Both replay every page capture, decoded once per test binary (pagesOnce,

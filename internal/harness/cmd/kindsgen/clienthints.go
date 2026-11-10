@@ -119,6 +119,13 @@ var blinkHintOrder = []string{
 // restarted), another request's in its header table's order, and the
 // values the machine gives.
 func deriveClientHints(p *profile.Spec, dir string) error {
+	// The machine the profile was copied with, for the hints its browser
+	// never sends (machineOf).
+	var seed profile.Machine
+	if p.ClientHints != nil {
+		seed = p.ClientHints.Machine
+	}
+
 	p.ClientHints = nil
 
 	files, err := server.ClientHintsCaptures(dir, p)
@@ -165,7 +172,7 @@ func deriveClientHints(p *profile.Spec, dir string) error {
 		return nil
 	}
 
-	ch, err := hintsOf(sent)
+	ch, err := hintsOf(sent, seed)
 	if err != nil {
 		return err
 	}
@@ -264,8 +271,9 @@ func sentRequests(file string, sample int, page *capture.Page, steps map[string]
 }
 
 // hintsOf derives ClientHints from the opted-in navigation's hints, the
-// restarts' place, and the values.
-func hintsOf(sent []sentRequest) (*profile.ClientHints, error) {
+// restarts' place, and the values; seed is the machine the profile was
+// copied with (machineOf).
+func hintsOf(sent []sentRequest, seed profile.Machine) (*profile.ClientHints, error) {
 	var (
 		ch   *profile.ClientHints
 		errs []error
@@ -287,7 +295,7 @@ func hintsOf(sent []sentRequest) (*profile.ClientHints, error) {
 			Hints: hints,
 		}
 
-		m, full, err := machineOf(r)
+		m, full, err := machineOf(r, seed)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", r.at, err)
 		}
@@ -362,14 +370,21 @@ func hintsOf(sent []sentRequest) (*profile.ClientHints, error) {
 }
 
 // machineOf reads the machine and the browser's full version from an
-// opted-in navigation's hint values.
-func machineOf(r sentRequest) (profile.Machine, string, error) {
+// opted-in navigation's hint values. A hint the browser never sends
+// (Brave: dpr, device memory, viewport, form factors, the preferences,
+// the network hints and sec-ch-ua-full-version) keeps seed's value, which
+// no request of the profile carries; the full version is then the
+// Chromium brand's in sec-ch-ua-full-version-list.
+func machineOf(r sentRequest, seed profile.Machine) (profile.Machine, string, error) {
 	var (
-		m    profile.Machine
+		m    = seed
 		full string
 		errs []error
 	)
 
+	sent := func(name string) bool {
+		return slices.Contains(r.names, name)
+	}
 	value := func(name string) string {
 		if i := slices.Index(r.names, name); i >= 0 {
 			return r.values[i]
@@ -377,52 +392,92 @@ func machineOf(r sentRequest) (profile.Machine, string, error) {
 
 		return ""
 	}
-	str := func(name string) string {
+	str := func(name string, into *string) {
+		if !sent(name) {
+			return
+		}
+
 		s, err := strconv.Unquote(value(name))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s %q is no string", name, value(name)))
 		}
 
-		return s
+		*into = s
 	}
-	num := func(name string) float64 {
+	num := func(name string, into *float64) {
+		if !sent(name) {
+			return
+		}
+
 		f, err := strconv.ParseFloat(value(name), 64)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s %q is no number", name, value(name)))
 		}
 
-		return f
+		*into = f
 	}
-
-	full = str("sec-ch-ua-full-version")
-	m.PlatformVersion = str("sec-ch-ua-platform-version")
-	m.Arch = str("sec-ch-ua-arch")
-	m.Bitness = str("sec-ch-ua-bitness")
-	m.Model = str("sec-ch-ua-model")
-	m.WoW64 = value("sec-ch-ua-wow64") == "?1"
-
-	for f := range strings.SplitSeq(value("sec-ch-ua-form-factors"), ", ") {
-		s, err := strconv.Unquote(f)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("sec-ch-ua-form-factors %q is no list of strings", value("sec-ch-ua-form-factors")))
-
-			break
+	text := func(name string, into *string) {
+		if sent(name) {
+			*into = value(name)
 		}
-
-		m.FormFactors = append(m.FormFactors, s)
 	}
 
-	m.DPR = num("sec-ch-dpr")
-	m.ViewportWidth = int(num("sec-ch-viewport-width"))
-	m.ViewportHeight = int(num("sec-ch-viewport-height"))
-	m.DeviceMemory = num("sec-ch-device-memory")
-	m.ColorScheme = value("sec-ch-prefers-color-scheme")
-	m.ReducedMotion = value("sec-ch-prefers-reduced-motion")
-	m.ReducedTransparency = value("sec-ch-prefers-reduced-transparency")
-	m.ECT = value("ect")
-	// A placeholder until hintsOf has every sample's: checkHints compares
-	// values against it otherwise.
-	m.Downlink = 1
+	if sent("sec-ch-ua-full-version") {
+		str("sec-ch-ua-full-version", &full)
+	} else {
+		full = chromiumVersion(r, "")
+	}
+
+	str("sec-ch-ua-platform-version", &m.PlatformVersion)
+	str("sec-ch-ua-arch", &m.Arch)
+	str("sec-ch-ua-bitness", &m.Bitness)
+	str("sec-ch-ua-model", &m.Model)
+
+	if sent("sec-ch-ua-wow64") {
+		m.WoW64 = value("sec-ch-ua-wow64") == "?1"
+	}
+
+	if sent("sec-ch-ua-form-factors") {
+		m.FormFactors = nil
+
+		for f := range strings.SplitSeq(value("sec-ch-ua-form-factors"), ", ") {
+			s, err := strconv.Unquote(f)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("sec-ch-ua-form-factors %q is no list of strings", value("sec-ch-ua-form-factors")))
+
+				break
+			}
+
+			m.FormFactors = append(m.FormFactors, s)
+		}
+	}
+
+	num("sec-ch-dpr", &m.DPR)
+
+	var width, height float64
+	if sent("sec-ch-viewport-width") {
+		num("sec-ch-viewport-width", &width)
+
+		m.ViewportWidth = int(width)
+	}
+
+	if sent("sec-ch-viewport-height") {
+		num("sec-ch-viewport-height", &height)
+
+		m.ViewportHeight = int(height)
+	}
+
+	num("sec-ch-device-memory", &m.DeviceMemory)
+	text("sec-ch-prefers-color-scheme", &m.ColorScheme)
+	text("sec-ch-prefers-reduced-motion", &m.ReducedMotion)
+	text("sec-ch-prefers-reduced-transparency", &m.ReducedTransparency)
+	text("ect", &m.ECT)
+
+	if sent(profile.HintDownlink) {
+		// A placeholder until hintsOf has every sample's: checkHints
+		// compares values against it otherwise.
+		m.Downlink = 1
+	}
 
 	return m, full, errors.Join(errs...)
 }

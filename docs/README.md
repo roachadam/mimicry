@@ -61,6 +61,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0053](decisions/0053-chrome-on-ios.md) | Chrome on an iPhone: its own iPhone captures; inherited from Safari of its WebKit only where no difference shows | Amended (Firefox on an iPhone; `abandonOnTcp` derived) |
 | [0058](decisions/0058-linux-profiles.md) | Linux profiles: Google's Chrome and Mozilla's Firefox, one profile each for every distribution, captured in WSL2 on Xvfb | Accepted |
 | [0059](decisions/0059-edge-profiles.md) | Edge profiles: captured on their own, seeded from Chrome's, nothing inherited; `chromiumFullVersion` and `shared_second_long` for where Edge differs | Accepted |
+| [0067](decisions/0067-brave-profiles.md) | Brave profiles: captured on their own, nothing inherited; Shields modelled: farbled Accept-Language (`context.acceptLanguageQ`), third-party cookies kept per site, no cross-site beacons (`context.blocksCrossSiteBeacons`) | Accepted |
 
 ### Requests and headers
 

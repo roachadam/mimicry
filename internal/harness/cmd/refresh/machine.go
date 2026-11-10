@@ -84,12 +84,24 @@ var targets = map[string]target{
 		browser: "edge",
 		remote:  remoteWindows,
 	},
+	"brave": {
+		browser: "brave",
+		remote:  remoteMini,
+	},
+	"brave-windows": {
+		browser: "brave",
+		remote:  remoteWindows,
+	},
 	"chrome-linux": {
 		browser: "chrome",
 		remote:  remoteLinux,
 	},
 	"firefox-linux": {
 		browser: "firefox",
+		remote:  remoteLinux,
+	},
+	"brave-linux": {
+		browser: "brave",
 		remote:  remoteLinux,
 	},
 	"safari": {

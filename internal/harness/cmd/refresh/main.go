@@ -1,17 +1,18 @@
 // Command refresh brings a browser's built-in profile up to the version
-// installed where that browser is captured (chrome, firefox, edge and
-// safari-mini on the second Mac via -mini, safari here, chrome-windows,
-// firefox-windows and edge-windows on a Windows PC via -windows,
-// chrome-linux and firefox-linux on a Linux machine via -linux, safari-ios,
-// chrome-ios and firefox-ios on an iPhone this Mac serves via -listen):
+// installed where that browser is captured (chrome, firefox, edge, brave
+// and safari-mini on the second Mac via -mini, safari here,
+// chrome-windows, firefox-windows, edge-windows and brave-windows on a
+// Windows PC via -windows, chrome-linux, firefox-linux and brave-linux on
+// a Linux machine via -linux, safari-ios, chrome-ios and firefox-ios on an
+// iPhone this Mac serves via -listen):
 //
 //	go run ./cmd/refresh -browser chrome,firefox -mode quick -mini <alias>   # in internal/harness/
 //	go run ./cmd/refresh -browser chrome-windows,firefox-windows -windows <alias>
 //	go run ./cmd/refresh -browser safari-ios,chrome-ios,firefox-ios -listen <this Mac's IPv4>
 //
-// The first profile of a browser (edge) starts from the newest Chrome
-// profile of its platform, whose engine it shares, and captures every
-// scenario, inheriting nothing (decision 0035).
+// The first profile of a browser (edge, brave) starts from the newest
+// Chrome profile of its platform, whose engine it shares, and captures
+// every scenario, inheriting nothing (decision 0035).
 //
 // Per browser it preflights, captures into a staging directory, derives the
 // new profile and runs the generators, installs it, and verifies it with the
@@ -79,12 +80,12 @@ type config struct {
 func run() error {
 	var cfg config
 
-	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox, edge (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows, edge-windows (on -windows), chrome-linux, firefox-linux (on -linux), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
+	browsers := flag.String("browser", "", "comma-separated browsers to refresh: chrome, firefox, edge, brave (on -mini), safari (this Mac), safari-mini (the mini's Safari), chrome-windows, firefox-windows, edge-windows, brave-windows (on -windows), chrome-linux, firefox-linux, brave-linux (on -linux), safari-ios, chrome-ios, firefox-ios (the iPhone, served on -listen)")
 
 	flag.StringVar(&cfg.mode, "mode", modeQuick, "quick (the fingerprint layer; the rest inherited from the previous version) or full (every scenario and replay)")
-	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, edge, safari-mini)")
-	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows, edge-windows; required for them)")
-	flag.StringVar(&cfg.linux, "linux", "", "your ssh alias for the Linux machine, or with -wsl for the Windows PC whose WSL distribution it is (chrome-linux, firefox-linux; required for them)")
+	flag.StringVar(&cfg.mini, "mini", "", "your ssh alias for the second Mac (chrome, firefox, edge, brave, safari-mini)")
+	flag.StringVar(&cfg.windows, "windows", "", "your ssh alias for the Windows PC (chrome-windows, firefox-windows, edge-windows, brave-windows; required for them)")
+	flag.StringVar(&cfg.linux, "linux", "", "your ssh alias for the Linux machine, or with -wsl for the Windows PC whose WSL distribution it is (chrome-linux, firefox-linux, brave-linux; required for them)")
 	flag.StringVar(&cfg.wsl, "wsl", "", "the WSL distribution on -linux's Windows PC the Linux browsers run in (wsl -l), instead of a Linux machine of its own")
 	flag.StringVar(&cfg.wslUser, "wsl-user", "", "the user in -wsl's distribution the browsers run as (default: the distribution's default user; Chrome refuses root)")
 	flag.StringVar(&cfg.listen, "listen", "", "this Mac's IPv4 address on the iPhone's Wi-Fi network (safari-ios, chrome-ios, firefox-ios; required for them)")
@@ -131,17 +132,17 @@ func run() error {
 
 		switch {
 		case mini && cfg.mini == "":
-			return errors.New("-browser chrome, firefox, edge and safari-mini need -mini <your ssh alias for the second Mac>")
+			return errors.New("-browser chrome, firefox, edge, brave and safari-mini need -mini <your ssh alias for the second Mac>")
 		case iphone && cfg.listen == "":
 			return errors.New("-browser safari-ios, chrome-ios and firefox-ios need -listen <this Mac's IPv4 address on the iPhone's Wi-Fi network> (ipconfig getifaddr en0)")
 		case iphone && !lanIPv4(cfg.listen):
 			return fmt.Errorf("-listen %q: want this Mac's IPv4 address on the iPhone's network", cfg.listen)
 		case windows && cfg.windows == "":
-			return errors.New("-browser chrome-windows, firefox-windows and edge-windows need -windows <your ssh alias for the Windows PC>")
+			return errors.New("-browser chrome-windows, firefox-windows, edge-windows and brave-windows need -windows <your ssh alias for the Windows PC>")
 		case windows && mini && cfg.windows == cfg.mini:
 			return fmt.Errorf("-windows and -mini are both %q: the Windows PC and the second Mac are two machines", cfg.mini)
 		case linux && cfg.linux == "":
-			return errors.New("-browser chrome-linux and firefox-linux need -linux <your ssh alias for the Linux machine, or the Windows PC with -wsl>")
+			return errors.New("-browser chrome-linux, firefox-linux and brave-linux need -linux <your ssh alias for the Linux machine, or the Windows PC with -wsl>")
 		case linux && mini && cfg.linux == cfg.mini:
 			return fmt.Errorf("-linux and -mini are both %q: the Linux machine and the second Mac are two machines", cfg.mini)
 		case linux && cfg.wsl == "" && cfg.linux == cfg.windows:

@@ -303,7 +303,10 @@ asked.
   4); an override can make a request look less like the browser's.
 - **`Accept-Language` is the capture machine's** setting, not a browser
   constant. Vendors compare it with the exit IP's location; set your own
-  with `Config.Header` (preflights carry it too).
+  with `Config.Header` (preflights carry it too). A Brave profile varies
+  its q value per page origin (`Context.AcceptLanguageQ`); one you set is
+  sent as set. A request from a cross-site frame takes the frame's own
+  draw (`Request.From`), where Brave takes its tab's.
 - **No HTTP cache.** Nothing adds `If-None-Match` or `If-Modified-Since`;
   set them yourself to look like a returning visitor.
 - **`ErrNotMeasured`** also comes from: a same-site form POST navigation; a

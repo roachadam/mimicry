@@ -28,6 +28,8 @@ var h3PriorityGaps = map[string]string{
 	"firefox-159-macos.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 1, /h3/markup-image2.so":   "as sample 1",
 	"firefox-159-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 3, QUIC connection 1, /h3/markup-image2.so": "as firefox-159-macos's: u=4, i where its kind's is u=5, i, in 1 of 3 samples (firefox-158-windows: none)",
 	"firefox-159-linux /h3/markup-image2.so": "as firefox-158-macos's: u=4, i where its kind's is u=5, i, in all three samples",
+	"brave-157-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 1, QUIC connection 1, /h3/markup-image2.so": "Brave on Windows gave the second page's only image u=1, i (its kind's u=2, i) in 2 of 3 samples: a layout-driven image priority, as the markup images' over HTTP/2 (redirects2)",
+	"brave-157-windows.h3-discovery.local-roots.pagetrace.json.gz: sample 2, QUIC connection 1, /h3/markup-image2.so": "as sample 1",
 }
 
 // h3AltUsedGaps pins h3 requests (their h3Request.at) whose alt-used

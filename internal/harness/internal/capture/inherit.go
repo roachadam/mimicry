@@ -183,10 +183,12 @@ type Rewriter struct {
 
 // versionTokens are the parts of each browser's user agent that carry its
 // version: Chrome/155.0.0.0, rv:158.0 and Firefox/158.0, Version/27.0.1,
-// and Edge's Chrome/156.0.0.0 and Edg/156.0.0.0.
+// Edge's Chrome/156.0.0.0 and Edg/156.0.0.0, and Brave's Chrome/157.0.0.0
+// (Chrome's user agent).
 var versionTokens = map[string][]string{
 	"chrome":  {`Chrome/[0-9][0-9.]*`},
 	"edge":    {`Chrome/[0-9][0-9.]*`, `Edg/[0-9][0-9.]*`},
+	"brave":   {`Chrome/[0-9][0-9.]*`},
 	"firefox": {`rv:[0-9][0-9.]*`, `Firefox/[0-9][0-9.]*`},
 	"safari":  {`Version/[0-9][0-9.]*`},
 }

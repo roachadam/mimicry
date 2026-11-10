@@ -35,13 +35,15 @@ const keychainPrefix = "mimicry-client-cert-"
 // without asking.
 const autoSelectKey = "AutoSelectCertificateForUrls"
 
-// policyDomains are the defaults domains Chrome and Edge read policies
-// from: Chrome's is its bundle identifier (Chrome for Testing's too), and
-// Edge's com.microsoft.Edge.
+// policyDomains are the defaults domains the Chromium browsers read
+// policies from: Chrome's is its bundle identifier (Chrome for Testing's
+// too), Edge's com.microsoft.Edge and Brave's its bundle identifier,
+// com.brave.Browser.
 var policyDomains = []string{
 	"com.google.Chrome",
 	"com.google.chrome.for.testing",
 	"com.microsoft.Edge",
+	"com.brave.Browser",
 }
 
 // clientCertRefusal says why b cannot take a client-certificate scenario
@@ -61,7 +63,7 @@ func clientCertRefusal(b *browser.Browser) string {
 	return ""
 }
 
-// installClientCert gives Chrome or Edge the identity in the PKCS#12 file
+// installClientCert gives Chrome, Edge or Brave the identity in the PKCS#12 file
 // p12: a temporary keychain holding it joins the user's search list, its
 // key open to the browser's team without asking, and the browser's
 // AutoSelectCertificateForUrls gains entries for hosts. Firefox reads its

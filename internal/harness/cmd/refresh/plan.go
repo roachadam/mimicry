@@ -605,7 +605,7 @@ func (r *refreshRun) checkWindows(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("%s: %s", m, s))
 	}
 
-	hosts := "Chromium browsers (Chrome, Edge) reach the capture hosts through --host-resolver-rules"
+	hosts := "Chromium browsers (Chrome, Edge, Brave) reach the capture hosts through --host-resolver-rules"
 	if p.Browser == "firefox" {
 		hosts = "Firefox reaches the capture hosts through network.dns.localDomains in its throwaway profile and trusts the capture CA from the Root store (security.enterprise_roots.enabled)"
 	}
@@ -640,7 +640,7 @@ func (r *refreshRun) checkLinux(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("the browsers would run as root on %s, which Chromium browsers refuse without --no-sandbox: %s", m, fix))
 	}
 
-	trust := "Chromium browsers (Chrome, Edge) trust the capture CA in an NSS database under their throwaway profile (HOME is that profile for the run)"
+	trust := "Chromium browsers (Chrome, Edge, Brave) trust the capture CA in an NSS database under their throwaway profile (HOME is that profile for the run)"
 	if p.Browser == "firefox" {
 		trust = "Firefox trusts the capture CA in its throwaway profile's own certificate database, on pages across hosts and through an https:// proxy"
 	}
@@ -1204,7 +1204,7 @@ func (p *plan) clientCerts() bool {
 	})
 }
 
-// clientCertPolicy is the Chromium browser (chrome, edge) whose
+// clientCertPolicy is the Chromium browser (chrome, edge, brave) whose
 // client-certificate policy file p's captures need on Linux
 // (clientcert.LinuxPolicyFiles), "" when they need none.
 func (p *plan) clientCertPolicy() string {

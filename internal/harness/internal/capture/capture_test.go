@@ -116,7 +116,7 @@ func TestParseUserAgent(t *testing.T) {
 				},
 			},
 		}
-		c.Identify()
+		c.Identify("")
 
 		want := tc.browser + "-" + tc.version + "-" + tc.platform
 		if c.Profile.Browser != tc.browser || c.Profile.Version != tc.version || c.Profile.Platform != tc.platform || c.Profile.Name != want {

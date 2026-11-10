@@ -229,6 +229,20 @@ var h3EdgeScenarios = []*server.Scenario{server.H3Blackhole, server.H3Broken, se
 // race the process's stalls decided; the last run is compared as it is.
 const edgeRuns = 3
 
+// braveLinuxBrokenVaries are the h3-broken features Brave's macOS and
+// Windows gaps cover that Brave on Linux's samples disagree on (its sample
+// 1 opened a second TCP connection to www.h3-b.test 9.2 s in: h3gen's
+// sampleGaps, hold), so they are logged, not compared, and pinned for
+// the other two only; and one that this process's timing decides on
+// Linux's samples (h3EdgeSchedulingGaps).
+var braveLinuxBrokenVaries = map[string]bool{
+	"edge request /h3/silence.so sent":                       true,
+	"edge QUIC www.h3-b.test #2 Initial packet number steps": true,
+	"edge QUIC www.h3-b.test #3 trigger":                     true,
+	"edge QUIC www.h3-b.test #3 after its trigger ms":        true,
+	"edge TCP www.h3-b.test #2 after QUIC #3 ms":             true,
+}
+
 // h3EdgeGaps are known differences, by profile, scenario and feature (as
 // compareEdge labels it): the feature is not compared. A listed gap that
 // no longer appears fails.
@@ -319,6 +333,32 @@ var h3EdgeGaps = func() map[string]string {
 		"edge request /h3/closed6.cs sent":               "as TCP www.h3-b.test #4's goaway",
 	} {
 		gaps["edge-157-windows/h3-broken "+k] = why
+	}
+
+	// Brave on macOS, Windows and Linux: as Edge on macOS, every one in 3
+	// of 3 samples on each, but h3-b's requests moved to one new TCP
+	// connection, closed6.cs too.
+	for _, name := range []string{"brave-157-macos", "brave-157-windows", "brave-157-linux"} {
+		for k, why := range map[string]string{
+			"edge request /h3/silence.so sent":                       "as edge-157-macos's: Brave sent the silenced request again over a new TCP connection 54.4–54.5 s after it made it (3 of 3 samples), when it gave up its migrated connection, a rule no profile field holds; mimicry's waits on its QUIC connection",
+			"edge request /h3/silence.so delay ms":                   "as its sending",
+			"edge TCP www.h3-a.test #2 goaway":                       "the TCP connection that carried Brave's late resend of silence.so",
+			"edge TCP www.h3-a.test #2 trigger":                      "as its goaway",
+			"edge TCP www.h3-a.test #2 after its trigger ms":         "as its goaway",
+			"edge QUIC www.h3-b.test #2 datagrams":                   "as edge-157-macos's: Brave's resumed attempt probes first with its resumed hello cut afresh (2 Initials), and sends a lone 0-RTT datagram 2.0 s in; quic.loss's one_packet probe sends one Initial per PTO and says nothing of the 0-RTT ones (14 datagrams in 3 of 3 samples, mimicry's 12–13; timing and give-up match)",
+			"edge QUIC www.h3-b.test #2 Initial packet number steps": "as its datagrams: the browser's first resumed probe is 2 Initials (steps 4 1, mimicry's 4 alone, 3 of 3 samples); every other step matches",
+			"edge TCP www.h3-b.test #3 goaway":                       "as edge-157-macos's: Brave moved h3-b's requests to a new TCP connection after 8.0 s idle on its last one (closed5.cs and closed6.cs, 3 of 3 samples), not captured why; mimicry keeps its HTTP/2 connection",
+			"edge TCP www.h3-b.test #3 trigger":                      "as its goaway",
+			"edge TCP www.h3-b.test #3 after its trigger ms":         "as its goaway",
+			"edge request /h3/closed5.cs sent":                       "as its goaway",
+			"edge request /h3/closed6.cs sent":                       "as TCP www.h3-b.test #3's goaway",
+		} {
+			if name == "brave-157-linux" && braveLinuxBrokenVaries[k] {
+				continue
+			}
+
+			gaps[name+"/h3-broken "+k] = why
+		}
 	}
 
 	// h3-resume-table: Chrome and Edge, on every platform, held the
@@ -478,13 +518,34 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 	// (compareBurstWaits), and each request still goes on the QUIC
 	// connection (its "sent").
 	const burstOrder = "the replay makes the burst's six requests together, so which of them waits for the server's stream limit is this process's scheduling (the waits themselves, sorted, are compared: compareBurstWaits); the browser made them in order and gave them streams in that order"
-	for _, name := range []string{"chrome-156-macos", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "firefox-158-macos", "firefox-158-windows", "firefox-159-linux", "safari-27-macos"} {
+	for _, name := range []string{"chrome-156-macos", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "brave-157-macos", "brave-157-windows", "brave-157-linux", "firefox-158-macos", "firefox-158-windows", "firefox-159-linux", "safari-27-macos"} {
 		for _, burst := range []string{"a", "b"} {
 			for i := 1; i <= 6; i++ {
 				gaps[fmt.Sprintf("%s/h3-streams-blocked edge request /h3/%s%d.so delay ms", name, burst, i)] = burstOrder
 			}
 		}
 	}
+
+	// Brave on Windows, where the replay's same-millisecond pairs and
+	// timers decide what the browser's order did (on macOS mimicry's
+	// order fell within the samples').
+	for k, why := range map[string]string{
+		"h3-resume-table edge QUIC www.h3-a.test #5 encoder stream":      "Brave made pair-b after pair-a and sent its request on their resumed connection after the first, so the encoder set the remembered capacity with each (2 times); mimicry's replay makes both in the same millisecond and sends them in one flight (1 time): this process's scheduling (qpack.resumed is compared on the other connections)",
+		"h3-resume-table edge QUIC www.h3-a.test #5 trigger":             "as the encoder stream's: Brave made pair-a first, which started the resumed connection; mimicry's replay makes both in the same millisecond, so which counts as the trigger is this process's scheduling",
+		"h3-resume-table edge request /h3/pair-b.so streams":             "as the encoder stream's: mimicry's pair-b shares pair-a's flight, where Brave's went after it",
+		"h3-too-early edge QUIC www.h3-a.test #6 trigger":                "Brave made the pair's GET first and its POST just after; mimicry's replay makes both in the same millisecond, so which starts the connection is this process's scheduling",
+		"h3-too-early edge request /h3/pair-post.so streams":             "as the connection's trigger: where the POST starts the resumed connection mimicry holds it in 0-RTT until the Finished (http3.earlyData.methods), where Brave's, made after the GET, went once the handshake was done",
+		"h3-broken edge QUIC www.h3-a.test #1 probe packet number steps": "Brave on Windows sent two probes on the silenced connection before moving it to a new path (3.29–3.89 PTOs by this test's measure); mimicry moves after 3 (afterPtos), after its first or second probe as its timer falls",
+	} {
+		gaps["brave-157-windows/"+k] = why
+	}
+
+	// Brave on Linux's resumed pair, as on Windows.
+	for _, k := range []string{"h3-resume-table edge QUIC www.h3-a.test #5 encoder stream", "h3-resume-table edge request /h3/pair-b.so streams"} {
+		gaps["brave-157-linux/"+k] = "as brave-157-windows's: " + gaps["brave-157-windows/"+k]
+	}
+
+	gaps["brave-157-linux/h3-broken edge TCP www.h3-b.test #2 after QUIC #3 ms"] = "fast fallback: Brave on Linux opened its TCP connection 1 ms after the fresh attempt's first datagram in every sample that shows the two; mimicry's goes 1–2 ms after its own, as this process schedules the two dials"
 
 	// Firefox's STREAMS_BLOCKED rule, which this page shows, is
 	// quic.streamsBlocked; what differs is how far each raise goes, by
@@ -514,7 +575,7 @@ var h3EdgeSchedulingGaps = func() map[string]string {
 // and only on a page where QUIC fails (decision 0036).
 var h3EdgeFastGaps = func() map[string]string {
 	const (
-		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (tcpDelayMs, about 305 ms; Edge's 313–315 ms)"
+		chromeHold = "fast fallback: Chrome holds closed1.cs in 0-RTT on its resumed attempt until it gives up (4.0 s, zeroRttHolds), then sends it on TCP; mimicry's goes on TCP once the server has not answered for the race delay (tcpDelayMs, about 305 ms; Edge's 313–315 ms; Brave on Windows 305–313 ms), or its first probe timeout where that is longer (Brave on macOS and Linux: 300 ms, their race delay 2–5 ms)"
 		chromeNext = "fast fallback: closed2.cs, made while Chrome's 0-RTT attempt is unanswered, waits for it with no TCP and triggers the fresh attempt and TCP after the give-up; mimicry's goes on the TCP connection closed1.cs opened, and the fresh attempt follows the next request after the give-up, closed3.cs"
 		firefox    = "fast fallback: Firefox holds closed2.cs on its unanswered resumed attempt until it gives up (5 s, hold); mimicry's goes on TCP once the server has not answered for its first probe timeout (300 ms), opening the TCP connection closed3.cs would have"
 		firefoxWin = "fast fallback: Firefox on Windows held closed2.cs and closed3.cs on its unanswered resumed attempt until it gave up (9.8–10.2 s, hold; 2 of 3 samples, the third pinned in h3gen), and the TCP connection then opened came 4.8–5.2 s after closed3.cs; mimicry's closed2.cs goes on TCP once the server has not answered for its first probe timeout (300 ms), opening that connection at once"
@@ -528,8 +589,10 @@ var h3EdgeFastGaps = func() map[string]string {
 	}
 	// Edge on macOS holds and follows as Chrome does (closed1.cs 4007–4009 ms,
 	// closed2.cs 2005–2007 ms, 3 of 3 samples), and on Windows (closed1.cs
-	// 4004–4014 ms, closed2.cs 1990–2007 ms, 3 of 3 samples).
-	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows"} {
+	// 4004–4014 ms, closed2.cs 1990–2007 ms, 3 of 3 samples); Brave as Edge
+	// (closed1.cs 4007–4017 ms, closed2.cs 2004–2015 ms, 3 of 3 samples;
+	// Linux 4002–4004 and 2002–2003 ms).
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux", "edge-157-macos", "edge-157-windows", "brave-157-macos", "brave-157-windows", "brave-157-linux"} {
 		for k, why := range map[string]string{
 			"edge request /h3/closed1.cs delay ms":            chromeHold,
 			"edge TCP www.h3-b.test #2 trigger":               chromeHold,
@@ -540,6 +603,10 @@ var h3EdgeFastGaps = func() map[string]string {
 			"edge QUIC www.h3-b.test #3 trigger":              chromeNext,
 			"edge QUIC www.h3-b.test #3 after its trigger ms": chromeNext,
 		} {
+			if name == "brave-157-linux" && braveLinuxBrokenVaries[k] {
+				continue
+			}
+
 			gaps[name+"/h3-broken "+k] = why
 		}
 	}
@@ -1536,7 +1603,10 @@ func pnSpace(typ string) string {
 // sample N: QUIC <host> (connection M)"; mimicry's moves are never pinned.
 // A pinned connection that moves on time fails, so a pin cannot go stale.
 var pathMoveGaps = map[string]string{
-	"edge-157-windows/browser sample 3: QUIC www.h3-a.test (connection 1)": "Edge on Windows moved this silenced connection 112.0 ms after its last request, 2.91 of its PTOs and 13.4 ms after its second probe, where samples 1 and 2 moved after 3.89 and 3.93 (h3gen's measure; afterPtos 4, as Chrome's and Edge on macOS): an early timer on Windows, not captured",
+	"edge-157-windows/browser sample 3: QUIC www.h3-a.test (connection 1)":  "Edge on Windows moved this silenced connection 112.0 ms after its last request, 2.91 of its PTOs and 13.4 ms after its second probe, where samples 1 and 2 moved after 3.89 and 3.93 (h3gen's measure; afterPtos 4, as Chrome's and Edge on macOS): an early timer on Windows, not captured",
+	"brave-157-macos/browser sample 3: QUIC www.h3-a.test (connection 1)":   "Brave moved this silenced connection 119.1 ms after its last request, 3.72 of its PTOs by this test's measure, where samples 1 and 2 moved after 3.48 and 3.41 (h3gen's measure, from the request's retransmission, rounds all three to afterPtos 3; Chrome and Edge 4): when its path-degrading timer fired, not captured",
+	"brave-157-windows/browser sample 1: QUIC www.h3-a.test (connection 1)": "as brave-157-macos's: Brave on Windows moved this silenced connection 3.87 of its PTOs after its last request by this test's measure (sample 2 3.89, sample 3 3.29), where h3gen's measure rounds all three to afterPtos 3, as on macOS",
+	"brave-157-windows/browser sample 2: QUIC www.h3-a.test (connection 1)": "as sample 1: 3.89 of its PTOs",
 }
 
 // checkPathMoves holds every connection of page that moved path to

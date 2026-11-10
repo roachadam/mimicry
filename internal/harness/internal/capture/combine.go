@@ -12,8 +12,10 @@ import (
 // Combine merges samples of one connection into the first and returns it.
 // It sets every sample's extension order (shuffled if any two differ, even
 // when it then fails) and folds every sample's GREASE ECH cipher suites and
-// payload lengths into the first's sets. Everything else, the record version
-// included, must agree. Traces are kept per sample for h2trace.Compare.
+// payload lengths into the first's sets. A browser that farbles its
+// Accept-Language (Farbles) may draw another q value per sample.
+// Everything else, the record version included, must agree. Traces are
+// kept per sample for h2trace.Compare.
 func Combine(samples []*Capture) (*Capture, error) {
 	first := samples[0]
 	order := profile.ExtensionOrderFixed
@@ -29,6 +31,7 @@ func Combine(samples []*Capture) (*Capture, error) {
 	}
 
 	mergeECH(&first.Profile.TLS, samples)
+	alignFarbling(samples)
 
 	for i, s := range samples[1:] {
 		if diffs := diff.Compare(&first.Profile, &s.Profile); len(diffs) > 0 {

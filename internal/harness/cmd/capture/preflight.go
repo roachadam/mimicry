@@ -49,7 +49,7 @@ type preflightReport struct {
 	// capture from running here; UnprivilegedPortStart (Linux) is the
 	// lowest port a user may bind, which must be 443 at most for a
 	// scenario naming https://'s default port (Scenario.DefaultPort);
-	// ClientCertPolicies (Linux) are the Chromium browsers (chrome, edge)
+	// ClientCertPolicies (Linux) are the Chromium browsers (chrome, edge, brave)
 	// whose client-certificate policy file (clientcert.LinuxPolicyFiles)
 	// holds exactly what this run's scenarios need.
 	Platform              string   `json:"platform,omitempty"`

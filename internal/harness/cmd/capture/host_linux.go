@@ -55,7 +55,7 @@ func cleanUp(string) error {
 	return err
 }
 
-// startDNSStub does nothing: Chrome, Edge and Firefox map the capture hosts
+// startDNSStub does nothing: Chrome, Edge, Brave and Firefox map the capture hosts
 // themselves, and Safari, which resolves through the system, is not here.
 func startDNSStub(_ context.Context, _ netip.Addr, clients netip.Prefix) error {
 	if clients.IsValid() {

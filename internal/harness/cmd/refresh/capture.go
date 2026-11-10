@@ -209,7 +209,7 @@ func clientCertEntry(entry string) bool {
 }
 
 // writeClientCertPolicy writes, as root in m's WSL distribution, the policy
-// file with which browser (chrome, edge) sends the client-certificate
+// file with which browser (chrome, edge, brave) sends the client-certificate
 // scenarios' identity unasked (clientcert.LinuxPolicy), creating the
 // directories missing on its path, and returns what removes the file and
 // those directories again, which logs a failure for removal by hand. A

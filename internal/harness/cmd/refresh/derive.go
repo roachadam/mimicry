@@ -92,7 +92,10 @@ func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spe
 	h.FirstStreamID = ch.FirstStreamID
 	h.StreamWindowUpdate = ch.StreamWindowUpdate
 
+	// A farbling browser's (Brave's) Accept-Language q is the sample's
+	// draw: the lists carry its own (capture.UnfarbledQ).
 	p.Headers = withSlots(prev.Headers, captured.Headers)
+	capture.UnfarbleHeaders(p.Browser, p.Headers)
 
 	if prev.HTTP1 != nil {
 		if h1 == nil {
@@ -119,6 +122,7 @@ func fromCapture(prev *profile.Spec, name, version string, captured *profile.Spe
 			}
 
 			p.HTTP1.Headers = withSlots(prev.HTTP1.Headers, lines)
+			capture.UnfarbleHeaders(p.Browser, p.HTTP1.Headers)
 		}
 	}
 

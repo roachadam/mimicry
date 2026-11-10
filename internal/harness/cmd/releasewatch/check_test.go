@@ -10,10 +10,12 @@ import (
 )
 
 // The fixtures in testdata are the feeds' responses recorded on
-// 2026-11-03 (edgeupdates-products.json on 2026-11-06), and an unmodified
-// copy of Chromium's net/data/ssl/chrome_root_store/root_store.textproto
-// at 152.0.7977.85 (BSD-3-Clause, testdata/LICENSE-chromium): Chrome 152's
-// 32 trust anchors.
+// 2026-11-03 (edgeupdates-products.json on 2026-11-06), Brave's version
+// feed recorded on 2026-11-09 and cut to its three newest release builds
+// and newest beta and nightly (brave-versions.json, the fields read), and
+// an unmodified copy of Chromium's
+// net/data/ssl/chrome_root_store/root_store.textproto at 152.0.7977.85
+// (BSD-3-Clause, testdata/LICENSE-chromium): Chrome 152's 32 trust anchors.
 
 // chrome156Anchors is the trust anchors extension of chrome-156-macos and
 // chrome-156-windows, as captured: Chrome 153's 28 IDs.
@@ -51,6 +53,8 @@ func TestReleasesBehind(t *testing.T) {
 	edgeMac := parse("edgeupdates-products.json", parseEdge("MacOS"))
 	edgeWindows := parse("edgeupdates-products.json", parseEdge("Windows"))
 	edgeLinux := parse("edgeupdates-products.json", parseEdge("Linux"))
+	// The newest release build, not the newer beta and nightly.
+	brave := parse("brave-versions.json", parseBrave)
 
 	for _, c := range []struct {
 		got, want string
@@ -82,6 +86,10 @@ func TestReleasesBehind(t *testing.T) {
 		{
 			got:  edgeLinux,
 			want: "157.0.4341.42",
+		},
+		{
+			got:  brave,
+			want: "157.1.99.55",
 		},
 	} {
 		if c.got != c.want {

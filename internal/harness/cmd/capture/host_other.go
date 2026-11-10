@@ -44,7 +44,7 @@ func cleanUp(string) error {
 
 // startDNSStub answers *.test lookups with addr until ctx ends. Safari here
 // resolves through the system: the loopback stub answers its *.test lookups
-// (Chrome, Edge and Firefox map the names themselves). With clients
+// (Chrome, Edge, Brave and Firefox map the names themselves). With clients
 // (-listen), a second stub on port 53 is a device's DNS server, forwarding
 // other names to this Mac's resolver for clients only; an error says it
 // could not start. It listens on every IPv4 address: macOS lets a user bind

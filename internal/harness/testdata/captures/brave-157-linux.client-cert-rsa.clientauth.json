@@ -1,0 +1,1691 @@
+[
+  [
+    {
+      "conn": 0,
+      "host": "www.kinds-a.test",
+      "ms": 5331,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 1,
+      "host": "www.kinds-a.test",
+      "ms": 5351,
+      "handshakeMs": 4,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "www.kinds-a.test",
+      "ms": 5702,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r1.so"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "www.kinds-a.test",
+      "ms": 6005,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.so"
+      ]
+    },
+    {
+      "conn": 4,
+      "host": "www.kinds-a.test",
+      "ms": 6308,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r3.so"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "static.kinds-a.test",
+      "ms": 6610,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 5,
+      "host": "static.kinds-a.test",
+      "ms": 6627,
+      "handshakeMs": 3,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.ss"
+      ]
+    },
+    {
+      "conn": 6,
+      "host": "static.kinds-a.test",
+      "ms": 6933,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.ss"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "h1.kinds-a.test",
+      "ms": 7235,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 7,
+      "host": "h1.kinds-a.test",
+      "ms": 7251,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.h1"
+      ]
+    },
+    {
+      "conn": 8,
+      "host": "h1.kinds-a.test",
+      "ms": 7556,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.h1"
+      ]
+    },
+    {
+      "conn": 9,
+      "host": "h1.kinds-a.test",
+      "ms": 7859,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/p1.h1"
+      ]
+    },
+    {
+      "conn": 10,
+      "host": "h1.kinds-a.test",
+      "ms": 7859,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p2.h1"
+      ]
+    },
+    {
+      "conn": 11,
+      "host": "h1.kinds-a.test",
+      "ms": 7859,
+      "handshakeMs": 4,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p3.h1"
+      ]
+    },
+    {
+      "conn": 12,
+      "host": "www.kinds-a.test",
+      "ms": 8366,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/done"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 0,
+      "host": "www.kinds-a.test",
+      "ms": 5335,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 1,
+      "host": "www.kinds-a.test",
+      "ms": 5353,
+      "handshakeMs": 4,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "www.kinds-a.test",
+      "ms": 5670,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r1.so"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "www.kinds-a.test",
+      "ms": 5973,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.so"
+      ]
+    },
+    {
+      "conn": 4,
+      "host": "www.kinds-a.test",
+      "ms": 6276,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r3.so"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "static.kinds-a.test",
+      "ms": 6579,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 5,
+      "host": "static.kinds-a.test",
+      "ms": 6596,
+      "handshakeMs": 2,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.ss"
+      ]
+    },
+    {
+      "conn": 6,
+      "host": "static.kinds-a.test",
+      "ms": 6900,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.ss"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "h1.kinds-a.test",
+      "ms": 7203,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 7,
+      "host": "h1.kinds-a.test",
+      "ms": 7218,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.h1"
+      ]
+    },
+    {
+      "conn": 8,
+      "host": "h1.kinds-a.test",
+      "ms": 7523,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.h1"
+      ]
+    },
+    {
+      "conn": 9,
+      "host": "h1.kinds-a.test",
+      "ms": 7826,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/p1.h1"
+      ]
+    },
+    {
+      "conn": 10,
+      "host": "h1.kinds-a.test",
+      "ms": 7826,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p2.h1"
+      ]
+    },
+    {
+      "conn": 11,
+      "host": "h1.kinds-a.test",
+      "ms": 7826,
+      "handshakeMs": 4,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p3.h1"
+      ]
+    },
+    {
+      "conn": 12,
+      "host": "www.kinds-a.test",
+      "ms": 8333,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/done"
+      ]
+    }
+  ],
+  [
+    {
+      "conn": 0,
+      "host": "www.kinds-a.test",
+      "ms": 5299,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 1,
+      "host": "www.kinds-a.test",
+      "ms": 5317,
+      "handshakeMs": 4,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/"
+      ]
+    },
+    {
+      "conn": 2,
+      "host": "www.kinds-a.test",
+      "ms": 5642,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r1.so"
+      ]
+    },
+    {
+      "conn": 3,
+      "host": "www.kinds-a.test",
+      "ms": 5944,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.so"
+      ]
+    },
+    {
+      "conn": 4,
+      "host": "www.kinds-a.test",
+      "ms": 6247,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r3.so"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "static.kinds-a.test",
+      "ms": 6550,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 5,
+      "host": "static.kinds-a.test",
+      "ms": 6566,
+      "handshakeMs": 3,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.ss"
+      ]
+    },
+    {
+      "conn": 6,
+      "host": "static.kinds-a.test",
+      "ms": 6871,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.ss"
+      ]
+    },
+    {
+      "conn": 0,
+      "host": "h1.kinds-a.test",
+      "ms": 7173,
+      "handshakeMs": 2,
+      "protocol": "",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [],
+      "error": "the handshake failed: EOF; client: the bytes end before the flight did"
+    },
+    {
+      "conn": 7,
+      "host": "h1.kinds-a.test",
+      "ms": 7189,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/r1.h1"
+      ]
+    },
+    {
+      "conn": 8,
+      "host": "h1.kinds-a.test",
+      "ms": 7494,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/r2.h1"
+      ]
+    },
+    {
+      "conn": 9,
+      "host": "h1.kinds-a.test",
+      "ms": 7797,
+      "handshakeMs": 0,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/k/p1.h1"
+      ]
+    },
+    {
+      "conn": 10,
+      "host": "h1.kinds-a.test",
+      "ms": 7797,
+      "handshakeMs": 2,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p2.h1"
+      ]
+    },
+    {
+      "conn": 11,
+      "host": "h1.kinds-a.test",
+      "ms": 7797,
+      "handshakeMs": 4,
+      "protocol": "http/1.1",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "certificateRequest": {
+        "signatureAlgorithms": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0503",
+          "0x0603"
+        ],
+        "signatureAlgorithmsCert": [
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0804",
+          "0x0403",
+          "0x0807",
+          "0x0805",
+          "0x0806",
+          "0x0401",
+          "0x0501",
+          "0x0601",
+          "0x0503",
+          "0x0603",
+          "0x0201",
+          "0x0203"
+        ],
+        "authorities": [
+          "mimicry capture client CA (test)"
+        ]
+      },
+      "flight": [
+        "change_cipher_spec",
+        "certificate",
+        "certificate_verify",
+        "finished"
+      ],
+      "certificates": [
+        {
+          "subject": "mimicry capture client rsa (test)",
+          "issuer": "mimicry capture client CA (test)",
+          "key": "rsa-2048"
+        }
+      ],
+      "certificateVerify": "0x0804",
+      "requests": [
+        "/k/p3.h1"
+      ]
+    },
+    {
+      "conn": 12,
+      "host": "www.kinds-a.test",
+      "ms": 8304,
+      "handshakeMs": 0,
+      "protocol": "h2",
+      "version": "0x0304",
+      "suite": "0x1301",
+      "pskIdentities": 1,
+      "resumed": true,
+      "flight": [
+        "change_cipher_spec",
+        "finished"
+      ],
+      "requests": [
+        "/done"
+      ]
+    }
+  ]
+]

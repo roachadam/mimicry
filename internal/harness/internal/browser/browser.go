@@ -1,6 +1,6 @@
-// Package browser launches real release builds of Chrome, Edge, Firefox and
-// Safari against the capture server, and sends Safari, Chrome or Firefox on
-// an iPhone to it.
+// Package browser launches real release builds of Chrome, Edge, Brave,
+// Firefox and Safari against the capture server, and sends Safari, Chrome
+// or Firefox on an iPhone to it.
 package browser
 
 import (
@@ -14,13 +14,14 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 // Target is the capture server browsers connect to.
 type Target struct {
 	// Host is the capture hostname, under .test, so browsers send
-	// server_name. Chrome, Edge and Firefox map it to Addr themselves;
+	// server_name. Chrome, Edge, Brave and Firefox map it to Addr themselves;
 	// Safari resolves it through the capture tool's DNS stub.
 	Host string
 	// Addr is the address the capture hosts resolve to and the server
@@ -69,7 +70,7 @@ type Target struct {
 	// ClientCert, when set, is the identity the browser holds for a server
 	// asking for a client certificate: Firefox imports it into its
 	// profile's own certificate database (on Windows it reads the user's
-	// store instead, where the capture tool put it), as Chrome and Edge do
+	// store instead, where the capture tool put it), as the Chromium browsers do
 	// on Linux; on macOS and Windows they read the system's store, where
 	// the capture tool put it for the scenario.
 	ClientCert *ClientIdentity
@@ -182,12 +183,19 @@ type Browser struct {
 	ios *iosBrowser
 }
 
-// chromium reports whether the browser named name is Chrome or Edge, which
-// share Chromium's launch flags, CDP driving and network stack: the same
-// test as capture.Chromium, kept here so this package imports nothing of
-// the module's (its depguard rule).
+// chromium reports whether the browser named name is Chrome, Edge or
+// Brave, which share Chromium's launch flags, CDP driving and network
+// stack: the same test as capture.Chromium, kept here so this package
+// imports nothing of the module's (its depguard rule).
 func chromium(name string) bool {
-	return name == "chrome" || name == "edge"
+	return name == "chrome" || name == "edge" || name == "brave"
+}
+
+// chromeAgent are the browsers whose user agent is Chrome's, word for word:
+// Brave's (decision 0067). capture.ParseUserAgent names them chrome, so a
+// capture of one is named after the browser launched (Named).
+var chromeAgent = map[string]bool{
+	"brave": true,
 }
 
 // chromeWarmup is how long a fresh Chrome profile settles before the capture
@@ -218,13 +226,28 @@ func (b *Browser) URL(t Target) string {
 }
 
 // Agent is the browser and platform capture.ParseUserAgent finds in b's
-// user agent; platform "" is any.
+// user agent; platform "" is any. Brave's is chrome.
 func (b *Browser) Agent() (name, platform string) {
 	if b.ios != nil {
 		return b.ios.app.agent, "ios"
 	}
 
+	if chromeAgent[b.Name] {
+		return "chrome", ""
+	}
+
 	return b.Name, ""
+}
+
+// Named is the browser a capture of b is named after where its user agent
+// cannot tell (Brave's is Chrome's), "" where the user agent names it
+// (capture.Capture.Identify).
+func (b *Browser) Named() string {
+	if chromeAgent[b.Name] {
+		return b.Name
+	}
+
+	return ""
 }
 
 // Session is a running browser.
@@ -247,9 +270,45 @@ type Session struct {
 	// but for remote, the WebDriver session when there is one.
 	device bool
 	remote io.Closer
+	// output keeps the end of what a browser started as a child process
+	// wrote (Linux), for ErrWarmupExit; nil elsewhere.
+	output *tailWriter
 }
 
-// Open launches b on t. Chrome, Edge and Firefox get a new profile directory
+// tailWriter keeps the last tailBytes written to it.
+type tailWriter struct {
+	mu  sync.Mutex
+	buf []byte
+}
+
+// tailBytes is how much of a browser's output tailWriter keeps.
+const tailBytes = 2048
+
+func (w *tailWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.buf = append(w.buf, p...)
+	if over := len(w.buf) - tailBytes; over > 0 {
+		w.buf = append(w.buf[:0], w.buf[over:]...)
+	}
+
+	return len(p), nil
+}
+
+// String is what was kept, trimmed.
+func (w *tailWriter) String() string {
+	if w == nil {
+		return ""
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return strings.TrimSpace(string(w.buf))
+}
+
+// Open launches b on t. Chrome, Edge, Brave and Firefox get a new profile directory
 // and their own instance; headless hides their windows. Safari opens a tab
 // in the user's own window, ignores headless, and must trust the server's
 // certificate. A browser on an iPhone is sent to t by its driver.
@@ -333,7 +392,7 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 		case bidi:
 			s.devtools, err = firefoxAuth(ctx, t.debugPort, b.URL(t), t.ProxyAuth)
 		case chromium(b.Name):
-			s.devtools, err = chromeAuth(ctx, dir, t.ProxyAuth)
+			s.devtools, err = b.chromeAuth(ctx, s, dir, t.ProxyAuth)
 		default:
 			err = fmt.Errorf("%s cannot be given proxy credentials", b.Name)
 		}
@@ -370,13 +429,56 @@ func (b *Browser) Open(ctx context.Context, t Target, headless bool) (*Session, 
 	return s, nil
 }
 
+// ErrWarmupExit is a browser that exited before its warm-up ended, before
+// it was sent to the page: Brave on Linux did (2026-11-09, "The platform
+// failed to initialize") once the processes of its earlier samples, left
+// running by its launcher script, had piled up; stop and reap now end
+// them.
+var ErrWarmupExit = errors.New("exited during its warm-up")
+
+// chromeAuth is chromeAuth for session s, which stops waiting for the
+// debugging port when the browser exits (ErrWarmupExit).
+func (b *Browser) chromeAuth(ctx context.Context, s *Session, dir string, user *url.Userinfo) (io.Closer, error) {
+	wait, stop := context.WithCancel(ctx)
+	defer stop()
+
+	go func() {
+		select {
+		case <-s.done:
+			stop()
+		case <-wait.Done():
+		}
+	}()
+
+	c, err := chromeAuth(wait, dir, user)
+	if err != nil {
+		select {
+		case <-s.done:
+			return nil, b.exited(s)
+		default:
+		}
+	}
+
+	return c, err
+}
+
+// exited is the ErrWarmupExit of session s, whose browser exited, with the
+// end of what it wrote where that was kept.
+func (b *Browser) exited(s *Session) error {
+	if out := s.output.String(); out != "" {
+		return fmt.Errorf("%s %w; its output ended: %s", b.Name, ErrWarmupExit, out)
+	}
+
+	return fmt.Errorf("%s %w", b.Name, ErrWarmupExit)
+}
+
 // handOff waits out the warm-up, then passes url to the running instance by
 // invoking the browser again on the same profile directory.
 func (b *Browser) handOff(ctx context.Context, s *Session, dir, url string) error {
 	select {
 	case <-time.After(b.warmup):
 	case <-s.done:
-		return fmt.Errorf("%s exited during its warm-up", b.Name)
+		return b.exited(s)
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -429,6 +531,8 @@ func (s *Session) quit() error {
 		s.stop(true)
 		<-s.done
 	}
+
+	s.reap()
 
 	// Helper processes (Chrome's renderers, Firefox's content processes) can
 	// outlive the main one by a moment and keep writing to the profile.

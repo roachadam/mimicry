@@ -21,12 +21,12 @@ import (
 // capture server names in its CertificateRequest. Where the browser reads
 // its identities from a store outside its throwaway profile, the tool puts
 // the identity there for the scenario and takes it out after
-// (installClientCert, per platform): Chrome and Edge on macOS a temporary
+// (installClientCert, per platform): the Chromium browsers on macOS a temporary
 // keychain in the user's search list, on Windows the user's certificate
-// store, as Firefox on Windows; with, for Chrome and Edge, the
+// store, as Firefox on Windows; with, for the Chromium browsers, the
 // AutoSelectCertificateForUrls policy entries that have them send it
-// without asking. Firefox elsewhere, and Chrome and Edge on Linux, import
-// it into the profile (browser.Target.ClientCert); Chrome and Edge on
+// without asking. Firefox elsewhere, and the Chromium browsers on Linux, import
+// it into the profile (browser.Target.ClientCert); the Chromium browsers on
 // Linux read the policy from a root-owned file (clientcert.LinuxPolicyFiles)
 // that cmd/refresh writes in WSL. -cleanup removes whatever a killed run
 // left, finding it by the client CA's name.

@@ -7,9 +7,10 @@
 //	go run ./cmd/releasewatch   # in internal/harness/
 //
 // It reads chromiumdash (Chrome on macOS, Windows and iOS), Microsoft's
-// Edge update feed (Edge on macOS, Windows and Linux), Mozilla's
-// product-details (Firefox on macOS and Windows; it has no Firefox for iOS
-// version), Apple's Safari release notes (Safari on macOS and iOS) and
+// Edge update feed (Edge on macOS, Windows and Linux), Brave's version
+// feed (Brave on macOS, Windows and Linux), Mozilla's product-details
+// (Firefox on macOS and Windows; it has no Firefox for iOS version),
+// Apple's Safari release notes (Safari on macOS and iOS) and
 // Chromium's root_store.textproto at each platform's stable tag. It writes
 // the findings as an issue body in Markdown to stdout, nothing when there
 // are none, and what it read to stderr; it fails when a feed does.
@@ -41,6 +42,10 @@ const rootStoreURL = "https://raw.githubusercontent.com/chromium/chromium/%s/net
 // edgeUpdatesURL is Microsoft's Edge update feed: every channel's current
 // releases, per platform and architecture.
 const edgeUpdatesURL = "https://edgeupdates.microsoft.com/api/products"
+
+// braveVersionsURL is Brave's version feed: every build of every channel,
+// by tag, with the Chromium it is built on.
+const braveVersionsURL = "https://versions.brave.com/latest/brave-versions.json"
 
 // feed is where one browser's stable version on some platforms is read.
 // Feeds may share a url, which is fetched once.
@@ -93,6 +98,12 @@ var feeds = []feed{
 		platforms: []string{"linux"},
 		url:       edgeUpdatesURL,
 		parse:     parseEdge("Linux"),
+	},
+	{
+		browser:   "brave",
+		platforms: []string{"macos", "windows", "linux"},
+		url:       braveVersionsURL,
+		parse:     parseBrave,
 	},
 	{
 		browser:   "firefox",

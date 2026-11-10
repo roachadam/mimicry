@@ -14,7 +14,7 @@ import (
 
 // clientCertRefusal says why b cannot take a client-certificate scenario
 // here, "" when it can: every browser imports the identity into its
-// profile with NSS's pk12util, and Chrome and Edge send it unasked only
+// profile with NSS's pk12util, and Chrome, Edge and Brave send it unasked only
 // under the managed policy file, which only root may write
 // (clientcert.LinuxPolicyFiles; cmd/refresh writes it in WSL).
 func clientCertRefusal(b *browser.Browser) string {
