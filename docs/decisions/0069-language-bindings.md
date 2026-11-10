@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
-- Commits: `0c3dd34` (proposed), `fe32b20` (accepted; no code yet)
+- Commits: `2f9c670` (the record; no code yet)
 
 **Summary.** Python and Node reach mimicry through `mimicry-core`, a
 static Go binary (no cgo) that each host process starts as its own child.
