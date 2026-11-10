@@ -442,6 +442,10 @@ the preflight reads that build's version, so the plan picks its profile.
   refresh skips the `proxy-https*` scenarios for it (logged; see
   [Capturing](capturing.md#https-proxy-scenarios)), and the iPhone's
   scenario set leaves them out.
+- Safari's SOCKS4 scenarios: they need the Mac's SOCKS proxy setting as
+  SOCKS4, which takes every URL, so a refresh skips them unless that is
+  set (preflight `socks4`), and then runs them alone; set it at the Mac's
+  screen ([Capturing](capturing.md#proxy-scenarios)).
 - New Safari versions come only with macOS updates. Updating the second Mac
   past macOS 26 ends Safari 26's captures.
 - Committing: the tool never touches git.

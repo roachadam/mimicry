@@ -37,7 +37,8 @@ type Scenario struct {
 	// are written gzipped (capture.Capture.Gzip).
 	recordUploads bool
 	// Proxy, when set, has the browser reach the server through the
-	// capture proxy: ProxyHTTP, ProxyHTTPS or ProxySOCKS5.
+	// capture proxy: ProxyHTTP, ProxyHTTPS, ProxySOCKS5, ProxySOCKS4 or
+	// ProxySOCKS4A.
 	Proxy string
 	// Plain serves the page over plain HTTP (HTTP/1.1, no TLS).
 	Plain bool
@@ -126,12 +127,16 @@ var DefaultScenario = &Scenario{
 	Doc:  "subresources, a 16 MiB download, a 200 KB upload, a Huffman probe header, a navigation with document.cookie cookies",
 }
 
-// Values of Scenario.Proxy. ProxyHTTPS is an HTTP proxy the browser
-// reaches over TLS, at ProxyHost.
+// Values of Scenario.Proxy, also the proxy URL's scheme the browser is
+// given. ProxyHTTPS is an HTTP proxy the browser reaches over TLS, at
+// ProxyHost. With ProxySOCKS4 the browser resolves the host and sends its
+// IPv4 address; with ProxySOCKS4A it sends the host name (SOCKS4a).
 const (
-	ProxyHTTP   = "http"
-	ProxyHTTPS  = "https"
-	ProxySOCKS5 = "socks5"
+	ProxyHTTP    = "http"
+	ProxyHTTPS   = "https"
+	ProxySOCKS5  = "socks5"
+	ProxySOCKS4  = "socks4"
+	ProxySOCKS4A = "socks4a"
 )
 
 // ProxyHost is the name of a ProxyHTTPS proxy, under .test so the capture
@@ -244,6 +249,16 @@ var Scenarios = []*Scenario{
 		Name:  "proxy-socks5",
 		Doc:   "the capture page through a SOCKS5 proxy: the handshake bytes, and the tunnelled connection against the direct one",
 		Proxy: ProxySOCKS5,
+	},
+	{
+		Name:  "proxy-socks4",
+		Doc:   "the capture page through a SOCKS4 proxy, the browser resolving the host: the request bytes, and the tunnelled connection against the direct one",
+		Proxy: ProxySOCKS4,
+	},
+	{
+		Name:  "proxy-socks4a",
+		Doc:   "the capture page through a SOCKS4a proxy, the host name sent for the proxy to resolve: the request bytes, and the tunnelled connection against the direct one",
+		Proxy: ProxySOCKS4A,
 	},
 	{
 		Name:  "proxy-plain",
@@ -378,6 +393,8 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 		return iosNoProxyAuth
 	case sc.Proxy == ProxySOCKS5:
 		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy only"
+	case sc.Proxy == ProxySOCKS4, sc.Proxy == ProxySOCKS4A:
+		return iosNoSOCKS4
 	case sc.Proxy == ProxyHTTPS:
 		return "the iPhone's Wi-Fi proxy setting takes a plain HTTP proxy, and its proxy script is read by the same system networking as macOS's, which " + noSafariHTTPSProxy + " ([INFERENCE] not tried on the phone)"
 	case sc == CookiesEdge:
@@ -402,6 +419,8 @@ func (sc *Scenario) UnsupportedBy(tool string) string {
 		return "macOS gives Safari no proxy it reaches over TLS: its secure web proxy setting is a plain HTTP proxy for https:// URLs, and the system " + noSafariHTTPSProxy
 	case sc == ECHH3 && tool == "safari":
 		return safariECHH3
+	case sc.Proxy == ProxySOCKS4A && capture.Chromium(tool):
+		return "Chromium has no SOCKS4a: given --proxy-server=socks4a://, Chrome 156 sent nothing to the proxy (2026-11-08), and with socks4:// it resolves the host itself (proxy-socks4)"
 	}
 
 	return ""
@@ -413,6 +432,15 @@ const safariECHH3 = "Safari ignores ECH configs (tls.realEch.ignore), so the pag
 // noSafariHTTPSProxy is what macOS (27.0.1, Safari 27, 2026-11-09) did
 // with a proxy script answering HTTPS host:port for *.test.
 const noSafariHTTPSProxy = "ignores a proxy script's HTTPS host:port: Safari connected to the site directly, and nothing reached the proxy (macOS 27.0.1, 2026-11-09)"
+
+// noSafariSOCKS4 is what macOS (27.0.1 with Safari 27.0.1, 26.2 with
+// Safari 26.2; 2026-11-10) did given a SOCKS proxy that speaks SOCKS4 only.
+const noSafariSOCKS4 = "Safari speaks SOCKS4 only through macOS's SOCKS proxy setting with kCFStreamPropertySOCKSVersion set to SOCKS4 (scutil --prefs): a proxy script's SOCKS host:port gets SOCKS5 (05 01 00) and no SOCKS4 retry when refused, and its SOCKS4 host:port is ignored (decision 0063)"
+
+// iosNoSOCKS4 is why the SOCKS4 scenarios are never captured on the
+// iPhone, and its profiles refuse SOCKS4 (the maintainer's decision,
+// 2026-11-10; decision 0063).
+const iosNoSOCKS4 = "iOS offers no SOCKS4 route: the Wi-Fi proxy's Manual setting and configuration profiles take an HTTP proxy only, and a proxy script's SOCKS is SOCKS5 on the networking stack iOS shares with macOS, where " + noSafariSOCKS4 + ", a key iOS gives no way to set ([INFERENCE] for iOS itself, not tried on a phone); a SOCKS4 form no iPhone sends would show to the proxy, so the iPhone profiles refuse SOCKS4"
 
 // iosNoProxyAuth is why the proxy-credential scenarios are neither
 // captured on the iPhone nor inherited from macOS Safari.
@@ -451,6 +479,8 @@ func (sc *Scenario) NotInheritedOnIOS() string {
 	switch {
 	case sc.ProxyAuth:
 		return iosNoProxyAuth
+	case sc.Proxy == ProxySOCKS4, sc.Proxy == ProxySOCKS4A:
+		return "macOS Safari speaks SOCKS4 only through the Mac's SOCKS proxy setting as SOCKS4, which the iPhone has no counterpart of ([INFERENCE]; decision 0063): the phone's SOCKS4, if any, is not macOS Safari's"
 	case sc.HTTP3() && sc != H3Discovery && sc != H3Page && sc != H3Blackhole && sc != H3Broken:
 		return "macOS Safari's QUIC hellos differ from the iPhone's in the transport parameter 0xff080808 (27: only the iPhone sends it; 26: only macOS), and its ACK delay, so its HTTP/3 edges are not the iPhone's; not captured on the iPhone yet"
 	case strings.HasPrefix(sc.Name, "replay-") || slices.Contains(iosCORSOrder, sc.Name):

@@ -121,6 +121,8 @@ func (e *Engine) webSocketRoute(req *http.Request, r route) (route, error) {
 		return r, fmt.Errorf("%w: profile %s has no WebSocket through a proxy (proxy.websocket)", headerorder.ErrNotMeasured, e.profile.Name)
 	case r.proxy.User != nil && !w.Credentials:
 		return r, fmt.Errorf("%w: profile %s has no WebSocket through a proxy with credentials", headerorder.ErrNotMeasured, e.profile.Name)
+	case r.proxy.Scheme == dial.SchemeSOCKS4 || r.proxy.Scheme == dial.SchemeSOCKS4A:
+		return r, fmt.Errorf("%w: no browser was measured opening a WebSocket through a SOCKS4 proxy", headerorder.ErrNotMeasured)
 	case req.URL.Scheme == "http" && r.proxy.Scheme != dial.SchemeHTTP:
 		return r, fmt.Errorf("%w: no browser was measured opening a ws:// socket through a SOCKS5 proxy", headerorder.ErrNotMeasured)
 	}

@@ -116,7 +116,9 @@ type Config struct {
 	// HTTP/3's UDP sockets never go through it: bind them with LocalAddrs.
 	// With DialContext set and no Resolver with a Dial of its own, no DNS
 	// HTTPS record is looked up, and every server gets the GREASE ECH
-	// extension, as through a proxy: the lookup would bypass it.
+	// extension, as through a proxy: the lookup would bypass it. For the
+	// same reason a socks4 proxy's target host name is then refused (use
+	// socks4a, or such a Resolver).
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 	// LocalAddrs are the local addresses mimicry's connections leave from,
 	// at most one IPv4 and one IPv6: TCP (unless DialContext opens it),
@@ -143,9 +145,16 @@ type Config struct {
 	// "https" (TLS to the proxy with the profile's hello, CONNECT over
 	// the HTTP/2 or HTTP/1.1 it picks; https:// requests only, and
 	// profiles without proxy.https, Safari's among them, refuse it),
-	// "socks5" and "socks5h"; a failed proxy returns a *ProxyError.
-	// RootCAs, Pins, VerifyConnection and KeyLogWriter apply to an https
-	// proxy's TLS too, for its host; GetClientCertificate does not. See
+	// "socks5", "socks5h", "socks4" (the host looked up here, as the
+	// browser does, with Resolver, which needs a Dial of its own when
+	// DialContext is set; not for Safari profiles, whose browser never
+	// does) and "socks4a" (the host name sent; not for Chrome, Edge or
+	// Brave profiles); profiles without proxy.socks4 refuse socks4 and
+	// socks4a. A failed proxy returns a *ProxyError; a target SOCKS4
+	// cannot carry, or a socks4 lookup that fails or would bypass
+	// DialContext, does not (no proxy was asked). RootCAs, Pins,
+	// VerifyConnection and KeyLogWriter apply to an https proxy's TLS too,
+	// for its host; GetClientCertificate does not. See
 	// docs/concepts/proxies.md.
 	Proxy func(*http.Request) (*url.URL, error)
 

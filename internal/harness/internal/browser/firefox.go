@@ -66,6 +66,17 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 				`user_pref("network.proxy.socks_version", 5);`,
 			)
 
+		case "socks4", "socks4a":
+			// SOCKS4 sends the address Firefox resolved; with remote DNS
+			// the host name instead (SOCKS4a: DSTIP 0.0.0.1).
+			prefs = append(prefs,
+				`user_pref("network.proxy.type", 1);`,
+				`user_pref("network.proxy.socks", "`+host+`");`,
+				`user_pref("network.proxy.socks_port", `+port+`);`,
+				`user_pref("network.proxy.socks_version", 4);`,
+				`user_pref("network.proxy.socks_remote_dns", `+strconv.FormatBool(t.Proxy.Scheme == "socks4a")+`);`,
+			)
+
 		case "https":
 			// Firefox's manual settings take no proxy reached over TLS;
 			// a proxy script names one.

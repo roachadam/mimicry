@@ -76,6 +76,12 @@ const (
 	// manual proxy can carry saved credentials on macOS, but it sends every
 	// URL to the HTTP proxy, so SOCKS5 scenarios cannot run.
 	safariProxyManual
+	// safariProxySOCKS4: through the SOCKS proxy setting at
+	// safariSOCKSProxy with kCFStreamPropertySOCKSVersion set to SOCKS4 in
+	// the service's proxies (scutil --prefs; neither System Settings nor
+	// networksetup offers it), the one way Safari speaks SOCKS4 (decision
+	// 0063). It sends every URL there, so only SOCKS4 scenarios run.
+	safariProxySOCKS4
 )
 
 // safariProxyConfig reports how the system sends Safari to the capture
@@ -100,14 +106,41 @@ func safariProxyConfig(ctx context.Context) safariProxy {
 		return safariProxyManual
 	}
 
+	host, port, _ = net.SplitHostPort(safariSOCKSProxy)
+	if strings.Contains(s, "SOCKSEnable : 1") && strings.Contains(s, "SOCKSProxy : "+host) && strings.Contains(s, "SOCKSPort : "+port) &&
+		strings.Contains(s, "kCFStreamPropertySOCKSVersion : kCFStreamSocketSOCKSVersion4") {
+		return safariProxySOCKS4
+	}
+
 	return safariProxyNone
 }
 
+// safariSOCKS4Setup is how to point the system's SOCKS proxy setting at
+// safariSOCKSProxy as SOCKS4 (safariProxySOCKS4), and how to undo it;
+// <id> is the service's ID (scutil --prefs: list /NetworkServices). The
+// undo removes the SOCKS keys, a SOCKS proxy set before included.
+func safariSOCKS4Setup() (set, unset string) {
+	host, port, _ := net.SplitHostPort(safariSOCKSProxy)
+	path := "/NetworkServices/<id>/Proxies"
+
+	set = "printf 'get " + path + "\\nd.add SOCKSEnable # 1\\nd.add SOCKSProxy " + host + "\\nd.add SOCKSPort # " + port +
+		"\\nd.add kCFStreamPropertySOCKSVersion kCFStreamSocketSOCKSVersion4\\nset " + path + "\\ncommit\\napply\\nquit\\n' | scutil --prefs"
+	unset = "printf 'get " + path + "\\nd.remove SOCKSEnable\\nd.remove SOCKSProxy\\nd.remove SOCKSPort\\nd.remove kCFStreamPropertySOCKSVersion\\nset " + path +
+		"\\ncommit\\napply\\nquit\\n' | scutil --prefs"
+
+	return set, unset
+}
+
 // safariProxyListen returns where the proxy for sc listens when Safari is
-// captured, and the port its capture URL names.
+// captured, and the port its capture URL names. The script's SOCKS verb
+// is SOCKS5 to macOS; SOCKS4 scenarios run only through the SOCKS proxy
+// setting (safariProxySOCKS4), which takes every URL.
 func safariProxyListen(sc *server.Scenario, port int) (string, int) {
-	if sc.Proxy == server.ProxySOCKS5 {
+	switch sc.Proxy {
+	case server.ProxySOCKS5:
 		return safariSOCKSProxy, safariSOCKSPort
+	case server.ProxySOCKS4, server.ProxySOCKS4A:
+		return safariSOCKSProxy, port
 	}
 
 	return safariHTTPProxy, port

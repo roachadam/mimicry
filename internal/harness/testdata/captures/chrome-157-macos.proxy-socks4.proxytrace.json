@@ -1,0 +1,44 @@
+[
+  [
+    {
+      "kind": "socks4",
+      "conn": 12,
+      "target": "127.0.0.1:55924",
+      "request": "0401da747f00000100"
+    },
+    {
+      "kind": "socks4",
+      "conn": 14,
+      "target": "127.0.0.1:55924",
+      "request": "0401da747f00000100"
+    }
+  ],
+  [
+    {
+      "kind": "socks4",
+      "conn": 12,
+      "target": "127.0.0.1:56080",
+      "request": "0401db107f00000100"
+    },
+    {
+      "kind": "socks4",
+      "conn": 14,
+      "target": "127.0.0.1:56080",
+      "request": "0401db107f00000100"
+    }
+  ],
+  [
+    {
+      "kind": "socks4",
+      "conn": 12,
+      "target": "127.0.0.1:56242",
+      "request": "0401dbb27f00000100"
+    },
+    {
+      "kind": "socks4",
+      "conn": 14,
+      "target": "127.0.0.1:56242",
+      "request": "0401dbb27f00000100"
+    }
+  ]
+]

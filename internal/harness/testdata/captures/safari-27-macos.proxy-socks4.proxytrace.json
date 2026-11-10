@@ -1,0 +1,26 @@
+[
+  [
+    {
+      "kind": "socks4",
+      "conn": 2,
+      "target": "capture.mimicry.test:59972",
+      "request": "0401ea440000001000636170747572652e6d696d696372792e7465737400"
+    }
+  ],
+  [
+    {
+      "kind": "socks4",
+      "conn": 1,
+      "target": "capture.mimicry.test:59976",
+      "request": "0401ea480000001000636170747572652e6d696d696372792e7465737400"
+    }
+  ],
+  [
+    {
+      "kind": "socks4",
+      "conn": 1,
+      "target": "capture.mimicry.test:59978",
+      "request": "0401ea4a0000001000636170747572652e6d696d696372792e7465737400"
+    }
+  ]
+]

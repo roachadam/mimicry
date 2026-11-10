@@ -38,7 +38,7 @@ func loadSamples[T any](path string) ([][]T, error) {
 
 // ProxyRequest is how a client asked its proxy for one connection.
 type ProxyRequest struct {
-	// Kind is ProxyConnect or ProxySOCKS5.
+	// Kind is ProxyConnect, ProxySOCKS5 or ProxySOCKS4 (SOCKS4a included).
 	Kind string `json:"kind"`
 	// Conn numbers the client's connection to the proxy, from 1: a
 	// CONNECT retried after a 407 on the same connection shares it.
@@ -56,7 +56,8 @@ type ProxyRequest struct {
 	// the connection's ProxyTLS.H2).
 	Lines []string `json:"lines,omitempty"`
 	// Greeting and Request are SOCKS5's method selection and request
-	// messages, hex encoded.
+	// messages, hex encoded; for SOCKS4 (and 4a), Request is its one
+	// request message and there is no Greeting.
 	Greeting string `json:"greeting,omitempty"`
 	Request  string `json:"request,omitempty"`
 	// ClientHello is, for a tunnel through a TLS proxy, the TLS records
@@ -72,6 +73,7 @@ type ProxyRequest struct {
 const (
 	ProxyConnect = "connect"
 	ProxySOCKS5  = "socks5"
+	ProxySOCKS4  = "socks4"
 )
 
 // ProxyTLS is one client connection to a TLS (https://) proxy, written by

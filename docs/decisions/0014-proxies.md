@@ -1,6 +1,6 @@
 # 0014: Proxies as the browser uses them
 
-- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`); amended 2026-10-30 (`https://` proxies not planned); amended 2026-11-09 by [0065](0065-https-proxies.md) (`https://` proxies); amended 2026-11-09 by [0066](0066-http3-over-connect-udp.md) (HTTP/3 through HTTP proxies by CONNECT-UDP on request)
+- Status: Accepted; amended 2026-10-26 (WebSockets through proxies, Firefox's tunnels, Safari's WebSockets with credentials); amended 2026-10-28 by [0038](0038-http3-over-socks5.md) (HTTP/3 through SOCKS5 on request); amended 2026-10-28 by [0039](0039-proxy-credentials-up-front.md) (credentials up front by default) and [0040](0040-idle-connection-cleanup.md) (unused proxies' connections close; `MaxIdleProxies`); amended 2026-10-30 (`https://` proxies not planned); amended 2026-11-09 by [0065](0065-https-proxies.md) (`https://` proxies); amended 2026-11-09 by [0066](0066-http3-over-connect-udp.md) (HTTP/3 through HTTP proxies by CONNECT-UDP on request); amended 2026-11-10 by [0063](0063-socks4-proxies.md) (SOCKS4 and SOCKS4A)
 - Date: 2026-10-24
 - Commits: `fb21232`, `e906da5`, `4af5b8d`
 
@@ -182,3 +182,12 @@ Requests through an `http://` or `https://` proxy still stay on TCP by
 default. `Config.ConnectUDPProxy` names, per proxy, a CONNECT-UDP proxy
 (RFC 9298) reached over HTTP/3 that carries their HTTP/3; see
 [0066](0066-http3-over-connect-udp.md).
+
+## Amendment 2026-11-10: SOCKS4
+
+[0063](0063-socks4-proxies.md): `socks4://` and `socks4a://`, from a
+`proxy.socks4` profile section (hellogen) captured from Chrome, Edge,
+Brave, Firefox and Safari 27 (through a hidden system setting); profiles
+without it refuse them. SOCKS4 has no UDP, so
+requests through it stay on TCP whatever `HTTP3OverSOCKS5` or
+`ConnectUDPProxy` say.

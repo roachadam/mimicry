@@ -187,6 +187,36 @@ func TestCheckPolicyRefuses(t *testing.T) {
 			},
 			want: "firefox-160-ios: capturesFrom.cookies: safari-27-macos is not safari ,",
 		},
+		{
+			// assumedFromNewer names Safari 26's two SOCKS4 scenarios only.
+			name: "Safari 26 inheriting another scenario from Safari 27",
+			profiles: func() []*profile.Spec {
+				ps := []*profile.Spec{
+					safari(26, "macos"),
+					safari(27, "macos"),
+				}
+
+				ps[0].CapturesFrom = map[string]string{
+					"proxy-socks5": "safari-27-macos",
+				}
+
+				return ps
+			},
+			want: "safari-26-macos: capturesFrom.proxy-socks5: safari-27-macos is not an older version",
+		},
+		{
+			name: "another browser inheriting SOCKS4 from a newer version",
+			profiles: func() []*profile.Spec {
+				ps := versions(2, 0)
+
+				ps[0].CapturesFrom = map[string]string{
+					"proxy-socks4": "chrome-151-macos",
+				}
+
+				return ps
+			},
+			want: "chrome-150-macos: capturesFrom.proxy-socks4: chrome-151-macos is not an older version",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := checkPolicy(tc.profiles())
@@ -218,6 +248,21 @@ func TestCheckPolicyRefuses(t *testing.T) {
 	}
 	if err := checkPolicy(ios); err != nil {
 		t.Fatalf("checkPolicy(safari-27-ios inheriting from safari-27-macos) = %v", err)
+	}
+
+	// The maintainer's one exception (assumedFromNewer): Safari 26's SOCKS4
+	// from Safari 27's captures, assumed, not captured (decision 0063).
+	assumed := []*profile.Spec{
+		safari(26, "macos"),
+		safari(27, "macos"),
+	}
+
+	assumed[0].CapturesFrom = map[string]string{
+		"proxy-socks4":  "safari-27-macos",
+		"proxy-socks4a": "safari-27-macos",
+	}
+	if err := checkPolicy(assumed); err != nil {
+		t.Fatalf("checkPolicy(safari-26-macos's SOCKS4 from safari-27-macos) = %v", err)
 	}
 
 	// Firefox on iOS inherits from Safari of the WebKit it was captured on

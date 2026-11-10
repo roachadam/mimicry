@@ -29,10 +29,11 @@ import (
 
 // mimicry asks proxies for connections as the browser does, against its
 // captures through the capture proxy, with Config.BrowserProxyAuth:
-// CONNECT lines, SOCKS5 bytes, the credential flow (challenge, retry on
-// the same connection, unasked after), and absolute-form plain-HTTP
-// requests, every one of the capture page's. A tunnel carries the
-// profile's direct ClientHello. By
+// CONNECT lines, SOCKS5 and SOCKS4 bytes (Safari's proxy-socks4, sent as
+// SOCKS4A, through socks4a://, since socks4:// is refused for it), the
+// credential flow (challenge, retry on the same connection, unasked
+// after), and absolute-form plain-HTTP requests, every one of the capture
+// page's. A tunnel carries the profile's direct ClientHello. By
 // default ("auth-upfront", "plain-auth-upfront") the credentials go on
 // the first request, where the browser places them on its credentialed
 // ones, with no 407 round trip; the tunnel is unchanged (decision 0039).
@@ -79,6 +80,46 @@ func TestProxyMatchesBrowser(t *testing.T) {
 
 				s.checkTunnelledHello(p)
 			})
+
+			for _, sc := range []string{"proxy-socks4", "proxy-socks4a"} {
+				t.Run(strings.TrimPrefix(sc, "proxy-"), func(t *testing.T) {
+					// A profile claims SOCKS4 (and SOCKS4A) only from its
+					// captures; TestUnmeasuredProxyIsAnError covers the
+					// others' refusal.
+					if s4 := p.Proxy.SOCKS4; s4 == nil || (sc == "proxy-socks4a" && !s4.Hostname) {
+						t.Skipf("%s does not describe %s (proxy.socks4)", p.Name, sc)
+					}
+
+					want := loadSamples[[]capture.ProxyRequest](t, p, sc, ".proxytrace.json")
+
+					// A browser that never resolves for SOCKS4 sent SOCKS4A
+					// when given a SOCKS4 proxy: socks4a:// is mimicry's way
+					// to that request.
+					run := sc
+					if p.Proxy.SOCKS4.HostnameOnly {
+						run = "proxy-socks4a"
+					}
+
+					s := startProxied(t, p, scenario(t, run), nil, true)
+					s.get("https", server.CaptureHost, "/")
+
+					got := s.proxy.Requests()
+					if len(got) != 1 {
+						t.Fatalf("%d proxy requests, want 1: %v", len(got), got)
+					}
+
+					// SOCKS4 records carry no status: every one in the
+					// samples was let through.
+					if !slices.ContainsFunc(want, func(sample []capture.ProxyRequest) bool {
+						return len(sample) > 0 && socks4Portless(sample[0].Request) == socks4Portless(got[0].Request)
+					}) {
+						t.Errorf("SOCKS4:\n got %s\nwant %s", got[0].Request, want[0][0].Request)
+					}
+
+					s.checkTunnelledHello(p)
+				})
+			}
+
 			t.Run("auth", func(t *testing.T) {
 				wantFlow := loadSamples[[]capture.ProxyRequest](t, p, "proxy-auth", ".proxytrace.json")
 				sc := scenario(t, "proxy-auth")
@@ -287,7 +328,9 @@ var proxyPlainGaps = func() map[string]string {
 // proxy its browser was not measured with, an https:// proxy without
 // proxy.https (Safari's, the older versions'), its credentials without
 // proxy.https.connectAuth, and plain HTTP or ws:// through it (never
-// captured).
+// captured); a SOCKS4 proxy without proxy.socks4, socks4:// for a browser
+// that only sends host names (Safari), SOCKS4A from a browser that has
+// none, and a WebSocket through SOCKS4 (never captured).
 func TestUnmeasuredProxyIsAnError(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -369,6 +412,37 @@ func TestUnmeasuredProxyIsAnError(t *testing.T) {
 			scheme:    "https",
 			websocket: true,
 			target:    "ws://example.test/socket",
+		},
+		{
+			name: "SOCKS4 without proxy.socks4",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.SOCKS4 = nil
+				return p
+			},
+			scheme: "socks4",
+		},
+		{
+			name: "SOCKS4 from a browser that only sends host names (Safari)",
+			strip: func(p *profile.Proxy) *profile.Proxy {
+				p.SOCKS4 = &profile.SOCKS4{
+					Hostname:      true,
+					HostnameOnly:  true,
+					HostnameDSTIP: "0.0.0.16",
+				}
+
+				return p
+			},
+			scheme: "socks4",
+		},
+		{
+			name:   "SOCKS4A from Chrome, which has none",
+			scheme: "socks4a",
+		},
+		{
+			name:      "WebSocket through SOCKS4, never captured",
+			scheme:    "socks4",
+			websocket: true,
+			target:    "wss://example.test/socket",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -459,7 +533,8 @@ func startProxied(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.
 		port: "8443",
 		proxy: &proxy.Proxy{
 			Allow: func(host string) bool {
-				return strings.HasSuffix(host, ".test")
+				// Through socks4 mimicry resolves the capture host itself.
+				return strings.HasSuffix(host, ".test") || (sc.Proxy == server.ProxySOCKS4 && host == "127.0.0.1")
 			},
 			Plain: sc.Plain,
 			Logf:  t.Logf,
@@ -561,6 +636,8 @@ func startProxied(t *testing.T, p *profile.Spec, sc *server.Scenario, user *url.
 		Proxy:            http.ProxyURL(proxyURL),
 		DialContext:      dialProxy,
 		BrowserProxyAuth: browserAuth,
+		// Through socks4 the capture host is looked up here.
+		Resolver: stubResolver(t),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -733,6 +810,15 @@ func credentialed(sample []capture.H1Request, path string) *capture.H1Request {
 // socksPortless drops a SOCKS5 request's port (its last two bytes, hex).
 func socksPortless(req string) string {
 	return req[:max(len(req)-4, 0)]
+}
+
+// socks4Portless drops a SOCKS4 request's port (bytes 2 and 3, hex).
+func socks4Portless(req string) string {
+	if len(req) < 8 {
+		return req
+	}
+
+	return req[:4] + req[8:]
 }
 
 // connectFlow describes CONNECTs as (connection, status, credentials),

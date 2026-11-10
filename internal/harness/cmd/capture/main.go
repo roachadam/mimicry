@@ -307,21 +307,54 @@ func run() error {
 	failed := 0
 	for _, b := range browsers {
 		bopts := opts
+		refused := 0
+
+		// Scenarios the browser cannot take (UnsupportedBy: SOCKS4a for a
+		// Chromium browser, SOCKS4 and client certificates for Safari), or
+		// where the browser's identity store or resolver cannot be
+		// reached; before the proxy checks, which only the remaining
+		// scenarios need.
+		bopts.scenarios = slices.DeleteFunc(slices.Clone(opts.scenarios), func(sc *server.Scenario) bool {
+			why := sc.UnsupportedBy(b.Name)
+			if why == "" && sc.ClientCert() != "" && !b.OnIPhone() {
+				why = clientCertRefusal(b)
+			}
+
+			if why == "" && sc.ResolvesHosts() && !b.OnIPhone() {
+				why = resolveRefusal(b)
+			}
+
+			if why == "" {
+				return false
+			}
+
+			log.Printf("%s: skipping scenario %s: %s", b.Name, sc.Name, why)
+
+			refused++
+
+			return true
+		})
 
 		if b.OnIPhone() {
 			log.Printf("%s: %s on the iPhone must use %s as its DNS server and trust the capture CA (docs/capturing.md, Safari on an iPhone)", b.Name, browser.IOSApp(b.Name), addr)
 		}
 
 		mode := safariProxyNone
+		viaProxy := slices.ContainsFunc(bopts.scenarios, func(sc *server.Scenario) bool {
+			return sc.Proxy != ""
+		})
 
-		if b.Shared && proxied {
+		if b.Shared {
 			mode = safariProxyConfig(ctx)
 		}
 
-		if b.Shared && proxied && mode == safariProxyNone {
+		if b.Shared && viaProxy && mode == safariProxyNone {
+			set, unset := safariSOCKS4Setup()
 			log.Printf("%s: the system does not send %s to the capture proxy. Point the active network service at the tool's proxy script (an administrator's password), and turn it off after:\n"+
 				"  sudo networksetup -setautoproxyurl <service> %s\n  sudo networksetup -setautoproxystate <service> off\n"+
-				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead.", b.Name, b.Name, safariPACURL, safariHTTPProxy)
+				"(networksetup -listallnetworkservices lists services). The script proxies only *.test. For proxy credentials, use manual web and secure web proxies at %s with a password instead. "+
+				"For the SOCKS4 scenarios, set the service's SOCKS proxy to %s as SOCKS4 instead (as an administrator at the Mac's screen; scutil --prefs, list /NetworkServices, gives <id>), and remove it after; the removal drops any SOCKS proxy the service had before, so note scutil --proxy first:\n  %s\n  %s",
+				b.Name, b.Name, safariPACURL, safariHTTPProxy, safariSOCKSProxy, set, unset)
 
 			failed++
 
@@ -356,31 +389,6 @@ func run() error {
 				"  security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %q", b.Name, b.Name, ca.CertPath)
 		}
 
-		refused := 0
-
-		// Client-certificate scenarios for Safari, or where the browser's
-		// identity store cannot be reached.
-		bopts.scenarios = slices.DeleteFunc(slices.Clone(opts.scenarios), func(sc *server.Scenario) bool {
-			why := sc.UnsupportedBy(b.Name)
-			if why == "" && sc.ClientCert() != "" && !b.OnIPhone() {
-				why = clientCertRefusal(b)
-			}
-
-			if why == "" && sc.ResolvesHosts() && !b.OnIPhone() {
-				why = resolveRefusal(b)
-			}
-
-			if why == "" {
-				return false
-			}
-
-			log.Printf("%s: skipping scenario %s: %s", b.Name, sc.Name, why)
-
-			refused++
-
-			return true
-		})
-
 		if mode == safariProxyManual {
 			// A manual proxy sends SOCKS5 scenarios' URLs to the HTTP
 			// proxy, so their samples could only time out.
@@ -391,6 +399,29 @@ func run() error {
 
 				log.Printf("%s: skipping scenario %s: the system uses manual web proxies, which send everything to the HTTP proxy at %s. Use the proxy script for SOCKS5 scenarios:\n"+
 					"  sudo networksetup -setautoproxyurl <service> %s", b.Name, sc.Name, safariHTTPProxy, safariPACURL)
+
+				refused++
+
+				return true
+			})
+		}
+
+		if b.Shared {
+			// Safari speaks SOCKS4 only through the SOCKS proxy setting,
+			// which takes every URL the Mac loads: SOCKS4 scenarios run
+			// with it and nothing else does.
+			bopts.scenarios = slices.DeleteFunc(slices.Clone(bopts.scenarios), func(sc *server.Scenario) bool {
+				socks4 := sc.Proxy == server.ProxySOCKS4 || sc.Proxy == server.ProxySOCKS4A
+				if socks4 == (mode == safariProxySOCKS4) {
+					return false
+				}
+
+				if socks4 {
+					set, _ := safariSOCKS4Setup()
+					log.Printf("%s: skipping scenario %s: Safari speaks SOCKS4 only through the system's SOCKS proxy setting as SOCKS4 (decision 0063); for a run of the SOCKS4 scenarios alone, set it (as an administrator at the Mac's screen; scutil --prefs, list /NetworkServices, gives <id>; it replaces any SOCKS proxy the service has, and removing it after does not bring that back, so note scutil --proxy first):\n  %s", b.Name, sc.Name, set)
+				} else {
+					log.Printf("%s: skipping scenario %s: the system sends every URL to the SOCKS4 proxy at %s, which serves only the SOCKS4 scenarios", b.Name, sc.Name, safariSOCKSProxy)
+				}
 
 				refused++
 
@@ -634,7 +665,7 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	}
 
 	// Behind a proxy the browser never dials this port, but the URL names
-	// it, so CONNECT and SOCKS5 requests carry a real-looking one.
+	// it, so CONNECT and SOCKS requests carry a real-looking one.
 	port, err := tcpPort(ln)
 	if err != nil {
 		_ = ln.Close()

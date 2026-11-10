@@ -58,11 +58,13 @@ func (e *CORSError) Error() string {
 // ProxyError reports that a request never reached the server because of
 // its proxy: unreachable, a failed TLS handshake with an https proxy (its
 // certificate, Pins or VerifyConnection; the cause stays wrapped), a
-// non-2xx CONNECT answer, a failed SOCKS5 handshake or login, or the
-// deadline passing on the way. For a
+// non-2xx CONNECT answer, a failed SOCKS5 handshake or login, a SOCKS4
+// refusal, or the deadline passing on the way. For a
 // plain-HTTP request sent to an HTTP proxy whole, only a final 407 counts;
 // other answers are the response. Failures inside an open tunnel are the
-// server's, not a ProxyError.
+// server's, not a ProxyError; nor is a target a SOCKS4 proxy cannot be
+// asked for (an IPv6 address), or a socks4 lookup that fails: no proxy
+// was asked, and another would do no better.
 //
 // A proxy-rotation loop tests for it with errors.As (see docs/concepts/proxies.md).
 // It wraps the cause, so errors.Is(err, context.DeadlineExceeded) works.
@@ -71,7 +73,7 @@ type ProxyError struct {
 	// stays).
 	Proxy *url.URL
 	// StatusCode is the proxy's answer to CONNECT (or to the plain-HTTP
-	// request), or 0 for a SOCKS5 proxy or when it gave none.
+	// request), or 0 for a SOCKS proxy or when it gave none.
 	StatusCode int
 	// Header is that answer's header, or nil.
 	Header http.Header

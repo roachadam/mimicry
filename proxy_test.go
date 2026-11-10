@@ -105,6 +105,164 @@ func fakeSOCKS5(t *testing.T, mode string) string {
 	return ln.Addr().String()
 }
 
+// fakeSOCKS4 is a SOCKS4 proxy that fails every connection as mode says:
+// "refuse" (reply 0x5b once the request's user ID is read), "silent"
+// (never answers).
+func fakeSOCKS4(t *testing.T, mode string) string {
+	t.Helper()
+
+	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		_ = ln.Close()
+	})
+
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+
+			go func() {
+				defer func() {
+					_ = c.Close()
+				}()
+
+				if mode == "silent" {
+					_, _ = io.Copy(io.Discard, c)
+					return
+				}
+
+				// VN CD DSTPORT DSTIP, then USERID up to its NUL.
+				head := make([]byte, 8)
+				if _, err := io.ReadFull(c, head); err != nil {
+					return
+				}
+
+				b := make([]byte, 1)
+				for {
+					if _, err := io.ReadFull(c, b); err != nil || b[0] == 0 {
+						break
+					}
+				}
+
+				_, _ = c.Write([]byte{0, 0x5b, 0, 0, 0, 0, 0, 0})
+			}()
+		}
+	}()
+
+	return ln.Addr().String()
+}
+
+// What a SOCKS4 proxy cannot be asked fails before the proxy is dialled,
+// and is not a *ProxyError (no proxy failed; rotating would not help): a
+// password in the URL, an IPv6 target, a host the lookup through socks4
+// cannot resolve, and a lookup through socks4 that would bypass
+// Config.DialContext (no Resolver.Dial).
+func TestSOCKS4CallerErrors(t *testing.T) {
+	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		_ = ln.Close()
+	})
+
+	dialled := make(chan struct{}, 16)
+
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+
+			dialled <- struct{}{}
+
+			_ = c.Close()
+		}
+	}()
+
+	failingDNS := &net.Resolver{
+		PreferGo: true,
+		Dial: func(context.Context, string, string) (net.Conn, error) {
+			return nil, errors.New("no DNS here")
+		},
+	}
+
+	for _, tc := range []struct {
+		name   string
+		scheme string
+		user   *url.Userinfo
+		target string
+		// dialContext sets Config.DialContext and no Resolver.
+		dialContext bool
+	}{
+		{"password in the URL", "socks4", url.UserPassword("alice", "s3cr3t-pw"), "https://127.0.0.1/", false},
+		{"IPv6 target through socks4a", "socks4a", nil, "https://[2001:db8::1]/", false},
+		{"IPv6 target through socks4", "socks4", nil, "https://[2001:db8::1]/", false},
+		{"lookup failure through socks4", "socks4", nil, "https://www.shop.test/", false},
+		{"lookup through socks4 bypassing DialContext", "socks4", nil, "https://www.shop.test/", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := mimicry.Config{
+				// Firefox: the one with SOCKS4A.
+				Profile:  profiles.FirefoxMacOS(),
+				Resolver: failingDNS,
+				Proxy: http.ProxyURL(&url.URL{
+					Scheme: tc.scheme,
+					Host:   ln.Addr().String(),
+					User:   tc.user,
+				}),
+			}
+			if tc.dialContext {
+				cfg.Resolver = nil
+				cfg.DialContext = new(net.Dialer).DialContext
+			}
+
+			tr, err := mimicry.NewTransport(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, tc.target, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			resp, err := tr.RoundTrip(req)
+			if err == nil {
+				_ = resp.Body.Close()
+
+				t.Fatal("no error")
+			}
+
+			if _, ok := errors.AsType[*mimicry.ProxyError](err); ok {
+				t.Errorf("a *ProxyError: %v", err)
+			}
+
+			if tc.dialContext && !strings.Contains(err.Error(), "DialContext") {
+				t.Errorf("not the DialContext refusal: %v", err)
+			}
+
+			if strings.Contains(err.Error(), "s3cr3t-pw") {
+				t.Errorf("the error shows the password: %v", err)
+			}
+
+			select {
+			case <-dialled:
+				t.Error("the proxy was dialled")
+			default:
+			}
+		})
+	}
+}
+
 // silentListener accepts connections and never answers.
 func silentListener(t *testing.T) string {
 	t.Helper()
@@ -404,6 +562,18 @@ func TestProxyErrors(t *testing.T) {
 			name:         "SOCKS5 unanswered",
 			proxy:        proxyURL("socks5h", fakeSOCKS5(t, "silent"), wrong),
 			target:       "https://www.shop.test/",
+			timeout:      300 * time.Millisecond,
+			wantDeadline: true,
+		},
+		{
+			name:   "SOCKS4 refused",
+			proxy:  proxyURL("socks4", fakeSOCKS4(t, "refuse"), url.User("alice")),
+			target: "https://127.0.0.1/",
+		},
+		{
+			name:         "SOCKS4 unanswered",
+			proxy:        proxyURL("socks4", fakeSOCKS4(t, "silent"), nil),
+			target:       "https://127.0.0.1/",
 			timeout:      300 * time.Millisecond,
 			wantDeadline: true,
 		},

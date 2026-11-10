@@ -3,6 +3,10 @@
   "browser": "safari",
   "version": "26",
   "platform": "macos",
+  "capturesFrom": {
+    "proxy-socks4": "safari-27-macos",
+    "proxy-socks4a": "safari-27-macos"
+  },
   "tls": {
     "recordVersion": "0x0301",
     "legacyVersion": "0x0303",
@@ -11624,6 +11628,11 @@
         0
       ],
       "address": "domain"
+    },
+    "socks4": {
+      "hostname": true,
+      "hostnameOnly": true,
+      "hostnameDstip": "0.0.0.16"
     },
     "websocket": {
       "plain": "forward",

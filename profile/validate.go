@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"maps"
+	"net/netip"
 	"regexp"
 	"slices"
 	"strings"
@@ -949,6 +950,15 @@ func (c *checker) checkProxy(p *Proxy, headers []Header) {
 		}
 	}
 
+	if s := p.SOCKS4; s != nil {
+		switch {
+		case !s.Hostname && (s.HostnameOnly || s.HostnameDSTIP != ""):
+			c.add("proxy.socks4", "hostnameOnly and hostnameDstip need hostname")
+		case s.Hostname && !socks4AAddress(s.HostnameDSTIP):
+			c.add("proxy.socks4.hostnameDstip", "must be SOCKS4A's 0.0.0.x, x not 0, with hostname")
+		}
+	}
+
 	if w := p.WebSocket; w != nil {
 		if w.Plain != PlainWebSocketTunnel && w.Plain != PlainWebSocketForward {
 			c.add("proxy.websocket.plain", "must be %q or %q", PlainWebSocketTunnel, PlainWebSocketForward)
@@ -1042,4 +1052,16 @@ func (c *checker) checkProxyHTTPS(p *Spec) {
 	if h.Resume && p.TLS.Resumption == nil {
 		c.add("proxy.https.resume", "needs tls.resumption")
 	}
+}
+
+// socks4AAddress reports whether s is a SOCKS4A DSTIP: 0.0.0.x, x not 0.
+func socks4AAddress(s string) bool {
+	ip, err := netip.ParseAddr(s)
+	if err != nil || !ip.Is4() {
+		return false
+	}
+
+	b := ip.As4()
+
+	return b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] != 0
 }

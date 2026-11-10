@@ -1,4 +1,4 @@
-// Package proxy connects through SOCKS5 and HTTP CONNECT proxies, bounded
+// Package proxy connects through SOCKS5, SOCKS4 and HTTP CONNECT proxies, bounded
 // by the caller's context, and carries UDP datagrams through SOCKS5 UDP
 // associations (Association).
 package proxy

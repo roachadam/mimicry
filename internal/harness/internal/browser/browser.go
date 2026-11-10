@@ -47,9 +47,9 @@ type Target struct {
 	// (by hand, once) and Windows (for the run).
 	CAFile string
 	// Proxy, when set, is the proxy the browser goes through
-	// ("http://127.0.0.1:port", "socks5://127.0.0.1:port", or
-	// "https://<name>:port", a TLS proxy whose name the browser maps to
-	// Loopback).
+	// ("http://127.0.0.1:port", "socks5://…", "socks4://…", "socks4a://…",
+	// or "https://<name>:port", a TLS proxy whose name the browser maps to
+	// Loopback; server.Scenario.Proxy is the scheme).
 	Proxy *url.URL
 	// Plain sends the browser to http:// instead of https://.
 	Plain bool
@@ -646,6 +646,12 @@ func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 		"--ignore-certificate-errors",
 	}
 	if t.Proxy != nil {
+		if t.Proxy.Scheme == "socks4a" {
+			// --proxy-server=socks4a:// sends nothing to the proxy
+			// (Chrome 156, 2026-11-08).
+			return nil, errors.New("chromium has no SOCKS4a: it resolves the host itself and sends SOCKS4 (socks4://)")
+		}
+
 		args = append(args, "--proxy-server="+t.Proxy.String())
 	}
 

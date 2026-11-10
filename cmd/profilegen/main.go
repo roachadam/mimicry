@@ -202,7 +202,7 @@ func checkPolicy(profiles []*profile.Spec) error {
 				return fmt.Errorf("%s: capturesFrom.%s: %q is not a built-in profile", p.Name, sc, p.CapturesFrom[sc])
 			case from.Browser != p.Browser || (from.Platform != p.Platform && !shared):
 				return fmt.Errorf("%s: capturesFrom.%s: %s is not %s on %s", p.Name, sc, from.Name, p.Browser, p.Platform)
-			case !shared && compareVersions(from.Version, p.Version) >= 0:
+			case !shared && compareVersions(from.Version, p.Version) >= 0 && assumedFromNewer[p.Name][sc] != from.Name:
 				return fmt.Errorf("%s: capturesFrom.%s: %s is not an older version", p.Name, sc, from.Name)
 			case shared && compareVersions(from.Version, p.Version) > 0:
 				// The platform sharing the stack: its same version, or an
@@ -215,6 +215,21 @@ func checkPolicy(profiles []*profile.Spec) error {
 	}
 
 	return nil
+}
+
+// assumedFromNewer are the maintainer's exceptions to inheriting captures
+// from an older version only: a profile's scenario checked against a newer
+// version's captures, its behaviour assumed the same, not captured.
+// Nothing else may name a newer version (TestCheckPolicyRefuses).
+var assumedFromNewer = map[string]map[string]string{
+	// Safari 26's SOCKS4 is assumed to be Safari 27's (the maintainer's
+	// decision, 2026-11-10): the second Mac, where Safari 26 runs, takes
+	// the SOCKS version key only from someone at its screen (decision
+	// 0063).
+	"safari-26-macos": {
+		"proxy-socks4":  "safari-27-macos",
+		"proxy-socks4a": "safari-27-macos",
+	},
 }
 
 // checkEngineSource checks the scenario sc that p, a browser on another's

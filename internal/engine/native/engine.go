@@ -660,8 +660,14 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	switch px := e.profile.Proxy; {
 	case px == nil:
 		return r, fmt.Errorf("%w: profile %s does not describe how its browser talks to proxies (proxy)", headerorder.ErrNotMeasured, e.profile.Name)
-	case !tunnels && px.SOCKS5 == nil:
+	case (p.Scheme == dial.SchemeSOCKS5 || p.Scheme == dial.SchemeSOCKS5H) && px.SOCKS5 == nil:
 		return r, fmt.Errorf("%w: profile %s does not describe its browser's SOCKS5 handshake (proxy.socks5)", headerorder.ErrNotMeasured, e.profile.Name)
+	case (p.Scheme == dial.SchemeSOCKS4 || p.Scheme == dial.SchemeSOCKS4A) && px.SOCKS4 == nil:
+		return r, fmt.Errorf("%w: profile %s does not describe its browser's SOCKS4 request (proxy.socks4)", headerorder.ErrNotMeasured, e.profile.Name)
+	case p.Scheme == dial.SchemeSOCKS4A && !px.SOCKS4.Hostname:
+		return r, fmt.Errorf("%w: profile %s's browser sends no host name to a SOCKS4 proxy (proxy.socks4.hostname; Chrome has no SOCKS4A): use socks4://", headerorder.ErrNotMeasured, e.profile.Name)
+	case p.Scheme == dial.SchemeSOCKS4 && px.SOCKS4.HostnameOnly:
+		return r, fmt.Errorf("%w: profile %s's browser never looks a host up for a SOCKS4 proxy, it sends the host name (proxy.socks4.hostnameOnly; Safari): use socks4a://", headerorder.ErrNotMeasured, e.profile.Name)
 	case p.Scheme == dial.SchemeHTTPS && px.HTTPS == nil:
 		return r, fmt.Errorf("%w: profile %s does not describe how its browser talks to an https:// proxy (proxy.https)", headerorder.ErrNotMeasured, e.profile.Name)
 	case p.Scheme == dial.SchemeHTTPS && req.URL.Scheme == "http":
