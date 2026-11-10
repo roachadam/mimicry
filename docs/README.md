@@ -127,7 +127,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0027](decisions/0027-quic-base.md) | QUIC from a copy of x/net/quic; HTTP/3 and QPACK written for mimicry | Amended |
 | [0028](decisions/0028-quic-failure-model.md) | QUIC and HTTP/3 fail as each browser's do | Amended by 0036; amended (what counts as an abandoned attempt) |
 | [0036](decisions/0036-fast-quic-fallback.md) | Fast QUIC fallback by default, the browser's timing on request | Accepted; amended (fast mode only where it can differ) |
-| [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate unless configured | Amended (Firefox's ACK after a quiet spell) |
+| [0043](decisions/0043-http3-ack-rate-opt-in.md) | HTTP/3 keeps Chrome's ACK rate unless configured | Amended (Firefox's ACK after a quiet spell; out-of-order ACKs not counted) |
 | [0045](decisions/0045-udp-receive-buffer-default.md) | QUIC sockets ask for Chrome's 1 MB receive buffer by default | Accepted |
 | [0049](decisions/0049-streams-blocked.md) | STREAMS_BLOCKED as each browser sends it | Accepted |
 | [0050](decisions/0050-quic-resumption-and-dial-delays.md) | QUIC resumption by `quic.zeroRtt` alone; dial delays per kind; close on GOAWAY | Accepted |

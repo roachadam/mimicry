@@ -18,10 +18,11 @@ import (
 // The h3-download page (a 50 MiB HTTP/3 response, then small requests)
 // through mimicry, against every browser sample. On mimicry and every sample
 // alike: the client never starts a key update and follows each, ACKs every
-// QUICAck.Every packets (at least that many where it batches), and sends no
-// ACK_FREQUENCY or IMMEDIATE_ACK. MAX_STREAM_DATA increases, and share-based
-// MAX_DATA ones, lie within the browser's range ± creditSlack; Safari's
-// arrival-based MAX_DATA is checked by windowCreditViolations instead.
+// QUICAck.Every packets (at least that many where it batches; ACKs out of
+// order, at a gap or a late packet, aside), and sends no ACK_FREQUENCY or
+// IMMEDIATE_ACK. MAX_STREAM_DATA increases, and share-based MAX_DATA ones,
+// lie within the browser's range ± creditSlack; Safari's arrival-based
+// MAX_DATA is checked by windowCreditViolations instead.
 func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 	for _, name := range testProfiles(t) {
 		t.Run(name, func(t *testing.T) {
@@ -233,7 +234,9 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 	}
 
 	var (
-		largest   []uint64
+		acks      []bulkAck
+		acked     pnSet
+		top       uint64
 		maxServer uint64
 	)
 
@@ -255,7 +258,8 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 			case quictrace.FrameAckFrequency, quictrace.FrameImmediateAck:
 				out = append(out, "the client sent "+f.Type)
 			case quictrace.FrameAck:
-				largest = append(largest, f.Largest)
+				acks = append(acks, newBulkAck(&acked, top, f))
+				top = max(top, f.Largest)
 			}
 		}
 	}
@@ -266,13 +270,21 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 	from := uint64(max(a.WarmupPackets, 0)) + bulkMargin
 
 	var (
-		n, match int
-		advanced uint64
+		n, match, outOfOrder, gaps int
+		advanced                   uint64
 	)
 
-	for i := 1; i < len(largest); i++ {
-		prev, cur := largest[i-1], largest[i]
+	for _, k := range acks {
+		prev, cur := k.after, k.largest
 		if cur <= prev || prev < from || cur+bulkMargin > maxServer {
+			continue
+		}
+
+		gaps += k.gaps
+
+		if k.outOfOrder {
+			outOfOrder++
+
 			continue
 		}
 
@@ -295,9 +307,15 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 		need = ackShareBatched
 	}
 
+	// Out-of-order ACKs are left out only as many as the gaps explain: one
+	// opening each and one filling it.
+	if outOfOrder > 2*gaps {
+		out = append(out, fmt.Sprintf("%d ACKs during the bulk receive acknowledge out of order, at %d gaps; want at most 2 a gap", outOfOrder, gaps))
+	}
+
 	switch {
-	case n == 0:
-		out = append(out, "no ACK during the bulk receive")
+	case n < bulkMinACKs:
+		out = append(out, fmt.Sprintf("%d ACKs during the bulk receive acknowledge in order (%d out of order); want at least %d", n, outOfOrder, bulkMinACKs))
 	case float64(match) < need*float64(n):
 		out = append(out, fmt.Sprintf("%d of %d ACKs during the bulk receive acknowledge %s new packets; want %.0f%%", match, n, rule, need*100))
 	}
@@ -308,17 +326,81 @@ func bulkRuleViolations(q *profile.QUIC, c *quictrace.Conn) (out []string, summa
 	// an older Mac 6.1–10.8; ACKs 19–47 µs apart at the median, with no
 	// fixed count or interval), the machine's timing, not a rule a profile
 	// can hold.
-	summary = fmt.Sprintf("%d of %d ACKs during the bulk receive acknowledge %s new packets (%.1f%%), %.2f on average; the server updated its keys %d times, the client %d", match, n, rule, 100*float64(match)/float64(max(n, 1)), float64(advanced)/float64(max(n, 1)), serverFlips, clientFlips)
+	summary = fmt.Sprintf("%d of %d ACKs during the bulk receive acknowledge %s new packets (%.1f%%), %.2f on average, %d out of order at %d gaps left out; the server updated its keys %d times, the client %d", match, n, rule, 100*float64(match)/float64(max(n, 1)), float64(advanced)/float64(max(n, 1)), outOfOrder, gaps, serverFlips, clientFlips)
 
 	return out, summary
 }
 
-// Thresholds of the ACK rule: the browsers' own shares are 98.7–98.8%
-// (Chrome, exactly 10) and 99.6–100% (Firefox, Safari, 2 or more).
+// bulkAck is one of the client's ACK frames: the largest packet number
+// the client's earlier ACKs acknowledged (after), its Largest
+// Acknowledged, how many gaps it opens above after, and whether it
+// acknowledges out of order.
+type bulkAck struct {
+	after, largest uint64
+	gaps           int
+	outOfOrder     bool
+}
+
+// newBulkAck reads f, the client's ACK frame after ones acknowledging up
+// to after, adding the packets it acknowledges to acked. It acknowledges
+// out of order when it leaves a packet above after unacknowledged (a gap:
+// a packet lost, or a packet number the server skipped) or newly
+// acknowledges one below it (a late packet). A client sends such an ACK
+// at once, whatever its count (RFC 9000, section 13.2.1), so the ACK
+// rule's count does not govern it. Every browser sample has 5–8 a
+// download, at the packet numbers quic-go skips; mimicry has as many
+// where it loses nothing, and one more per loss: up to hundreds where a
+// loaded Mac's loopback drops datagrams on the client's full receive
+// buffer (issue #122).
+func newBulkAck(acked *pnSet, after uint64, f quictrace.Frame) bulkAck {
+	late := false
+
+	for _, r := range f.Ranges {
+		acked.add(r[0], r[1], func(pn uint64) {
+			if pn <= after {
+				late = true
+			}
+		})
+	}
+
+	// The gaps above after, walking the ranges down from the largest:
+	// next is the lowest packet number acknowledged so far.
+	gaps := 0
+	next := f.Largest + 1
+
+	for _, r := range f.Ranges {
+		if r[1]+1 < next && next-1 > after {
+			gaps++
+		}
+
+		next = r[0]
+		if next <= after+1 {
+			break
+		}
+	}
+
+	if next > after+1 {
+		gaps++
+	}
+
+	return bulkAck{
+		after:      after,
+		largest:    f.Largest,
+		gaps:       gaps,
+		outOfOrder: late || gaps > 0,
+	}
+}
+
+// Thresholds of the ACK rule: the browsers' own shares, ACKs out of order
+// aside, are 98.3–98.9% (Chromium's, exactly 10) and 99.6–100% (Firefox,
+// Safari, 2 or more).
 const (
 	bulkMargin      = 50
 	ackShareExact   = 0.95
 	ackShareBatched = 0.98
+	// bulkMinACKs is the fewest ACKs in order the rule is judged on (the
+	// downloads have 1,000–8,500).
+	bulkMinACKs = 100
 )
 
 // streamCredit is the increases of the connection's MAX_STREAM_DATA on

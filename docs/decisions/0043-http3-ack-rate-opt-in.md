@@ -298,3 +298,60 @@ replay is the batching's, and predates it.
 **Revisit when** a capture over a real network (RTT of tens of ms)
 shows where the threshold lies, or a Firefox version changes neqo's
 `ack_now`.
+
+## Amendment 2026-11-09: out-of-order ACKs are not counted (issue #122)
+
+**Summary.** The bulk ACK check (`bulkRuleViolations`, behind
+`TestHTTP3ACKEvery` and `TestHTTP3DownloadMatchesBrowser`) no longer
+counts ACKs sent out of order: those whose new packets leave a gap above
+the largest the client had acknowledged, or fill one below it. A client
+sends them at once whatever its count (RFC 9000, section 13.2.1, which
+this decision keeps), so `quic.ack.every` does not govern them. They are
+left out only as many as the gaps explain (at most two a gap: one
+opening it, one filling it), and at least 100 ACKs in order must remain.
+No library change.
+
+**Problem.** `TestHTTP3ACKEvery` failed most runs on the maintainer's Mac
+(75–89% of ACKs every 20, want 95%) and passed on CI. Each ACK's step
+was its Largest Acknowledged less the previous ACK's, so an immediate ACK
+at a gap counted as a broken cadence.
+
+**Evidence** (2026-11-09, the Mac, chrome-157-linux at every 20; another
+agent's browser captures were loading the machine):
+
+- A failing run: 1,773 of 2,240 ACKs advanced by 20. Of the 467 others,
+  447 left a gap in their new range, and 20 rode on a MAX_STREAM_DATA or
+  MAX_DATA packet. None waited for the ACK timer (ACK Delay 0).
+- The gaps: 7 of the 447 spanned a packet number quic-go skipped (never
+  sent), the other 440 lost datagrams. 759 server packets were never
+  acknowledged, in 441 runs of 1–7 (one ACK presumably spanned two
+  runs). In a second run 483 server datagrams were never acknowledged,
+  and `netstat -s -p udp` counted 482 more "dropped due to full socket
+  buffers" over it: the client's receive buffer, with the server sending
+  at about 200,000 datagrams a second (3–6 µs apart). Each gap gives one
+  short ACK, after which the count starts again at 20.
+- Every browser sample (all profiles' h3-download captures) has 5–8
+  such ACKs a download, at the packet numbers quic-go skips; Chromium's
+  are not every 10 either. No sample lost a packet.
+
+**Options.**
+
+- Stop the loss, with a larger buffer or a paced server: the drops are
+  the machine's (a loaded Mac's loopback; at every 20 the server sent
+  30,000 packets in 150 ms, against 250–420 ms in chrome-157-linux's
+  samples; mimicry's 1 MB buffer is Chrome's, decision 0045), not the
+  ACK rule's, and a loss would still fail the test.
+- Count packets newly acknowledged instead of the step in Largest
+  Acknowledged: an ACK at a gap is still sent early, so it still fails.
+- Leave out ACKs out of order (chosen): what the count governs, on
+  mimicry and the browsers alike.
+
+**Result.** The failing run's capture passes at 98.9% (1,773 of 1,793).
+20 runs each of chrome-157-linux and the default run (brave-157-linux),
+with the bound: all passed, 98.7–99.2% exact, 5–396 ACKs left out, each
+at its own gap (no ACK filled one). Every profile's samples
+(`MIMICRY_PROFILES=all`) are 98.3–98.9% exact (Chromium) and 99.6–100%
+(Firefox, Safari), 5–10 ACKs left out at 5–10 gaps. The test fails with
+the override at 10 or 30 against the check at 20 (0 of 3,657 and 0 of
+1,195 every 20), and with a client that leaves one packet unacknowledged
+in each ACK (41 ACKs in order, 2,249 out of order at 2,243 gaps).
