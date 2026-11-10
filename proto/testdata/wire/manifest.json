@@ -213,6 +213,56 @@
       ]
     },
     {
+      "name": "credit-overrun-end",
+      "description": "The overrunning DATA carries END: the core resets the stream (CREDIT_OVERRUN), the END ended the SDK's direction so no answer is awaited, and once the RESET is out the stream no longer counts: two new streams open within the limit of 2.",
+      "role": "core",
+      "file": "credit-overrun-end.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":1,"type":"CALL","payload":"706f7374"},
+        {"dir":"in","size":19,"stream":1,"type":"DATA","end":true,"payload":"616263646566676869","expect":"stream-error","error":"CREDIT_OVERRUN"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000002","auto":true},
+        {"dir":"in","size":11,"stream":3,"type":"CALL","end":true,"payload":"61"},
+        {"dir":"in","size":11,"stream":5,"type":"CALL","end":true,"payload":"62"},
+        {"dir":"out","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"out","size":12,"stream":5,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reset-with-code",
+      "description": "The core resets an accepted call with a code other than CANCEL; the SDK's answering RESET is ignored, and the connection goes on.",
+      "role": "core",
+      "file": "reset-with-code.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000009"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000","expect":"ignore"},
+        {"dir":"in","size":11,"stream":3,"type":"CALL","end":true,"payload":"62"},
+        {"dir":"out","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reset-unknown-code",
+      "description": "A RESET with a code the receiver does not know still resets the stream, with that code, and is answered.",
+      "role": "sdk",
+      "file": "reset-unknown-code.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000063"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000000","auto":true}
+      ]
+    },
+    {
+      "name": "window-after-end",
+      "description": "A WINDOW for the SDK's direction after the SDK's END, while the stream is still open, is ignored.",
+      "role": "sdk",
+      "file": "window-after-end.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004","expect":"ignore"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
       "name": "frame-too-large",
       "description": "A header announcing 65,537 bytes fails before any payload is read.",
       "role": "core",
@@ -220,6 +270,96 @@
       "frames": [
         {"dir":"in","size":10,"expect":"conn-error","error":"FRAME_TOO_LARGE","note":"CALL 1 header with length 65537, no payload"},
         {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000003","auto":true}
+      ]
+    },
+    {
+      "name": "event-zero-end",
+      "description": "END on a notice (EVENT on stream 0).",
+      "role": "sdk",
+      "file": "event-zero-end.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":0,"type":"EVENT","end":true,"payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reset-end",
+      "description": "END on a RESET.",
+      "role": "sdk",
+      "file": "reset-end.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","end":true,"payload":"00000000","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "stream-limit-sdk",
+      "description": "The SDK enforces the limit too: a third core stream open at once, with a limit of 2.",
+      "role": "sdk",
+      "file": "stream-limit-sdk.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":2,"type":"EVENT","payload":"61"},
+        {"dir":"in","size":11,"stream":4,"type":"EVENT","payload":"62"},
+        {"dir":"in","size":11,"stream":6,"type":"EVENT","payload":"63","expect":"conn-error","error":"STREAM_LIMIT"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000001","auto":true}
+      ]
+    },
+    {
+      "name": "reply-after-end",
+      "description": "Precedence: a REPLY after a REPLY with END is STREAM_CLOSED (the direction ended), not a second REPLY's BAD_FRAME.",
+      "role": "sdk",
+      "file": "reply-after-end.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","end":true,"payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "reply-from-opener-after-end",
+      "description": "Precedence: a REPLY from the opener after its END is STREAM_CLOSED, not BAD_FRAME.",
+      "role": "core",
+      "file": "reply-from-opener-after-end.bin",
+      "frames": [
+        {"dir":"in","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "window-end-never-opened",
+      "description": "Precedence: a WINDOW with END on a stream never opened is BAD_FRAME (its shape), not STREAM_NOT_OPEN.",
+      "role": "sdk",
+      "file": "window-end-never-opened.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":3,"type":"WINDOW","end":true,"payload":"00000004","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reset-short-closed",
+      "description": "Precedence: a malformed RESET on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+      "role": "sdk",
+      "file": "reset-short-closed.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":11,"stream":1,"type":"RESET","payload":"00","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-zero-closed",
+      "description": "Precedence: a WINDOW of 0 on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+      "role": "sdk",
+      "file": "window-zero-closed.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000000","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
       ]
     },
     {

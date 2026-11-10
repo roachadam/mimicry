@@ -170,8 +170,9 @@ var (
 	ErrBadFrame = errors.New("wire: frame not allowed here")
 	// ErrTruncated is a connection that ended inside a frame.
 	ErrTruncated = errors.New("wire: connection ended inside a frame")
-	// ErrConnClosed is a connection closed, by either side, or failed
-	// reading or writing.
+	// ErrConnClosed is the connection failing, for any reason: every
+	// connection failure wraps it with its cause (Conn.Err), and a stream
+	// failing alone never does.
 	ErrConnClosed = errors.New("wire: connection closed")
 )
 

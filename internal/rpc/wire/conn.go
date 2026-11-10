@@ -60,16 +60,18 @@ type Config struct {
 	MaxStreams int
 	// OnEvent receives the core's notices (EVENT on stream 0) on RoleSDK.
 	// It runs on the goroutine reading the connection, which reads no
-	// frame until it returns: hand the payload off and return. Nil drops
-	// them.
+	// frame until it returns: hand the payload off and return, and make
+	// no Conn or Stream call that can wait, since what it waits for may
+	// be the next frame. Nil drops them.
 	OnEvent func(payload []byte)
 }
 
 // Conn is one end of a connection: streams multiplexed over an
 // io.ReadWriteCloser, a goroutine reading it and one writing it. The
 // writer takes frames first come, first served, and each stream has at
-// most one of its caller's frames queued, so a long body takes turns with
-// every other stream frame by frame.
+// most one of its caller's frames queued, so a frame waits for at most
+// the one being written and one queued frame per other active stream: a
+// long body takes turns with every other stream frame by frame.
 type Conn struct {
 	rwc io.ReadWriteCloser
 	cfg Config
@@ -320,14 +322,21 @@ func (c *Conn) Notify(ctx context.Context, payload []byte) error {
 }
 
 // Close closes the connection: every stream fails with ErrConnClosed and
-// rwc is closed, which must unblock its Read and Write.
+// rwc is closed, which must unblock its Read and Write. After any other
+// failure the writer sends what it must (a RESET on stream 0 after a
+// protocol error) and closes rwc itself, but a peer that has stopped
+// reading holds that write, and Done, until Close.
 func (c *Conn) Close() error {
 	c.fail(ErrConnClosed, nil)
 
 	return c.closeRWC()
 }
 
-// Err is why the connection failed, or nil while it runs.
+// Err is why the connection failed, or nil while it runs. Every
+// connection failure wraps ErrConnClosed and its cause: a protocol error's
+// sentinel, ErrTruncated, a *RemoteError for the peer's RESET of the
+// connection, or rwc's error. A stream failing alone (a reset, a credit
+// overrun) never wraps ErrConnClosed.
 func (c *Conn) Err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -336,7 +345,7 @@ func (c *Conn) Err() error {
 }
 
 // Done is closed once the connection has failed and its goroutines have
-// returned.
+// returned (see Close).
 func (c *Conn) Done() <-chan struct{} {
 	return c.done
 }
@@ -349,10 +358,14 @@ func (c *Conn) closeRWC() error {
 	return c.closeErr
 }
 
-// fail ends the connection with err: every stream fails, queued frames are
-// dropped, and the writer sends abort (if any) and closes rwc. Only the
-// first failure counts.
+// fail ends the connection with err, wrapped in ErrConnClosed: every
+// stream fails, queued frames are dropped, and the writer sends abort (if
+// any) and closes rwc. Only the first failure counts.
 func (c *Conn) fail(err error, abort []byte) {
+	if !errors.Is(err, ErrConnClosed) {
+		err = fmt.Errorf("%w: %w", ErrConnClosed, err)
+	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -368,6 +381,8 @@ func (c *Conn) fail(err error, abort []byte) {
 			s.err = err
 		}
 
+		s.freed = true
+		s.released = true
 		s.endLocked()
 	}
 
@@ -527,8 +542,20 @@ func (c *Conn) prepareLocked(f *outFrame) ([]byte, error) {
 	s := f.s
 
 	switch {
-	case s == nil || f.open || f.typ == typeReset:
+	case s == nil || f.open:
 		return f.buf, nil
+	case f.typ == typeReset:
+		// A stream holds its place in MaxStreams until its RESET leaves
+		// the queue, so a peer that stops reading cannot make RESETs
+		// pile up: at most one per stream it may have open.
+		s.resetQueued = false
+
+		if s.freed {
+			c.releaseLocked(s)
+		}
+
+		return f.buf, nil
+
 	case f.typ == typeWindow:
 		s.windowQueued = false
 
@@ -634,7 +661,9 @@ func (c *Conn) handle(h header, p []byte) error {
 		return c.err
 	}
 
-	if s := c.streams[h.stream]; s != nil {
+	// A stream ended but still holding its place (its RESET queued) is
+	// closed to the peer.
+	if s := c.streams[h.stream]; s != nil && !s.freed {
 		return c.handleStream(s, h, p)
 	}
 
@@ -720,7 +749,9 @@ func (c *Conn) handleNew(h header, p []byte) error {
 	return fmt.Errorf("%w: %s %d", ErrStreamClosed, h.typ, h.stream)
 }
 
-// handleStream applies a frame on an open stream.
+// handleStream applies a frame on an open stream, its errors in the
+// precedence the README gives: the stream's state, then the order of its
+// frames, then credit.
 func (c *Conn) handleStream(s *Stream, h header, p []byte) error {
 	end := h.flags&flagEnd != 0
 
@@ -749,10 +780,10 @@ func (c *Conn) handleStream(s *Stream, h header, p []byte) error {
 
 	case typeReply:
 		switch {
-		case !s.local:
-			return fmt.Errorf("%w: REPLY %d from the stream's opener", ErrBadFrame, h.stream)
 		case s.recvEnded:
 			return fmt.Errorf("%w: REPLY %d after END", ErrStreamClosed, h.stream)
+		case !s.local:
+			return fmt.Errorf("%w: REPLY %d from the stream's opener", ErrBadFrame, h.stream)
 		case s.gotReply:
 			return fmt.Errorf("%w: a second REPLY on %d", ErrBadFrame, h.stream)
 		}
@@ -814,6 +845,7 @@ func (c *Conn) handleStream(s *Stream, h header, p []byte) error {
 		// already said so.
 		if !s.sendEnded {
 			s.sendEnded = true
+			s.resetQueued = true
 			c.enqueueLocked(&outFrame{
 				s:   s,
 				typ: typeReset,
@@ -838,6 +870,7 @@ func (c *Conn) resetLocked(s *Stream, code Code, err error) {
 	s.err = err
 	s.resetSent = true
 	s.sendEnded = true
+	s.resetQueued = true
 	c.enqueueLocked(&outFrame{
 		s:   s,
 		typ: typeReset,
@@ -859,13 +892,35 @@ func (c *Conn) maybeFreeLocked(s *Stream) {
 	}
 }
 
-// freeLocked forgets an ended stream and frees its slot. Its caller may
-// still read what it buffered.
+// freeLocked ends a stream: both sides stopped sending on it. Its caller
+// may still read what it buffered, unless it failed. Its place in
+// MaxStreams is released now, or once its RESET leaves the queue.
 func (c *Conn) freeLocked(s *Stream) {
 	if s.freed {
 		return
 	}
 
+	s.freed = true
+
+	if s.err != nil {
+		s.recv = nil
+		s.buffered = 0
+	}
+
+	s.endLocked()
+
+	if !s.resetQueued {
+		c.releaseLocked(s)
+	}
+}
+
+// releaseLocked forgets an ended stream and frees its place in MaxStreams.
+func (c *Conn) releaseLocked(s *Stream) {
+	if s.released {
+		return
+	}
+
+	s.released = true
 	delete(c.streams, s.id)
 
 	if s.local {
@@ -873,13 +928,14 @@ func (c *Conn) freeLocked(s *Stream) {
 	} else {
 		c.peerOpen--
 	}
-
-	s.endLocked()
 }
 
+// removeAcceptLocked drops a stream the peer opened and this side never
+// accepted: nothing will read its payload.
 func (c *Conn) removeAcceptLocked(s *Stream) {
 	if i := slices.Index(c.acceptQ, s); i >= 0 {
 		c.acceptQ = slices.Delete(c.acceptQ, i, i+1)
+		s.payload = nil
 	}
 }
 

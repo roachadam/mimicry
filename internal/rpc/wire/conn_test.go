@@ -265,6 +265,50 @@ func TestNoStall(t *testing.T) {
 		})
 	})
 
+	t.Run("a peer that never reads", func(t *testing.T) {
+		const limit = 2
+
+		c, peer := newRawPeer(t, Config{
+			Role:       RoleCore,
+			MaxStreams: limit,
+		})
+
+		// The peer opens and resets streams and never reads the answering
+		// RESETs. Each answer holds its stream's place until the writer
+		// takes it, so the peer soon opens one stream too many, instead
+		// of the answers (and their streams) piling up in the queue.
+		go func() {
+			for id := uint32(1); id < 2001; id += 2 {
+				if _, err := peer.conn.Write(appendFrame(nil, id, typeCall, 0, make([]byte, 1024))); err != nil {
+					return
+				}
+
+				if _, err := peer.conn.Write(appendFrame(nil, id, typeReset, 0, binary.BigEndian.AppendUint32(nil, uint32(CodeCancel)))); err != nil {
+					return
+				}
+			}
+		}()
+
+		waitFor(t, "the connection failing", func() bool {
+			return c.Err() != nil
+		})
+
+		if !errors.Is(c.Err(), ErrStreamLimit) {
+			t.Fatalf("the connection failed with %v, want ErrStreamLimit", c.Err())
+		}
+
+		c.mu.Lock()
+
+		last := c.lastPeer
+		c.mu.Unlock()
+
+		// One answer the writer took (and is stuck writing), one queued
+		// per place in the limit.
+		if last > 2*limit+1 {
+			t.Fatalf("streams up to %d opened before the limit failed the connection", last)
+		}
+	})
+
 	t.Run("long body takes turns", func(t *testing.T) {
 		const frames = 16
 
@@ -427,8 +471,8 @@ func TestReset(t *testing.T) {
 				{"SDK", within(t, "the SDK's call returning", sdkDone), tt.sdkErr, s},
 				{"core", within(t, "the core's call returning", coreDone), tt.coreErr, cs},
 			} {
-				if !errors.Is(side.err, side.want) {
-					t.Errorf("the %s's blocked call: %v, want %v", side.name, side.err, side.want)
+				if !errors.Is(side.err, side.want) || errors.Is(side.err, ErrConnClosed) {
+					t.Errorf("the %s's blocked call: %v, want %v and not ErrConnClosed", side.name, side.err, side.want)
 				}
 
 				if _, err := side.s.Write([]byte("x")); err == nil {
@@ -585,8 +629,8 @@ func TestConnLoss(t *testing.T) {
 				tt.cut(c, peer)
 
 				for range calls {
-					if err := within(t, "a waiting call returning", errs); !errors.Is(err, tt.want) {
-						t.Errorf("a waiting call returned %v, want %v", err, tt.want)
+					if err := within(t, "a waiting call returning", errs); !errors.Is(err, tt.want) || !errors.Is(err, ErrConnClosed) {
+						t.Errorf("a waiting call returned %v, want %v and ErrConnClosed", err, tt.want)
 					}
 				}
 

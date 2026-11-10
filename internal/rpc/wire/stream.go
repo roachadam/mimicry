@@ -57,7 +57,11 @@ type Stream struct {
 	sendCredit    int
 	sendEnded     bool
 	resetSent     bool
-	freed         bool
+	// resetQueued is a RESET of this side's in the write queue; freed an
+	// ended stream; released one forgotten, its MaxStreams place free.
+	resetQueued bool
+	freed       bool
+	released    bool
 }
 
 // ID is the stream's id: odd if the SDK opened it, even if the core did.
@@ -303,11 +307,18 @@ func (s *Stream) CloseWrite() error {
 
 // Close ends the stream. If either direction is still open it resets the
 // stream (CANCEL) so the peer stops; a stream both sides ended needs
-// nothing.
+// nothing. It is Reset(CodeCancel).
 func (s *Stream) Close() error {
+	return s.Reset(CodeCancel)
+}
+
+// Reset resets the stream with code if either direction is still open:
+// the peer's side fails with a *RemoteError of that code, this side's with
+// ErrCanceled.
+func (s *Stream) Reset(code Code) error {
 	c := s.c
 	c.mu.Lock()
-	c.resetLocked(s, CodeCancel, fmt.Errorf("%w: stream %d closed", ErrCanceled, s.id))
+	c.resetLocked(s, code, fmt.Errorf("%w: stream %d reset with %s", ErrCanceled, s.id, code))
 	c.mu.Unlock()
 
 	return nil
@@ -340,25 +351,36 @@ func (s *Stream) wait(ch chan struct{}) {
 }
 
 // await waits until f is written or dropped, or the stream ends first; f
-// is the caller's copy, so returning early is safe.
+// is the caller's copy, so returning early is safe. A stream that ended
+// normally still writes f, so its result is awaited.
 func (s *Stream) await(f *outFrame) error {
 	select {
 	case err := <-f.done:
 		return err
 	case <-s.ctx.Done():
-		s.c.mu.Lock()
-		defer s.c.mu.Unlock()
+	}
 
-		s.c.resetLocked(s, CodeCancel, canceled(s.ctx))
+	c := s.c
+	c.mu.Lock()
+	c.resetLocked(s, CodeCancel, canceled(s.ctx))
 
-		return s.err
+	err := s.err
+	c.mu.Unlock()
+
+	if err != nil {
+		return err
+	}
+
+	select {
+	case err := <-f.done:
+		return err
+	case <-c.failed:
+		return c.Err()
 	}
 }
 
 // endLocked frees what waits on the stream once it ended or failed.
 func (s *Stream) endLocked() {
-	s.freed = true
-
 	if s.stop != nil {
 		s.stop()
 	}

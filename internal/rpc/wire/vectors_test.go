@@ -361,12 +361,140 @@ func vectorTable() []tableVector {
 			},
 		},
 		{
+			name:        "credit-overrun-end",
+			description: "The overrunning DATA carries END: the core resets the stream (CREDIT_OVERRUN), the END ended the SDK's direction so no answer is awaited, and once the RESET is out the stream no longer counts: two new streams open within the limit of 2.",
+			role:        "core",
+			steps: []step{
+				in(1, typeCall, false, "post"),
+				in(1, typeData, true, "abcdefghi").streamError("CREDIT_OVERRUN"),
+				auto(1, typeReset, u32(uint32(CodeCreditOverrun))),
+				in(3, typeCall, true, "a"),
+				in(5, typeCall, true, "b"),
+				out(3, typeReply, true, "ok"),
+				out(5, typeReply, true, "ok"),
+			},
+		},
+		{
+			name:        "reset-with-code",
+			description: "The core resets an accepted call with a code other than CANCEL; the SDK's answering RESET is ignored, and the connection goes on.",
+			role:        "core",
+			steps: []step{
+				in(1, typeCall, false, "a"),
+				out(1, typeReset, false, u32(uint32(CodeBadFrame))),
+				in(1, typeReset, false, u32(uint32(CodeCancel))).ignored(),
+				in(3, typeCall, true, "b"),
+				out(3, typeReply, true, "ok"),
+			},
+		},
+		{
+			name:        "reset-unknown-code",
+			description: "A RESET with a code the receiver does not know still resets the stream, with that code, and is answered.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, false, "a"),
+				in(1, typeReset, false, u32(99)),
+				auto(1, typeReset, u32(uint32(CodeCancel))),
+			},
+		},
+		{
+			name:        "window-after-end",
+			description: "A WINDOW for the SDK's direction after the SDK's END, while the stream is still open, is ignored.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, true, "get"),
+				in(1, typeWindow, false, u32(4)).ignored(),
+				in(1, typeReply, true, "ok"),
+			},
+		},
+		{
 			name:        "frame-too-large",
 			description: "A header announcing 65,537 bytes fails before any payload is read.",
 			role:        "core",
 			steps: []step{
 				malformed(rawHeader(1, uint8(typeCall), 0, MaxPayload+1), "CALL 1 header with length 65537, no payload").connError("FRAME_TOO_LARGE"),
 				abort(CodeFrameTooLarge),
+			},
+		},
+		{
+			name:        "event-zero-end",
+			description: "END on a notice (EVENT on stream 0).",
+			role:        "sdk",
+			steps: []step{
+				in(0, typeEvent, true, "x").connError("BAD_FRAME"),
+				abort(CodeBadFrame),
+			},
+		},
+		{
+			name:        "reset-end",
+			description: "END on a RESET.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, false, "a"),
+				in(1, typeReset, true, u32(uint32(CodeCancel))).connError("BAD_FRAME"),
+				abort(CodeBadFrame),
+			},
+		},
+		{
+			name:        "stream-limit-sdk",
+			description: "The SDK enforces the limit too: a third core stream open at once, with a limit of 2.",
+			role:        "sdk",
+			steps: []step{
+				in(2, typeEvent, false, "a"),
+				in(4, typeEvent, false, "b"),
+				in(6, typeEvent, false, "c").connError("STREAM_LIMIT"),
+				abort(CodeStreamLimit),
+			},
+		},
+		{
+			name:        "reply-after-end",
+			description: "Precedence: a REPLY after a REPLY with END is STREAM_CLOSED (the direction ended), not a second REPLY's BAD_FRAME.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, false, "get"),
+				in(1, typeReply, true, "a"),
+				in(1, typeReply, false, "b").connError("STREAM_CLOSED"),
+				abort(CodeStreamClosed),
+			},
+		},
+		{
+			name:        "reply-from-opener-after-end",
+			description: "Precedence: a REPLY from the opener after its END is STREAM_CLOSED, not BAD_FRAME.",
+			role:        "core",
+			steps: []step{
+				in(1, typeCall, true, "get"),
+				in(1, typeReply, false, "b").connError("STREAM_CLOSED"),
+				abort(CodeStreamClosed),
+			},
+		},
+		{
+			name:        "window-end-never-opened",
+			description: "Precedence: a WINDOW with END on a stream never opened is BAD_FRAME (its shape), not STREAM_NOT_OPEN.",
+			role:        "sdk",
+			steps: []step{
+				in(3, typeWindow, true, u32(4)).connError("BAD_FRAME"),
+				abort(CodeBadFrame),
+			},
+		},
+		{
+			name:        "reset-short-closed",
+			description: "Precedence: a malformed RESET on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, true, "get"),
+				in(1, typeReply, true, "ok"),
+				in(1, typeReset, false, "\x00").connError("BAD_FRAME"),
+				abort(CodeBadFrame),
+			},
+		},
+		{
+			name:        "window-zero-closed",
+			description: "Precedence: a WINDOW of 0 on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+			role:        "sdk",
+			steps: []step{
+				out(1, typeCall, true, "get"),
+				in(1, typeReply, true, "ok"),
+				in(1, typeWindow, false, u32(0)).connError("BAD_FRAME"),
+				abort(CodeBadFrame),
 			},
 		},
 		{
@@ -1091,7 +1219,11 @@ func (r *replayer) act(ctx context.Context, f vectorFrame) error {
 		return nil
 
 	case "RESET":
-		return s.Close()
+		if len(payload) != 4 {
+			return fmt.Errorf("RESET payload %x", payload)
+		}
+
+		return s.Reset(Code(binary.BigEndian.Uint32(payload)))
 	}
 
 	return fmt.Errorf("no action sends %s", f.Type)

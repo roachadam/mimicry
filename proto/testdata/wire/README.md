@@ -50,9 +50,11 @@ type (`UNKNOWN_TYPE`), the flags (`UNKNOWN_FLAGS`), the length
   `BAD_FRAME`.
 - Each side has at most `maxStreams` of its own streams open at once (by
   default 256; both sides use the same value). The opener waits for one
-  to close; a peer that opens one more is `STREAM_LIMIT`. Because frames
-  arrive in order, the opener's count of its open streams is never below
-  the receiver's.
+  to close; a peer that opens one more is `STREAM_LIMIT`. A stream counts
+  until it is closed and any RESET its side sent on it has been written,
+  so a side never queues more RESETs than the streams it allows open.
+  Because frames arrive in order, the opener's count of its open streams
+  is never below the receiver's.
 
 ### A stream
 
@@ -80,7 +82,9 @@ type (`UNKNOWN_TYPE`), the flags (`UNKNOWN_FLAGS`), the length
   has read since the last grant reach half the window, rounded up, send
   them all in one WINDOW; never after END in that direction.
 - DATA beyond the credit is dropped and the stream is reset with
-  `CREDIT_OVERRUN`. The connection goes on.
+  `CREDIT_OVERRUN`; if that frame carries END, the END still ends the
+  peer's direction, so the stream is closed at once (see Reset). The
+  connection goes on.
 
 ### Reset
 
@@ -112,10 +116,35 @@ type (`UNKNOWN_TYPE`), the flags (`UNKNOWN_FLAGS`), the length
 | 8 | `WRONG_PARITY` | a stream opened with the other side's parity |
 | 9 | `BAD_FRAME` | a frame the protocol does not allow there |
 
-A code the receiver does not know still resets. Two errors are never
-sent: `TRUNCATED`, the connection ending inside a frame, and
-`CONN_CLOSED`, it ending between frames or being closed. Either fails
-every open stream.
+A RESET may carry any code. One the receiver does not know still resets
+the stream, failing it with that code. Two errors are never sent:
+`TRUNCATED`, the connection ending inside a frame, and `CONN_CLOSED`, it
+ending between frames or being closed. Either fails every open stream.
+
+### Precedence
+
+When a frame breaks several rules, the first that applies, in this order,
+names the error:
+
+1. The header: type (`UNKNOWN_TYPE`), flags (`UNKNOWN_FLAGS`), length
+   (`FRAME_TOO_LARGE`).
+2. The frame's shape, whatever the stream's state: a type the sender's
+   side never sends (CALL from the core, EVENT from the SDK); on stream 0,
+   a type other than EVENT or RESET, or END; a WINDOW or RESET with END or
+   without a 4-byte payload, or a WINDOW of 0 or above 2^31−1 (all
+   `BAD_FRAME`); an opening frame on the other side's parity
+   (`WRONG_PARITY`).
+3. The stream's state: an opening frame on an id already used
+   (`STREAM_CLOSED`), then one past `maxStreams` (`STREAM_LIMIT`); any
+   other frame on an id never opened (`STREAM_NOT_OPEN`); on a closed
+   stream, WINDOW and RESET ignored, anything else `STREAM_CLOSED`; on a
+   stream this side reset, everything dropped (Reset); REPLY or DATA in a
+   direction after its END (`STREAM_CLOSED`); a WINDOW after its receiver's
+   own END, ignored.
+4. The order of a stream's frames: a REPLY from the opener, a second
+   REPLY, DATA before the REPLY (all `BAD_FRAME`).
+5. Credit: DATA beyond it (`CREDIT_OVERRUN`, the stream reset), a WINDOW
+   taking it past 2^31−1 (`BAD_FRAME`).
 
 ## The vectors
 
@@ -189,7 +218,7 @@ Every wait needs a deadline: a vector that hangs fails.
 | REPLY | reply on the stream, ending it if `end` |
 | DATA with a payload | write it (the credit always covers it) |
 | DATA with `end`, empty | end the stream's direction |
-| RESET (CANCEL) | close (cancel) the stream |
+| RESET | reset the stream with the payload's code (CANCEL: close it) |
 
 ### Delivery
 
@@ -200,7 +229,7 @@ Every wait needs a deadline: a vector that hangs fails.
 | REPLY | gives the payload as the stream's reply |
 | DATA | gives the payload when the stream is read: read exactly its length before the next frame, since WINDOW frames follow from what was read |
 | WINDOW | nothing to observe |
-| RESET | fails the stream with the peer's code |
+| RESET | fails the stream with the peer's code, known or not |
 
 After a CALL, EVENT, REPLY or DATA with `end`, the next read of the
 stream ends (EOF).

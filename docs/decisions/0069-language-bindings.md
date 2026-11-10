@@ -550,6 +550,20 @@ they are what they are.
   flight is an error (`STREAM_CLOSED`). Rejected: remembering reset ids
   (unbounded) and HTTP/2's leniency towards frames on recently closed
   streams (a timing rule).
+- **A stream holds its place in the limit until its RESET is written.**
+  Otherwise a peer that stops reading could open and reset streams in a
+  loop, each answering RESET (and the stream behind it) queued without
+  bound; holding the place caps the queue at one RESET per stream allowed,
+  and the peer, still counting the stream until the answer reaches it,
+  never notices.
+- **Errors have a precedence** (the header, the frame's shape, the
+  stream's state, the order of its frames, credit; the README lists it),
+  so every implementation names the same error when a frame breaks two
+  rules, and the vectors pin each overlap.
+- **A connection failure always wraps `ErrConnClosed`** with its cause,
+  and a stream failing alone never does, so the layer above tells a lost
+  connection from a reset call. `Stream.Reset` sends any code; `Close` is
+  `Reset(CANCEL)`.
 - **Credit returns at half the window**: once the bytes the application
   read since the last WINDOW reach half the window, they go back in one
   WINDOW, never after END. It is the rule the vectors assume, so every SDK
@@ -560,9 +574,10 @@ they are what they are.
   framing rules cannot be trusted with the rest of the connection, while
   an overrun is a per-stream accounting mistake.
 - **Fairness**: one writer takes frames first come, first served, and each
-  stream has at most one frame of its caller's queued, so a 1 MiB body
-  goes out one 64 KiB frame at a time between other streams' frames (a
-  small reply waits behind at most two of them; `TestNoStall`).
+  stream has at most one frame of its caller's queued, so a frame waits
+  for at most the one being written and one queued frame per other active
+  stream; a 1 MiB body goes out one 64 KiB frame at a time between other
+  streams' frames (`TestNoStall`).
 - **No timer in the protocol.** Deadlines are the callers' contexts; an
   ended context resets its stream.
 - **Hello is a message**, the SDK's first CALL, built and checked in the
