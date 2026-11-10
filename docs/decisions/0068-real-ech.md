@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
-- Commits: the merge of PR #124, filled in on main
+- Commits: `12059df`
 
 **Summary.** A profile with `tls.realEch` looks up the HTTPS record (RFC
 9460) of every host it connects to directly over TLS, and to a host whose

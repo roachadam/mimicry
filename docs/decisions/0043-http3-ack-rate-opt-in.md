@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-10-29
-- Commits: `f5772cb`
+- Commits: `f5772cb`, `18c0ae6`
 
 **Summary.** HTTP/3 keeps Chrome's ACK rate (every 10th packet) by
 default, and `Config.HTTP3ACKEvery` (from the profile's rate up to 64)
