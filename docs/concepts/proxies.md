@@ -43,7 +43,8 @@ The proxy sees what the browser sends a proxy:
   when the Mac's SOCKS proxy setting carries a SOCKS version of 4, a
   hidden key (`kCFStreamPropertySOCKSVersion`) that no settings screen
   offers; its proxy script's `SOCKS` is SOCKS5. safari-27-macos sends
-  what Safari 27 sent so configured.
+  what Safari 27 sent so configured; safari-26-macos sends the same,
+  assumed, not captured.
 - **`https://` proxy:** see [HTTPS proxies](#https-proxies).
 
 ## HTTPS proxies
@@ -347,10 +348,10 @@ tunnel is up are the server's, not the proxy's. See
   several, the first the resolver returns is sent (which address a
   browser picks, and whether it tries another when the proxy refuses, is
   not measured).
-- WebSockets through a SOCKS4 proxy were not measured, and Safari 26, the
-  iPhone profiles and the older versions (Chrome 155, Firefox 158) were
-  never captured with SOCKS4: they fail a SOCKS4 proxy with
-  `ErrNotMeasured`.
+- WebSockets through a SOCKS4 proxy were not measured, and the iPhone
+  profiles and the older versions (Chrome 155, Firefox 158) were never
+  captured with SOCKS4: they fail a SOCKS4 proxy with `ErrNotMeasured`.
+  Safari 26's SOCKS4 is Safari 27's, assumed rather than captured.
 - A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing, and a
   CONNECT-UDP proxy that never answers, are not remembered: each origin
   waits up to the race delay per request until it is marked as not

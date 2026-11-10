@@ -10,10 +10,11 @@ sends its address, as Chrome, Edge, Brave and Firefox do; through
 `socks4a://` it sends the host name (SOCKS4A), as Firefox does with remote
 DNS and Safari always does. Chromium has no SOCKS4A, so Chrome, Edge and
 Brave profiles refuse `socks4a://`; Safari never resolves for a SOCKS4
-proxy, so safari-27-macos refuses `socks4://`. A generated `proxy.socks4`
-profile section (hellogen) holds what the captures show; every profile
-without one (Safari 26, the iPhone profiles, Chrome 155, Firefox 158)
-returns `ErrNotMeasured`. Amends [0014](0014-proxies.md).
+proxy, so the Safari profiles refuse `socks4://`. A generated
+`proxy.socks4` profile section (hellogen) holds what the captures show;
+Safari 26's is assumed from Safari 27's captures, not captured (the
+maintainer's decision). Every profile without one (the iPhone profiles, for
+good: iOS offers no SOCKS4 route; Chrome 155, Firefox 158) returns `ErrNotMeasured`. Amends [0014](0014-proxies.md).
 
 ## Problem
 
@@ -134,10 +135,31 @@ caller with one had no way to send through it as a browser would.
   (`ErrNotMeasured`; EVIDENCE.md, Not covered).
 - Safari 26 (safari-26-macos) is not captured: the second Mac, where it
   runs, takes the SOCKS version key only from someone at its screen (over
-  ssh, `scutil --prefs` is denied), so it refuses SOCKS4 until then.
-- The iPhone profiles refuse SOCKS4: the phone's Wi-Fi proxy takes an
-  HTTP proxy or a proxy script, and no iOS setting carries a SOCKS version
-  ([INFERENCE], not tried on the phone); macOS Safari's captures are not
+  ssh, `scutil --prefs` is denied). By the maintainer's decision
+  (2026-11-10) its SOCKS4 is assumed to be Safari 27's: its
+  `capturesFrom` names safari-27-macos for `proxy-socks4` and
+  `proxy-socks4a`, so hellogen derives the same `proxy.socks4` and the e2e
+  tests check it against Safari 27's captures. This is the one exception
+  to inheriting from older versions only
+  ([0035](0035-version-policy-and-capture-inheritance.md)):
+  `assumedFromNewer` in `cmd/profilegen` lists it, and the policy check
+  (`TestCheckPolicyRefuses`) refuses any other profile or scenario naming
+  a newer version. What supports the assumption: Safari 26.2 behaved as
+  27.0.1 in every proxy-script SOCKS test above, and both send the same
+  SOCKS5 handshake; its SOCKS4 bytes themselves were never seen. A real
+  capture replaces the inheritance (the commands are in
+  docs/capturing.md).
+- The iPhone profiles (safari-26-ios, safari-27-ios, chrome-157-ios,
+  firefox-159-ios) refuse SOCKS4 for good, the maintainer's decision
+  (2026-11-10); no phone test is planned. iOS offers no SOCKS4 route: the
+  Wi-Fi proxy's Manual setting and configuration profiles take an HTTP
+  proxy only, a proxy script's `SOCKS` is SOCKS5 on the networking stack
+  iOS shares with macOS (as measured on macOS above), and the hidden SOCKS
+  version key has no way to be set on iOS ([INFERENCE] for iOS itself,
+  not tried on a phone). The proxy sees the handshake, so sending a form
+  no iPhone sends would be a fingerprint the proxy could see. The capture
+  tool refuses the SOCKS4 scenarios on the iPhone with this reason
+  (`Scenario.UnsupportedOnIOS`), and macOS Safari's captures are never
   inherited on iOS (`Scenario.NotInheritedOnIOS`).
 - Safari's SOCKS4 is what Safari sends when the Mac is set up that way, a
   configuration few users have; a proxy that sees a Safari SOCKS4A
@@ -152,5 +174,6 @@ caller with one had no way to send through it as a browser would.
 
 A browser is seen picking another address than the first, retrying the
 next address after a refusal, or sending a user ID; Safari 26 can be
-captured at the second Mac; or an iOS setting is found that makes the
-phone speak SOCKS4.
+captured at the second Mac (then drop the exception); or an iOS setting
+is found that makes the phone speak SOCKS4 (which would reopen the
+iPhone's refusal).

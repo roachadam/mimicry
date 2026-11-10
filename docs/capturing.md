@@ -236,8 +236,9 @@ Unsupported on the iPhone (`Scenario.UnsupportedOnIOS`; the tool skips
 them, logged): the proxy-credential scenarios (Safari on iOS answers no
 407, even with the credentials in the Wi-Fi proxy setting: decision
 0051), the SOCKS5 and SOCKS4 proxy scenarios (the phone's setting takes an HTTP
-proxy or a proxy script, and no iOS setting carries macOS's SOCKS version
-key; SOCKS4 is never inherited from macOS Safari) and `cookies-edge` (its `lo-*` steps navigate to
+proxy or a proxy script; iOS offers no SOCKS4 route, so the iPhone
+profiles refuse SOCKS4 for good and never inherit macOS Safari's SOCKS4
+captures: decision 0063) and `cookies-edge` (its `lo-*` steps navigate to
 `http://localhost`, the phone itself, so the page stops there). The click
 scenarios need `manual`. Wi-Fi adds latency and loss that the loopback
 captures never see, which the HTTP/3 and timing scenarios can show: from
@@ -548,6 +549,14 @@ The removal leaves the service's proxies as they were only if they held
 no SOCKS proxy before: it removes the SOCKS keys, a SOCKS proxy set
 earlier included. Note `scutil --proxy` first and set any such proxy
 again after.
+
+Safari 26 (`safari-26-macos`) has no SOCKS4 captures of its own: by the
+maintainer's decision its `capturesFrom` takes Safari 27's, assumed, not
+captured (decision 0063; `assumedFromNewer` in `cmd/profilegen`, the one
+newer-version source allowed). A real capture (`-browser safari-mini`,
+the commands above run at the second Mac's own screen) replaces it:
+remove both entries from its `capturesFrom` and from `assumedFromNewer`,
+then derive.
 
 Safari takes its proxy from the system: point the active network service at
 the tool's PAC script once, which proxies only `*.test`, and turn it off

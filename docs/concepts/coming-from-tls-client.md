@@ -317,9 +317,9 @@ Speed and memory compared with tls-client are in
   [refreshing profiles](../refreshing-profiles.md).
 - **Proxy limits.** Each proxy type works only with the profiles captured
   through it: no `https://` proxies for Safari, the iPhone profiles,
-  Chrome 155 or Firefox 158, no `socks4a://` for Chrome, Edge or Brave, no `socks4://` for Safari, and
-  no SOCKS4 at all for Safari 26, the iPhone profiles, Chrome 155 or
-  Firefox 158; see [proxies](proxies.md).
+  Chrome 155 or Firefox 158, no `socks4a://` for Chrome, Edge or Brave,
+  no `socks4://` for Safari, and no SOCKS4 at all for the iPhone
+  profiles, Chrome 155 or Firefox 158; see [proxies](proxies.md).
 - **Cookie strings need a domain.** `SetString` needs the domain the
   cookies were for, and stores session cookies without `Secure`.
 - **Some errors depend on the server.** A request the profile describes

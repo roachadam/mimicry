@@ -394,7 +394,7 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 	case sc.Proxy == ProxySOCKS5:
 		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy only"
 	case sc.Proxy == ProxySOCKS4, sc.Proxy == ProxySOCKS4A:
-		return "the iPhone's Wi-Fi proxy setting takes an HTTP proxy or a proxy script, and " + noSafariSOCKS4 + " ([INFERENCE] no iOS setting carries a SOCKS version; not tried on the phone)"
+		return iosNoSOCKS4
 	case sc.Proxy == ProxyHTTPS:
 		return "the iPhone's Wi-Fi proxy setting takes a plain HTTP proxy, and its proxy script is read by the same system networking as macOS's, which " + noSafariHTTPSProxy + " ([INFERENCE] not tried on the phone)"
 	case sc == CookiesEdge:
@@ -436,6 +436,11 @@ const noSafariHTTPSProxy = "ignores a proxy script's HTTPS host:port: Safari con
 // noSafariSOCKS4 is what macOS (27.0.1 with Safari 27.0.1, 26.2 with
 // Safari 26.2; 2026-11-10) did given a SOCKS proxy that speaks SOCKS4 only.
 const noSafariSOCKS4 = "Safari speaks SOCKS4 only through macOS's SOCKS proxy setting with kCFStreamPropertySOCKSVersion set to SOCKS4 (scutil --prefs): a proxy script's SOCKS host:port gets SOCKS5 (05 01 00) and no SOCKS4 retry when refused, and its SOCKS4 host:port is ignored (decision 0063)"
+
+// iosNoSOCKS4 is why the SOCKS4 scenarios are never captured on the
+// iPhone, and its profiles refuse SOCKS4 (the maintainer's decision,
+// 2026-11-10; decision 0063).
+const iosNoSOCKS4 = "iOS offers no SOCKS4 route: the Wi-Fi proxy's Manual setting and configuration profiles take an HTTP proxy only, and a proxy script's SOCKS is SOCKS5 on the networking stack iOS shares with macOS, where " + noSafariSOCKS4 + ", a key iOS gives no way to set ([INFERENCE] for iOS itself, not tried on a phone); a SOCKS4 form no iPhone sends would show to the proxy, so the iPhone profiles refuse SOCKS4"
 
 // iosNoProxyAuth is why the proxy-credential scenarios are neither
 // captured on the iPhone nor inherited from macOS Safari.
