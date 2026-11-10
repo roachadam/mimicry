@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-08 (updated 2026-11-10: rebased onto 0065, 0066 and 0068; Brave, Chrome 157 and Safari 27 captured)
-- Commits: (this change)
+- Commits: `785679d`
 
 **Summary.** `Config.Proxy` takes `socks4://` and `socks4a://` URLs. Through
 `socks4://` mimicry looks the host up itself (`Config.Resolver`, IPv4) and
