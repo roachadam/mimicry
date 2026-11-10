@@ -12,8 +12,10 @@ HTTP/3 is on by default for every built-in profile. Set
 A request can use HTTP/3 only when all of these hold:
 
 - it is an `https://` request;
-- it is sent directly, or through a SOCKS5 proxy with
-  `Config.HTTP3OverSOCKS5` (see [Proxies](proxies.md#http3-through-socks5));
+- it is sent directly, through a SOCKS5 proxy with
+  `Config.HTTP3OverSOCKS5` (see [Proxies](proxies.md#http3-through-socks5)),
+  or through an HTTP proxy with `Config.ConnectUDPProxy` (see
+  [Proxies](proxies.md#http3-through-http-proxies-connect-udp));
 - the site earlier answered with an `Alt-Svc: h3=…` header that has not
   expired. This header tells the browser the site also speaks HTTP/3.
 
@@ -109,6 +111,9 @@ idle connection with no request waiting still closes silently.
 - `Config.DisableHTTP3` keeps every request on TCP.
 - `Config.HTTP3OverSOCKS5` sends HTTP/3 through a SOCKS5 proxy. See
   [Proxies](proxies.md#http3-through-socks5).
+- `Config.ConnectUDPProxy` sends HTTP/3 through an HTTP proxy, by
+  CONNECT-UDP to a proxy over HTTP/3. See
+  [Proxies](proxies.md#http3-through-http-proxies-connect-udp).
 - `Config.HTTP3ReadBufferSize` sets how much each QUIC socket asks the OS to
   buffer. The default is 1 MB, as Chrome uses. A negative value keeps the
   OS default. A bigger buffer drops fewer packets under load. It changes
@@ -186,8 +191,9 @@ whole range), so it meets the same failures; mimicry keeps Chrome's draw.
 
 - Finding HTTP/3 through DNS HTTPS records. Only the `Alt-Svc` header is
   used.
-- Connection migration for Firefox and Safari, path MTU probing, ECN and
-  DATAGRAM frames.
+- Connection migration for Firefox and Safari, path MTU probing and ECN.
+  DATAGRAM frames only carry CONNECT-UDP to a proxy, never a site's
+  traffic.
 - Retrying a site after it is marked as failing. It stays on TCP for the
   Transport's life.
 - Keying shared `Alt-Svc` entries by the page that made the request.

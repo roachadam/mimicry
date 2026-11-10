@@ -139,6 +139,14 @@ type Conn struct {
 	finished bool
 	// maxSection is the largest field section accepted.
 	maxSection uint64
+	// connectUDP: the server's SETTINGS allow extended CONNECT and HTTP/3
+	// datagrams (ConnectUDP); guarded by mu.
+	connectUDP bool
+	// udp are the CONNECT-UDP streams open, by quarter stream ID, that
+	// readDatagrams gives their datagrams; udpOnce starts it.
+	udpMu   sync.Mutex
+	udp     map[uint64]*UDPConn
+	udpOnce sync.Once
 }
 
 // New starts HTTP/3 on qc, which quic.Dial returned corked, for profile p,
@@ -174,8 +182,8 @@ func New(qc *quic.Conn, p *profile.Spec, opts Options) (*Conn, error) {
 	// remembered with its ticket (RFC 9114, section 7.2.4.2), before
 	// serve can read the server's own.
 	if h.QPACK.Resumed != "" && qc.EarlyData() {
-		if capacity, blocked, err := parseSettings(qc.RememberedApplicationState()); err == nil && capacity > 0 {
-			c.remember(capacity, blocked)
+		if s, err := parseSettings(qc.RememberedApplicationState()); err == nil && s.capacity > 0 {
+			c.remember(s.capacity, s.blocked)
 		}
 	}
 
@@ -687,15 +695,20 @@ func (c *Conn) readControl(s *quic.Stream) error {
 // gives them to the QUIC connection to store with its tickets where the
 // profile remembers them (profile.QPACK.Resumed).
 func (c *Conn) applySettings(b []byte) error {
-	capacity, blocked, err := parseSettings(b)
+	s, err := parseSettings(b)
 	if err != nil {
 		return err
 	}
 
-	announce, err := c.peerSettings(capacity, blocked)
+	announce, err := c.peerSettings(s.capacity, s.blocked)
 	if err != nil {
 		return err
 	}
+
+	c.mu.Lock()
+
+	c.connectUDP = s.connectProtocol && s.datagrams
+	c.mu.Unlock()
 
 	c.settingsOnce.Do(func() {
 		close(c.settings)
@@ -760,15 +773,27 @@ func (c *Conn) peerSettings(capacity, blocked uint64) ([]byte, error) {
 	return nil, nil
 }
 
-// parseSettings reads a SETTINGS frame's payload: its QPACK table capacity
-// and blocked streams, or the connection error it is.
-func parseSettings(b []byte) (capacity, blocked uint64, err error) {
+// serverSettings is what the client reads of the server's SETTINGS: its
+// QPACK table capacity and blocked streams, and whether it allows extended
+// CONNECT (RFC 9220) and HTTP/3 datagrams (RFC 9297).
+type serverSettings struct {
+	capacity        uint64
+	blocked         uint64
+	connectProtocol bool
+	datagrams       bool
+}
+
+// parseSettings reads a SETTINGS frame's payload, or returns the
+// connection error it is.
+func parseSettings(b []byte) (serverSettings, error) {
+	var s serverSettings
+
 	seen := map[uint64]bool{}
 
 	for len(b) > 0 {
 		id, n := quicwire.ConsumeVarint(b)
 		if n < 0 {
-			return 0, 0, &connError{
+			return s, &connError{
 				code: codeFrameError,
 				msg:  "malformed SETTINGS",
 			}
@@ -779,7 +804,7 @@ func parseSettings(b []byte) (capacity, blocked uint64, err error) {
 		v, n := quicwire.ConsumeVarint(b)
 
 		if n < 0 {
-			return 0, 0, &connError{
+			return s, &connError{
 				code: codeFrameError,
 				msg:  "malformed SETTINGS",
 			}
@@ -788,7 +813,7 @@ func parseSettings(b []byte) (capacity, blocked uint64, err error) {
 		b = b[n:]
 
 		if seen[id] {
-			return 0, 0, &connError{
+			return s, &connError{
 				code: codeSettingsError,
 				msg:  fmt.Sprintf("setting 0x%x twice", id),
 			}
@@ -797,19 +822,23 @@ func parseSettings(b []byte) (capacity, blocked uint64, err error) {
 		seen[id] = true
 		switch id {
 		case profile.H3SettingQPACKMaxTableCapacity:
-			capacity = v
+			s.capacity = v
 		case profile.H3SettingQPACKBlockedStreams:
-			blocked = v
+			s.blocked = v
+		case settingEnableConnectProtocol:
+			s.connectProtocol = v == 1
+		case settingH3Datagram:
+			s.datagrams = v == 1
 		case 0x02, 0x03, 0x04, 0x05:
 			// HTTP/2 settings reserved in HTTP/3 (RFC 9114, 7.2.4.1).
-			return 0, 0, &connError{
+			return s, &connError{
 				code: codeSettingsError,
 				msg:  fmt.Sprintf("reserved setting 0x%x", id),
 			}
 		}
 	}
 
-	return capacity, blocked, nil
+	return s, nil
 }
 
 // goAway records the server's GOAWAY: requests on streams from id on

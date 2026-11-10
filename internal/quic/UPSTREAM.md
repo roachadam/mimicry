@@ -659,6 +659,31 @@ each pass's range).
     7 MB, 237 per 10 MB) but at 100 KB with the 1 MB buffer (4.01
     against 4.58).
 
+28. **DATAGRAM frames on request** (RFC 9221; new `client_datagram.go`:
+    `DialConfig.Datagrams`, `Conn.SendDatagram`, `ReceiveDatagram`,
+    `MaxDatagramSize`, `ErrNoDatagrams`; `transport_params.go` parses
+    the peer's max_datagram_frame_size, `conn.go`'s
+    `receiveTransportParameters` passes it on; `conn_send.go`'s
+    `appendFrames` appends the queued datagrams to a 1-RTT packet before
+    its STREAM frames; `client.go`'s `handleExtensionFrame` hands the
+    received ones over instead of dropping them). For CONNECT-UDP through
+    an HTTP/3 proxy (decision 0066). A client that asks, with a profile
+    announcing max_datagram_frame_size, queues datagrams (1 MB at most;
+    more are dropped) for the next 1-RTT packets with room, under
+    congestion control, never retransmitted; one waiting for a packet with
+    more room makes the packet go even if it holds only an ACK. Each frame
+    is 0x31 with a length; a payload is at most what fits a packet of the
+    datagram size with nothing else (the longest connection ID and packet
+    number), within the peer's limit. Received ones wait for
+    `ReceiveDatagram` (1,024 at most; more are dropped). Without the
+    field (every direct connection) DATAGRAM frames received are dropped
+    as before and none is sent. A DATAGRAM frame larger than the
+    max_datagram_frame_size the client announced ends the connection
+    with PROTOCOL_VIOLATION (RFC 9221, section 3), with or without the
+    field. `config.go`'s `Config.MaxDatagramFrameSize` (and
+    `marshalTransportParameters`, `conn.go`'s server parameters) lets a
+    test's server announce one; it never takes DATAGRAM frames itself.
+
 ## Sockets
 
 `udp_packetconn.go` is upstream's but for `Read`'s signature (change 26:

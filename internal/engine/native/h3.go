@@ -248,18 +248,28 @@ func (e *Engine) h3Route(req *http.Request, r route) bool {
 // h3Refusal says why req on r never uses HTTP/3, or is nil: it must be
 // https; direct (browsers never use HTTP/3 through a proxy) or, with
 // HTTP3OverSOCKS5, through a SOCKS5 proxy that has not refused a UDP
-// association; and the profile must have measured its kind over HTTP/3.
+// association, or, with ConnectUDPProxy, through an http or https proxy
+// whose CONNECT-UDP proxy (route.udp) has not refused it, for a profile
+// whose QUIC and HTTP/3 carry datagrams; and the profile must have
+// measured its kind over HTTP/3.
 func (e *Engine) h3Refusal(req *http.Request, r route) error {
 	switch {
 	case req.URL.Scheme != "https":
 		return errors.New("mimicry: plain http:// never goes over HTTP/3")
-	case r.proxy != nil && !e.h3SOCKS5:
-		return errors.New("mimicry: requests through a proxy never go over HTTP/3 (Config.HTTP3OverSOCKS5 allows SOCKS5 proxies)")
-	case r.proxy != nil && (r.proxy.Scheme == dial.SchemeHTTP || r.proxy.Scheme == dial.SchemeHTTPS):
-		return errors.New("mimicry: requests through an http:// or https:// proxy never go over HTTP/3")
-	case r.proxy != nil && e.dialer.UDPRefused(r.proxy):
+	case r.udp != nil && !e.connectUDPOK:
+		return fmt.Errorf("mimicry: profile %s's QUIC and HTTP/3 announce no datagrams (max_datagram_frame_size, SETTINGS_H3_DATAGRAM), which CONNECT-UDP needs: requests through the proxy stay on TCP", e.profile.Name)
+	case r.udp != nil && e.dialer.UDPRefused(r.udp):
+		return errors.New("mimicry: the CONNECT-UDP proxy refused CONNECT-UDP: requests through the proxy stay on TCP")
+	case r.proxy == nil || r.udp != nil:
+	case r.proxy.Scheme == dial.SchemeHTTP || r.proxy.Scheme == dial.SchemeHTTPS:
+		return errors.New("mimicry: requests through an http:// or https:// proxy never go over HTTP/3 (Config.ConnectUDPProxy allows them through a CONNECT-UDP proxy)")
+	case !e.h3SOCKS5:
+		return errors.New("mimicry: requests through a SOCKS5 proxy never go over HTTP/3 (Config.HTTP3OverSOCKS5 allows them)")
+	case e.dialer.UDPRefused(r.proxy):
 		return errors.New("mimicry: the SOCKS5 proxy refused a UDP association: its requests stay on TCP")
-	case !h3.Measured(e.profile, headerorder.PlanFrom(req.Context())):
+	}
+
+	if !h3.Measured(e.profile, headerorder.PlanFrom(req.Context())) {
 		return fmt.Errorf("%w: profile %s has no HTTP/3 list for this request, which goes on TCP", headerorder.ErrNotMeasured, e.profile.Name)
 	}
 
@@ -1327,11 +1337,15 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 
 // dialQUIC opens a UDP socket to r's origin's alternative at port and
 // dials QUIC on it with hello, a fresh spec of it per connection. Through
-// a proxy (a SOCKS5 one: h3Refusal) the socket is a UDP association with
-// it, a new one for each socket: no datagram goes to the origin directly.
+// a proxy (h3Refusal) the socket is a SOCKS5 UDP association or a
+// CONNECT-UDP stream (listenConnectUDP), a new one for each socket: no
+// datagram goes to the origin directly.
 func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello fingerprint.Hello, cfg handshake.Config, dc quic.DialConfig) (*quic.Conn, error) {
 	listen := func(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
-		if r.proxy != nil {
+		switch {
+		case r.udp != nil:
+			return e.listenConnectUDP(ctx, r, port)
+		case r.proxy != nil:
 			// Always the host, for the proxy to resolve: peer is a
 			// stand-in when the host is a name.
 			return e.dialer.ListenUDPVia(ctx, r.proxy, r.host, port)

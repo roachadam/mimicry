@@ -120,6 +120,11 @@ type Config struct {
 	// as they would without the proxy. Otherwise, and through any other
 	// proxy, they stay on TCP (browsers never use HTTP/3 through a proxy).
 	HTTP3OverSOCKS5 bool
+	// ConnectUDPProxy, when set, gives the CONNECT-UDP proxy (an https URL
+	// reached over HTTP/3, RFC 9298) through which requests through an
+	// http or https proxy use HTTP/3 (listenConnectUDP); a nil URL keeps
+	// that proxy's requests on TCP, as without it.
+	ConnectUDPProxy func(proxy *url.URL) (*url.URL, error)
 	// HTTP3ReadBufferSize is the receive buffer QUIC sockets ask for: zero
 	// asks for dial.DefaultHTTP3ReadBufferSize (Chrome's), negative keeps the
 	// OS's default.
@@ -196,6 +201,10 @@ type Engine struct {
 	coalesce profile.Coalescing
 	// h3SOCKS5 is Config.HTTP3OverSOCKS5.
 	h3SOCKS5 bool
+	// connectUDP is Config.ConnectUDPProxy; connectUDPOK: the profile's
+	// QUIC and HTTP/3 carry datagrams (connectUDPCapable).
+	connectUDP   func(*url.URL) (*url.URL, error)
+	connectUDPOK bool
 	// expireGoAway: an idle HTTP/2 connection expires with GOAWAY, as
 	// the profile's browser lets one go (http3.discovery.goawayTcp:
 	// Firefox); otherwise with the close alone.
@@ -297,6 +306,8 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		browserDialDelay: cfg.BrowserDialDelay,
 		coalesce:         coalesce,
 		h3SOCKS5:         cfg.HTTP3OverSOCKS5,
+		connectUDP:       cfg.ConnectUDPProxy,
+		connectUDPOK:     connectUDPCapable(p),
 		expireGoAway:     p.HTTP3 != nil && p.HTTP3.Discovery.GoAwayTCP,
 		proxies: proxyUse{
 			keep:     keep,
@@ -548,6 +559,9 @@ type route struct {
 	// proxyKey, through an https proxy, is the key of the connections to
 	// the proxy itself (proxyKey); empty otherwise.
 	proxyKey string
+	// udp, through an http or https proxy, is the CONNECT-UDP proxy that
+	// carries its HTTP/3 (Config.ConnectUDPProxy); nil: none.
+	udp *url.URL
 	// forward sends plain-HTTP requests to an HTTP proxy whole, instead of
 	// through a tunnel.
 	forward bool
@@ -649,6 +663,19 @@ func (e *Engine) route(req *http.Request) (route, error) {
 	// Coalescing through a proxy was never captured; the proxy resolves
 	// names, so the address condition cannot be checked either.
 	r.group = group{}
+
+	if tunnels && req.URL.Scheme == "https" && e.connectUDP != nil && e.quic != nil {
+		u, err := e.connectUDP(p)
+		if err != nil {
+			return r, fmt.Errorf("mimicry: Config.ConnectUDPProxy: %w", err)
+		}
+
+		if u != nil && (u.Scheme != dial.SchemeHTTPS || u.Hostname() == "") {
+			return r, fmt.Errorf("mimicry: Config.ConnectUDPProxy gave %q: a CONNECT-UDP proxy is an https:// URL with a host", u.Redacted())
+		}
+
+		r.udp = u
+	}
 
 	return r, nil
 }

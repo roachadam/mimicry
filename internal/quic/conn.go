@@ -220,6 +220,7 @@ func newConn(now time.Time, side connSide, cids newServerConnIDs, peerHostname s
 		initialMaxStreamsBidi:          c.streams.remoteLimit[bidiStream].max,
 		initialMaxStreamsUni:           c.streams.remoteLimit[uniStream].max,
 		activeConnIDLimit:              activeConnIDLimit,
+		maxDatagramFrameSize:           config.MaxDatagramFrameSize, // mimicry: tests' peers
 	}); err != nil {
 		return nil, err
 	}
@@ -319,6 +320,9 @@ func (c *Conn) receiveTransportParameters(p transportParameters) error {
 		// mimicry: disable_active_migration; the client never moves
 		// (clientMove).
 		c.client.pathState.migrationDisabled = p.disableActiveMigration
+
+		// mimicry: max_datagram_frame_size (client_datagram.go).
+		c.clientPeerDatagrams(p.maxDatagramFrameSize)
 	}
 
 	// mimicry: the windows first, under tableMu (conn_streams.go): a

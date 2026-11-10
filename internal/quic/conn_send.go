@@ -303,6 +303,14 @@ func (c *Conn) appendFrames(now time.Time, space numberSpace, pnum packetNumber,
 			defer c.w.appendPaddingTo(size)
 		}
 
+		// mimicry: DATAGRAM frames (client_datagram.go), before STREAM
+		// frames can fill the packet. One waiting for more room than is
+		// left sends this packet even if it holds only an ACK, so the
+		// next has the room.
+		if c.client != nil && c.appendDatagramFrames() {
+			shouldSendAck = true
+		}
+
 		// All stream-related frames. This should come last in the packet,
 		// so large amounts of STREAM data don't crowd out other frames
 		// we may need to send.

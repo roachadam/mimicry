@@ -1,6 +1,7 @@
 package native
 
 import (
+	"net/url"
 	"slices"
 	"sync"
 	"time"
@@ -63,13 +64,15 @@ type proxyUse struct {
 
 // proxyKeys is a proxy's last use, the route keys of its requests (the
 // HTTP/3 pool's are these with h3Key's suffix) and, for an https proxy,
-// the key of its own connections (route.proxyKey), and how many of its
-// requests have not returned yet (usedProxy to doneProxy): one may still
-// dial. closed: the sweep has closed its connections and keeps it for
-// its state.
+// the key of its own connections (route.proxyKey), the URL of its
+// CONNECT-UDP proxy last given (route.udp), and how many of its requests
+// have not returned yet (usedProxy to doneProxy): one may still dial.
+// closed: the sweep has closed its connections and keeps it for its
+// state.
 type proxyKeys struct {
 	last     time.Time
 	keys     map[string]struct{}
+	udp      *url.URL
 	inFlight int
 	closed   bool
 }
@@ -102,6 +105,10 @@ func (e *Engine) usedProxy(r route) {
 
 	pk.last, pk.closed = now, false
 	pk.inFlight++
+
+	if r.udp != nil {
+		pk.udp = r.udp
+	}
 
 	for _, k := range []string{r.key, r.proxyKey} {
 		if _, ok := pk.keys[k]; !ok && k != "" {
@@ -156,11 +163,12 @@ func (e *Engine) armSweep(d time.Duration) {
 	u.sweep.Reset(d)
 }
 
-// staleProxy is a proxy sweepProxies expires: its URL, keys and the last
-// use it saw, and whether it is forgotten (forget) or only loses its
-// connections.
+// staleProxy is a proxy sweepProxies expires: its URL, its CONNECT-UDP
+// proxy's, keys and the last use it saw, and whether it is forgotten
+// (forget) or only loses its connections.
 type staleProxy struct {
 	via    string
+	udp    *url.URL
 	last   time.Time
 	keys   []string
 	forget bool
@@ -222,6 +230,7 @@ func (e *Engine) sweepProxies() {
 
 		stale = append(stale, staleProxy{
 			via:    x.via,
+			udp:    x.pk.udp,
 			last:   x.pk.last,
 			keys:   keys,
 			forget: forget,
@@ -288,13 +297,19 @@ func (e *Engine) sweepProxies() {
 // forgetProxy drops what the engine learned through the swept proxy s: its
 // TLS and QUIC session tickets (from a shared store too, Config.Tickets,
 // whose other engines may lose a resumption through the proxy), its
-// origins' HTTP/3 state and what the dialer knows of it (a 407, a refused
-// UDP association). A request through it later starts as through a new
+// origins' HTTP/3 state and what the dialer knows of it and of its
+// CONNECT-UDP proxy (a 407, a refused UDP association or CONNECT-UDP),
+// unless another remembered proxy has that CONNECT-UDP proxy too. A
+// request through it later starts as through a new
 // proxy: full handshakes, and the browser's wait for the 407 again
 // (Config.BrowserProxyAuth). Advertised alternatives are not the proxy's
 // (route.alt) and stay. e.proxies.mu must be held.
 func (e *Engine) forgetProxy(s staleProxy) {
 	e.dialer.Forget(s.via)
+
+	if s.udp != nil && !e.udpInUse(s.udp.String()) {
+		e.dialer.Forget(s.udp.String())
+	}
 
 	if e.tickets != nil {
 		for _, k := range s.keys {
@@ -316,4 +331,16 @@ func (e *Engine) forgetProxy(s staleProxy) {
 
 		delete(q.origins, k)
 	}
+}
+
+// udpInUse reports whether a remembered proxy has the CONNECT-UDP proxy
+// whose URL is udp. e.proxies.mu must be held.
+func (e *Engine) udpInUse(udp string) bool {
+	for _, pk := range e.proxies.byURL {
+		if pk.udp != nil && pk.udp.String() == udp {
+			return true
+		}
+	}
+
+	return false
 }

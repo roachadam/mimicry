@@ -685,6 +685,15 @@ func (tap *udpTap) firstFlights() [][]int {
 	return out
 }
 
+// clients returns the addresses the tap's clients sent from, in the order
+// they started.
+func (tap *udpTap) clients() []netip.AddrPort {
+	tap.mu.Lock()
+	defer tap.mu.Unlock()
+
+	return slices.Clone(tap.order)
+}
+
 // via returns e with a new Transport of its Config sending every request
 // through proxy (DialContext reaching it), HTTP/3 through SOCKS5 as
 // h3SOCKS5 says, with cache as its Alt-Svc cache (nil: its own).

@@ -1,6 +1,6 @@
 # 0038: HTTP/3 through SOCKS5 proxies on request, never a datagram around the proxy
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-09 by [0066](0066-http3-over-connect-udp.md) (HTTP/3 through HTTP proxies by CONNECT-UDP)
 - Date: 2026-10-28
 - Commits: `c1cd089`
 
@@ -136,3 +136,15 @@ sending it through the proxy's UDP relay.)
 Proxy providers offer MASQUE widely, a browser is seen using HTTP/3
 through a proxy, or callers hit proxies that accept associations and drop
 them (a per-proxy mark after failed handshakes).
+
+## Amendment 2026-11-09: MASQUE through HTTP proxies
+
+The MASQUE option deferred above is built, as
+[0066](0066-http3-over-connect-udp.md): `Config.ConnectUDPProxy` gives
+each `http://` or `https://` proxy a CONNECT-UDP proxy over HTTP/3 (the
+only transport the MASQUE services document), whose streams carry the
+QUIC connections as the association does here: one per connection, the
+profile's QUIC unchanged, the socket failing when the proxy ends it, a
+refusal remembered per proxy. Never a datagram around the proxy still
+holds: through an HTTP proxy, UDP goes only to its CONNECT-UDP proxy.
+`HTTP3OverSOCKS5` is unchanged and still for SOCKS5 only.

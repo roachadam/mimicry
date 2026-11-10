@@ -131,15 +131,15 @@ more proxies than the count opens a new connection per request. For the
 memory each setting costs, see [performance](../performance.md#many-clients-through-proxies).
 
 What mimicry learned through a proxy lasts longer than its connections:
-its TLS sessions, its 407 and its refused UDP relay, and its sites' HTTP/3
-state stay for the 1,024 proxies used most recently (and any used in the
-last 10 s), about 1–2 KB each. One of them used again opens a new
-connection that resumes its TLS session (0-RTT over HTTP/3) and sends
-its credentials at once. A proxy beyond them is forgotten and, used again
-later, starts like a new proxy: a full TLS handshake, and the 407 again
-with `Config.BrowserProxyAuth`. With `Config.MaxIdleProxies` a proxy
-pushed out is forgotten at once. A forgotten proxy's tickets leave a
-shared `Config.Tickets` cache too. Sessions are never shared between
+its TLS sessions, its 407, its refused UDP relay or CONNECT-UDP, and its
+sites' HTTP/3 state stay for the 1,024 proxies used most recently (and
+any used in the last 10 s), about 1–2 KB each. One of them used again
+opens a new connection that resumes its TLS session (0-RTT over HTTP/3)
+and sends its credentials at once. A proxy beyond them is forgotten and,
+used again later, starts like a new proxy: a full TLS handshake, and the
+407 again with `Config.BrowserProxyAuth`. With `Config.MaxIdleProxies` a
+proxy pushed out is forgotten at once. A forgotten proxy's tickets leave
+a shared `Config.Tickets` cache too. Sessions are never shared between
 proxies.
 
 To rotate by client instead, build a new client per identity. Call
@@ -193,8 +193,76 @@ When the proxy fails:
   as not supporting HTTP/3.
 
 While a request goes through a proxy, no packet goes to the site
-directly. Through an `http://` or `https://` proxy, or without the
-option, no UDP is sent at all.
+directly. Through an `http://` or `https://` proxy without
+[CONNECT-UDP](#http3-through-http-proxies-connect-udp), or SOCKS5
+without the option, no UDP is sent at all.
+
+## HTTP/3 through HTTP proxies (CONNECT-UDP)
+
+`Config.ConnectUDPProxy` lets requests through an `http://` or
+`https://` proxy use HTTP/3, carried by CONNECT-UDP (RFC 9298, MASQUE)
+to a proxy reached over HTTP/3. Providers that offer it (Bright Data,
+Oxylabs, Decodo) run it on an endpoint of its own, beside their TCP
+proxy, so the function maps each proxy to its CONNECT-UDP proxy:
+
+```go
+client, err := mimicry.NewClient(mimicry.Config{
+	Profile: profiles.ChromeMacOS(),
+	Proxy:   http.ProxyURL(proxyURL), // http://user:pass@pr.oxylabs.io:7777
+	ConnectUDPProxy: func(p *url.URL) (*url.URL, error) {
+		return &url.URL{
+			Scheme: "https",
+			User:   p.User,
+			Host:   "masque.oxylabs.io:50000",
+		}, nil
+	},
+})
+```
+
+Return the proxy itself when it also serves HTTP/3 on its own address,
+or nil to keep that proxy's requests on TCP. Requests over TCP still go
+through `Config.Proxy`.
+
+Each QUIC connection to a site opens its own HTTP/3 connection to the
+CONNECT-UDP proxy and asks it for the site (`/.well-known/masque/udp/host/port/`).
+The site receives the browser's QUIC packets unchanged, from the proxy's
+address. Alt-Svc, 0-RTT and the fallback to TCP work as without a proxy;
+each new connection waits two round trips to the CONNECT-UDP proxy
+first.
+
+What the CONNECT-UDP proxy sees:
+
+- **The QUIC handshake:** the profile's QUIC ClientHello, with its host
+  as `server_name`, checked like an `https://` proxy's (`Config.RootCAs`,
+  `Pins`, `VerifyConnection`, `KeyLogWriter`). Its session is never
+  resumed. Its packets are 64 bytes larger than the browser's (1314
+  bytes for Chrome), so the site's fit inside them.
+- **The request:** the profile's HTTP/3 settings, then a CONNECT-UDP
+  naming the site's host and port, with `capsule-protocol: ?1`, the
+  profile's `user-agent` and, with credentials, `proxy-authorization`.
+  No browser sends one.
+
+Credentials go as to an `http://` proxy: up front, or after the 407 with
+`Config.BrowserProxyAuth`.
+
+When the CONNECT-UDP proxy fails:
+
+- **It refuses** (its connection has no HTTP/3 datagrams, or it answers
+  400, 404, 405, 501, or 407 to the credentials): it is asked once, and
+  later requests through that proxy use TCP. Other answers, such as 403
+  for a target the provider blocks, fail that one attempt.
+- **It ends the stream:** that QUIC connection ends at once, and its
+  requests retry over TCP.
+- **It never answers:** requests go over TCP after the race delay, until
+  the origin is marked as not supporting HTTP/3.
+
+Profiles whose QUIC announces no datagrams (Safari, and Chrome and
+Firefox on iOS, which use Safari's network stack) stay on TCP.
+
+What a site can see: HTTP/3 from a proxy's address, which no browser
+behind a proxy sends. Its packets to the client must fit in the proxy's
+with about 50 bytes to spare, so one over about 1420 bytes (Chrome
+accepts 1472) is dropped on the way.
 
 ## When the proxy fails
 
@@ -240,11 +308,14 @@ tunnel is up are the server's, not the proxy's. See
 - `Config.DialContext` opens the connection to the proxy, so it cannot
   also pin the server's address.
 - Chrome's speculative extra connections to the proxy are not made.
-- HTTP/3 goes only through SOCKS5 proxies. HTTP/3 through an `http://`
-  or `https://` proxy (CONNECT-UDP, MASQUE) is not supported.
-- A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing is not
-  remembered: each origin waits up to the race delay per request until
-  it is marked as not supporting HTTP/3.
+- HTTP/3 through an `http://` or `https://` proxy goes only by
+  CONNECT-UDP over HTTP/3, with the default URI template; CONNECT-UDP
+  over HTTP/2 or HTTP/1.1 (capsules), and other templates, are not
+  supported. Safari and the iPhone profiles never use it.
+- A SOCKS5 proxy that accepts UDP ASSOCIATE but relays nothing, and a
+  CONNECT-UDP proxy that never answers, are not remembered: each origin
+  waits up to the race delay per request until it is marked as not
+  supporting HTTP/3.
 - A CONNECT answer with a header over 64 KiB fails the request with a
   `*mimicry.ProxyError`.
 - A request whose host is not a valid `Host` header is refused before
@@ -255,4 +326,5 @@ Background: decisions [0014](../decisions/0014-proxies.md),
 [0039](../decisions/0039-proxy-credentials-up-front.md),
 [0040](../decisions/0040-idle-connection-cleanup.md),
 [0044](../decisions/0044-profile-fingerprint.md),
-[0065](../decisions/0065-https-proxies.md).
+[0065](../decisions/0065-https-proxies.md),
+[0066](../decisions/0066-http3-over-connect-udp.md).

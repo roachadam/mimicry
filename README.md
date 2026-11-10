@@ -103,6 +103,7 @@ These options do what no browser does, and are off by default:
 | `Config.DisableCoalescing` | One HTTP/2 connection per host ([0037](docs/decisions/0037-coalescing-opt-out.md)) | More connections than a browser opens |
 | `Config.MaxConnsPerHost` | More than 6 HTTP/1.1 connections per host ([0037](docs/decisions/0037-coalescing-opt-out.md)) | More connections than a browser opens |
 | `Config.HTTP3OverSOCKS5` | HTTP/3 through SOCKS5 proxies ([0038](docs/decisions/0038-http3-over-socks5.md)) | HTTP/3 from a proxy address |
+| `Config.ConnectUDPProxy` | HTTP/3 through HTTP proxies, by CONNECT-UDP (MASQUE) to a proxy over HTTP/3 ([0066](docs/decisions/0066-http3-over-connect-udp.md)) | HTTP/3 from a proxy address; the proxy sees the target and larger QUIC packets than the browser's |
 | `Config.HTTP3ACKEvery` | Fewer QUIC acknowledgements, for bulk downloads ([0043](docs/decisions/0043-http3-ack-rate-opt-in.md)) | An unusual ACK rate |
 
 mimicry sends what a browser sends around your requests (redirects, CORS preflights, connection reuse and resumption) but never loads a page's images or scripts or runs JavaScript. [What mimicry does](docs/concepts/what-mimicry-does.md)

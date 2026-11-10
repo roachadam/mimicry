@@ -256,7 +256,8 @@ which protocol its visitors use.
 - `Config.HTTP3ACKEvery` sends fewer ACKs. This helps with an overloaded
   server, but no browser does it.
 
-Through a proxy, see [HTTP/3 through SOCKS5](proxies.md#http3-through-socks5).
+Through a proxy, see [HTTP/3 through SOCKS5](proxies.md#http3-through-socks5)
+and [HTTP/3 through HTTP proxies](proxies.md#http3-through-http-proxies-connect-udp).
 
 ## When QUIC fails
 
@@ -341,8 +342,8 @@ one connection). Credentials go with the first request. See
 [Proxies](proxies.md).
 
 **How to change it.** `Config.Proxy`, `Config.BrowserProxyAuth`,
-`Config.HTTP3OverSOCKS5` and `Config.MaxIdleProxies`, all described in
-[Proxies](proxies.md).
+`Config.HTTP3OverSOCKS5`, `Config.ConnectUDPProxy` and
+`Config.MaxIdleProxies`, all described in [Proxies](proxies.md).
 
 ## Certificate pins and checks
 
@@ -419,4 +420,5 @@ Background: decisions
 [0043](../decisions/0043-http3-ack-rate-opt-in.md),
 [0045](../decisions/0045-udp-receive-buffer-default.md),
 [0046](../decisions/0046-response-decompression.md),
-[0052](../decisions/0052-http1-upload-records.md).
+[0052](../decisions/0052-http1-upload-records.md),
+[0066](../decisions/0066-http3-over-connect-udp.md).
