@@ -11789,6 +11789,11 @@
       ],
       "address": "domain"
     },
+    "socks4": {
+      "hostname": true,
+      "hostnameOnly": true,
+      "hostnameDstip": "0.0.0.16"
+    },
     "websocket": {
       "plain": "forward",
       "credentials": true
