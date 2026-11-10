@@ -454,6 +454,14 @@ func (r *refreshRun) planTarget(p *plan, rep *preflightReport, builtins map[stri
 		return err
 	}
 
+	if !m.windows && !m.linux && !m.iphone {
+		r.checkResolver(p, rep)
+	}
+
+	if p.resolvesHosts() && !m.iphone {
+		p.Manual = append(p.Manual, resolveNote(p, m))
+	}
+
 	if m.linux && p.needsPort443() && rep.UnprivilegedPortStart > 443 {
 		if m.wsl != "" {
 			p.Manual = append(p.Manual, fmt.Sprintf("a scenario names https://'s default port, which the capture tool forwards from 443; refresh lowers net.ipv4.ip_unprivileged_port_start from %d to 443 as root in %s before each capture step, whenever it is above 443 (it lasts until the WSL VM stops)",
@@ -579,14 +587,42 @@ func (r *refreshRun) checkMac(p *plan, rep *preflightReport) {
 		p.Problems = append(p.Problems, fmt.Sprintf("the capture CA is not trusted on %s (Safari stops at a warning, Firefox's pages across hosts fail, Chrome ignores Alt-Svc); at that Mac's screen (it asks for the password):\n    security add-trusted-cert -r trustRoot -p ssl -k ~/Library/Keychains/login.keychain-db %s",
 			m, shellQuote(rep.CAPath)))
 	}
+}
 
-	if !rep.Resolver {
-		msg := fmt.Sprintf("/etc/resolver/test does not send *.test to the capture tool on %s; create it once:\n    %s", m, onMachine(p.Host, "sudo mkdir -p /etc/resolver && printf 'nameserver 127.0.0.1\\nport 15353\\n' | sudo tee /etc/resolver/test"))
-		if p.Browser == "safari" {
-			p.Problems = append(p.Problems, msg)
-		} else {
-			p.Warnings = append(p.Warnings, msg+" (only Safari needs it)")
-		}
+// checkResolver adds to p what a Mac lacking /etc/resolver/test means:
+// Safari reaches no capture host, and Firefox cannot look the hosts of a
+// scenario up (server.Scenario.ResolvesHosts); the others never need it.
+func (r *refreshRun) checkResolver(p *plan, rep *preflightReport) {
+	if rep.Resolver {
+		return
+	}
+
+	m := r.machine(p)
+	msg := fmt.Sprintf("/etc/resolver/test does not send *.test to the capture tool on %s; create it once:\n    %s", m, onMachine(p.Host, "sudo mkdir -p /etc/resolver && printf 'nameserver 127.0.0.1\\nport 15353\\n' | sudo tee /etc/resolver/test"))
+
+	switch {
+	case p.Browser == "safari":
+		p.Problems = append(p.Problems, msg)
+	case p.Browser == "firefox" && p.resolvesHosts():
+		p.Problems = append(p.Problems, msg+" (Firefox looks the ech scenario's hosts up through the system's resolver)")
+	default:
+		p.Warnings = append(p.Warnings, msg+" (only Safari needs it, and Firefox for the ech scenario)")
+	}
+}
+
+// resolveNote says how p's browser looks up the hosts of a scenario that
+// has it resolve them (server.Scenario.ResolvesHosts, the ech scenario) on
+// m, as browser.Browser.UsesDoH decides.
+func resolveNote(p *plan, m *machine) string {
+	what := "the ech scenario has " + p.Browser + " look its hosts up in DNS, where their HTTPS records carry ECH configs: "
+
+	switch {
+	case capture.Chromium(p.tool()):
+		return what + "secure DNS (dns_over_https in its throwaway profile's Local State) at the capture tool's DoH endpoint, whose name --host-resolver-rules maps; no system DNS change on " + m.String()
+	case p.Browser == "firefox" && (m.windows || m.linux):
+		return what + "TRR only (network.trr.mode=3 in its throwaway profile) at the capture tool's DoH endpoint; no system DNS change on " + m.String()
+	default:
+		return what + "the system's resolver, which /etc/resolver/test sends to the capture tool's DNS stub on " + m.String()
 	}
 }
 
@@ -1222,5 +1258,15 @@ func (p *plan) needsPort443() bool {
 		sc, err := server.ScenarioByName(c.Scenario)
 
 		return err == nil && sc.DefaultPort()
+	})
+}
+
+// resolvesHosts reports whether a scenario p captures has the browser
+// look its hosts up (server.Scenario.ResolvesHosts).
+func (p *plan) resolvesHosts() bool {
+	return slices.ContainsFunc(p.Captures, func(c planned) bool {
+		sc, err := server.ScenarioByName(c.Scenario)
+
+		return err == nil && sc.ResolvesHosts()
 	})
 }

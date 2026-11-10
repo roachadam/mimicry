@@ -94,3 +94,8 @@
 # estimated from it, not yet from a runner's log.
 12         core      ./e2e            TestClientCertMatchesBrowser
 5          core      ./e2e            TestRedirects2MatchesBrowser
+# The ech and ech-h3 pages, each profile with tls.realEch (hellos, like
+# the hrr test's): about 1 to 3 s for all of them in a local run, not yet
+# from a runner's log.
+3          core      ./e2e            TestECHMatchesBrowser
+2          core      ./e2e            TestECHH3MatchesBrowser

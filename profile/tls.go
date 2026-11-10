@@ -59,6 +59,12 @@ type TLS struct {
 	// client-cert captures. Nil: not measured, and sending a client
 	// certificate (Config.GetClientCertificate) is ErrNotMeasured.
 	ClientAuth *ClientAuth `json:"clientAuth,omitempty"`
+	// RealECH is what the browser sends to a server whose DNS HTTPS
+	// record carries an ECH config. hellogen derives it from the ech
+	// capture. Nil: not measured, and no HTTPS record is looked up: every
+	// server gets the ClientHello as it is (the GREASE extension, for a
+	// browser that sends one).
+	RealECH *RealECH `json:"realEch,omitempty"`
 }
 
 // ClientAuth is a browser's client authentication: what it signs its

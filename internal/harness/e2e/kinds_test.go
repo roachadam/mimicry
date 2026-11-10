@@ -651,7 +651,7 @@ func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config fu
 
 			return (&net.Dialer{}).DialContext(ctx, network, to)
 		},
-		Resolver: stubResolver(t),
+		Resolver: stubResolverFor(t, srv),
 	}
 
 	if s.identity != nil {

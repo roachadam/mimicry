@@ -84,11 +84,16 @@ anti-bot vendors read. So there are two kinds of refresh.
 | `websocket`, `websocket-h2` | 1 each | WebSocket handshakes |
 | `h3-discovery`, `h3-page` | 3 each | the QUIC ClientHello, transport parameters and HTTP/3 SETTINGS |
 | `hrr` | 3 | the ClientHello sent again after a HelloRetryRequest with a cookie: where the cookie goes |
+| `ech` | 3 | real ECH to hosts whose DNS HTTPS records carry ECH configs: the browser's lookups, the config and suite it takes, its inner hello, what follows a rejection and a list that does not parse (`tls.realEch`) |
+| `ech-h3` | 3 | whether `Alt-Svc` moves a host whose ECH config the browser uses to HTTP/3 (`tls.realEch.altSvcIgnored`); not Safari; with `-h3-local-roots`, and QUIC on UDP 443 |
 
 Scenarios where the browser picks something per connection (extension
 order, GREASE values, ECH lengths) take three samples; the rest take one.
 Chrome and Firefox take `h3-discovery` and `h3-page` twice, without and
-with `-h3-local-roots`, as their committed captures do.
+with `-h3-local-roots`, as their committed captures do, and `ech-h3` with
+it only; Safari does not take `ech-h3`. Both ECH scenarios have the
+browser look their hosts up in DNS ([Capturing](capturing.md#ech-scenarios)),
+and the plan says how for each browser.
 
 Every other scenario is inherited from the browser's previous version. The
 profile's `capturesFrom` field names, per scenario, the profile holding its
@@ -181,7 +186,12 @@ the run's capture CA in the machine's Root store only while it runs
 maps the test hosts with Chrome's
 `--host-resolver-rules` or, in Firefox's throwaway profile,
 `network.dns.localDomains` (the macOS Firefox profile, unchanged): no DNS
-or hosts-file change. Firefox's `firefox.exe` is a launcher that starts
+or hosts-file change. The `ech` scenario's hosts are looked up instead,
+for their HTTPS records: the Chromium browsers use secure DNS and Firefox
+its own DoH client alone (`network.trr.mode` 3), both at the capture
+tool's DoH endpoint, recorded as capture conditions; on macOS Firefox
+asks the system's resolver, which `/etc/resolver/test` sends to the
+capture tool. Firefox's `firefox.exe` is a launcher that starts
 the browser process and exits, so the tool starts it with
 `-wait-for-browser` and ends the launcher with its process tree. However
 the run ends, the tool then runs `capture -cleanup` (the CA, leftover
@@ -195,8 +205,9 @@ not, so the browsers must run on their defaults. Check
 `Microsoft\Edge`, `Mozilla\Firefox`) before a run: telemetry switches
 change nothing on the wire, but others do. Edge's `ConfigureDoNotTrack`
 made it send `dnt: 1` on every request but its first few (decision 0059),
-so lift such keys for the run (export them with `reg export` first) and
-import them again after.
+and its `DnsOverHttpsMode` overrides the secure DNS the `ech` scenario
+sets, so lift such keys for the run (export them with `reg export` first)
+and import them again after.
 
 Firefox updates itself between launches, which splits a run (the tool then
 refuses it). Install the exact version from Mozilla's archive
@@ -277,7 +288,9 @@ profile (Chrome's NSS database under a `HOME` that is that profile;
 Firefox's profile database, on pages across hosts and through an
 `https://` proxy), so nothing outside the
 run's directory changes but, in WSL, the port setting above, and nothing
-needs cleaning up.
+needs cleaning up. The `ech` scenario's hosts are looked up as on
+Windows: secure DNS for the Chromium browsers, Firefox's DoH client
+alone, at the capture tool's DoH endpoint.
 
 **In WSL on the Windows machine** (`-linux <its alias> -wsl <distribution>
 -wsl-user <user>`), each step runs through `wsl.exe -d <distribution> -u
@@ -369,7 +382,8 @@ redirects", even restarted): take them again as single-sample runs and join the 
    the console user, and whether the capture CA is trusted (on Windows,
    which trusts the CA only during a capture: administrator rights,
    `certutil` and `schtasks` instead). It also checks
-   `/etc/resolver/test` (Safari), python3 with aioquic and Safari's proxy
+   `/etc/resolver/test` (Safari, and Firefox on a Mac when the plan holds
+   `ech` or `ech-h3`), python3 with aioquic and Safari's proxy
    script (when the plan holds a proxy scenario Safari takes). Finally it
    checks whether Gatekeeper still has to approve a fresh browser's first
    launch, a dialog nobody at an ssh session can answer. The version names

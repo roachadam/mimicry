@@ -86,6 +86,10 @@ type Page struct {
 	// Safari, safaridriver its automation window. Empty for other
 	// browsers and in captures made before it was kept.
 	Driver string `json:"driver,omitempty"`
+	// DNS are the browser's lookups of the page's hosts, in the order
+	// they arrived (the ech scenario, whose hosts the browser looks up
+	// instead of having them mapped).
+	DNS []DNSQuery `json:"dns,omitempty"`
 	// Start is the zero of the page's millisecond times, on the recording
 	// process's clock. Not stored: zero in a capture read from a file.
 	Start time.Time `json:"-"`
@@ -134,6 +138,53 @@ type Connection struct {
 	// sent): a server name ending in a dot, which Go's crypto/tls
 	// rejects (the urls scenario).
 	Refused string `json:"refused,omitempty"`
+	// ECH is the encrypted_client_hello the ClientHello carried for one of
+	// the ech scenario's configs; nil for none, and for GREASE.
+	ECH *ECH `json:"ech,omitempty"`
+}
+
+// DNSQuery is a DNS lookup a browser made during a page.
+type DNSQuery struct {
+	// Millis is when it arrived, on the page's clock (Connection.Millis).
+	Millis int64 `json:"ms"`
+	// Name is the name looked up, without the final dot.
+	Name string `json:"name"`
+	// Type is the record type: A, AAAA, HTTPS, ...
+	Type string `json:"type"`
+	// Via is how it came: "system", through the system's resolver to the
+	// capture tool's DNS stub, or "doh", to its DNS-over-HTTPS endpoint.
+	Via string `json:"via"`
+}
+
+// ECH is a real encrypted_client_hello: the ECH config a ClientHelloOuter
+// encrypted its ClientHelloInner to, and, when the server held its key, the
+// inner hello.
+type ECH struct {
+	// ConfigID is the config's ID, KDF and AEAD the HPKE suite the client
+	// chose from it.
+	ConfigID uint8        `json:"configId"`
+	KDF      profile.Code `json:"kdf"`
+	AEAD     profile.Code `json:"aead"`
+	// Accepted reports that the server decrypted it and went on with the
+	// inner hello; otherwise it finished the handshake with the outer one,
+	// sending its retry configs if it had any (Retry).
+	Accepted bool `json:"accepted"`
+	// Retry reports that the server's EncryptedExtensions carried
+	// retry_configs.
+	Retry bool `json:"retry,omitempty"`
+	// Inner is the EncodedClientHelloInner, as the client encoded it
+	// before padding, parsed: ech_outer_extensions (0xfd00) where it
+	// stands, its list of compressed extension types as Data. Nil when the
+	// server held no key for the config.
+	Inner *profile.TLS `json:"inner,omitempty"`
+	// InnerHello is the EncodedClientHelloInner as decrypted, hex: the
+	// ClientHello body without its handshake header, then the padding.
+	InnerHello string `json:"innerHello,omitempty"`
+	// Padding is how many zero bytes followed the encoded inner hello.
+	Padding int `json:"padding,omitempty"`
+	// OuterExtensions are the types ech_outer_extensions copies from the
+	// outer hello, in its order.
+	OuterExtensions []profile.Code `json:"outerExtensions,omitempty"`
 }
 
 // ClientHelloBytes is ClientHello decoded; nil where it was not kept.

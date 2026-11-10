@@ -313,9 +313,15 @@ func (e *Engine) alternative(o *origin, r route) (uint16, bool) {
 
 // learnAltSvc records resp's Alt-Svc and, where the profile switches on
 // Alt-Svc, starts the origin's QUIC connection in the background. Once the
-// origin has used HTTP/3, requests decide instead.
+// origin has used HTTP/3, requests decide instead. A response over a
+// connection whose ECH the server accepted teaches nothing where the
+// browser ignores Alt-Svc then (tls.realEch.altSvcIgnored).
 func (e *Engine) learnAltSvc(req *http.Request, r route, resp *http.Response) {
 	if !e.h3Route(req, r) {
+		return
+	}
+
+	if ech := e.plan.RealECH(); ech != nil && ech.AltSvcIgnored && resp.TLS != nil && resp.TLS.ECHAccepted {
 		return
 	}
 

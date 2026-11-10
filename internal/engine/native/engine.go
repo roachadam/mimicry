@@ -34,6 +34,7 @@ import (
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/httpsrr"
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -184,7 +185,13 @@ type Engine struct {
 	verify func(host string, cs tls.ConnectionState) error
 	// tickets keeps TLS session tickets when the profile resumes.
 	tickets *handshake.Tickets
-	pool    *pool.Pool[*shared, *h1.Conn]
+	// https looks up the HTTPS records whose ECH configs the profile's
+	// browser encrypts to (tls.realEch); nil when the profile has none.
+	https *httpsrr.Resolver
+	// echPlain holds the ticket keys whose next connection goes without
+	// real ECH, after one made with retry configs (tls.realEch.retryPlain).
+	echPlain sync.Map
+	pool     *pool.Pool[*shared, *h1.Conn]
 	// proxyConns are the HTTP/2 connections to https proxies, each
 	// carrying its proxy's tunnels as streams (proxyKey). Connections to
 	// a proxy that picked HTTP/1.1 are their tunnels, never pooled here.
@@ -338,6 +345,13 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 
 	if plan.Resumes() {
 		e.tickets = store.Tickets(p.TLS.Resumption.TLS12, clock)
+	}
+
+	if plan.RealECH() != nil {
+		e.https = httpsrr.New(httpsrr.Config{
+			Resolver: cfg.Resolver,
+			Clock:    clock,
+		})
 	}
 
 	if p.HTTP3 != nil && p.QUIC != nil && !cfg.DisableHTTP3 {
@@ -928,20 +942,9 @@ func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn
 }
 
 func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
-	var (
-		conn net.Conn
-		err  error
-	)
+	lookup := e.startECHLookup(ctx, req, r)
 
-	switch {
-	case r.proxy == nil:
-		conn, err = e.dialer.Dial(ctx, r.addr)
-	case r.forward:
-		conn, err = e.dialer.DialProxy(ctx, r.proxy)
-	default:
-		conn, err = e.dialTunnel(ctx, r)
-	}
-
+	conn, err := e.dialRoute(ctx, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -950,16 +953,13 @@ func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.
 		return conn, "http/1.1", nil
 	}
 
-	cfg := handshake.Config{
-		ServerName:        req.URL.Hostname(),
-		OmitSNI:           r.omitSNI,
-		RootCAs:           e.rootCAs,
-		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
-		KeyLogWriter:      e.keyLog,
-		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
-		ClientAuth:        e.profile.TLS.ClientAuth,
-		FirstRequest:      e.firstRequestFor(r.addr),
+	ech, err := lookup.wait(ctx)
+	if err != nil {
+		_ = conn.Close()
+		return nil, "", err
 	}
+
+	cfg := e.handshakeConfig(req, r)
 	hello := e.plan.Hello()
 
 	if e.resumes(r) {
@@ -973,11 +973,106 @@ func (e *Engine) dialOnce(ctx context.Context, req *http.Request, r route) (net.
 		}
 	}
 
+	if ech != nil && e.plan.RealECH().RetryPlain {
+		if _, plain := e.echPlain.LoadAndDelete(ticketKey(r.key)); plain {
+			// The connection after one made with retry configs: the
+			// usual hello, offering that connection's session
+			// (tls.realEch.retryPlain).
+			ech = nil
+		}
+	}
+
+	cfg.ECH = ech
+	hello = e.echHello(hello, ech)
+
 	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
 
 	defer cancel()
 
-	return handshake.Client(hctx, conn, hello, cfg)
+	c, proto, err := handshake.Client(hctx, conn, hello, cfg)
+	if rejected, ok := errors.AsType[*handshake.ECHRejectedError](err); ok {
+		return e.echRetry(ctx, req, r, rejected)
+	}
+
+	return c, proto, err
+}
+
+// dialRoute connects on route r: directly, to its forward proxy, or
+// through its tunnel.
+func (e *Engine) dialRoute(ctx context.Context, r route) (net.Conn, error) {
+	switch {
+	case r.proxy == nil:
+		return e.dialer.Dial(ctx, r.addr)
+	case r.forward:
+		return e.dialer.DialProxy(ctx, r.proxy)
+	default:
+		return e.dialTunnel(ctx, r)
+	}
+}
+
+// handshakeConfig is the TLS handshake's configuration for req on route
+// r, without tickets or ECH.
+func (e *Engine) handshakeConfig(req *http.Request, r route) handshake.Config {
+	return handshake.Config{
+		ServerName:        req.URL.Hostname(),
+		OmitSNI:           r.omitSNI,
+		RootCAs:           e.rootCAs,
+		VerifyConnection:  e.verifyFor(req.URL.Hostname()),
+		KeyLogWriter:      e.keyLog,
+		ClientCertificate: e.clientCertFor(req.URL.Hostname()),
+		ClientAuth:        e.profile.TLS.ClientAuth,
+		FirstRequest:      e.firstRequestFor(r.addr),
+	}
+}
+
+// echRetry connects again after the server rejected ECH, as the profile's
+// browser does (profile.RealECH): once, with the server's retry configs,
+// or with the usual hello when it sent none; either way a full handshake
+// without the extensions the browser leaves out then
+// (tls.realEch.retryDrop). A second rejection fails the request.
+func (e *Engine) echRetry(ctx context.Context, req *http.Request, r route, rejected *handshake.ECHRejectedError) (net.Conn, string, error) {
+	var config *handshake.ECHConfig
+
+	if len(rejected.RetryConfigs) > 0 {
+		var err error
+		if config, err = e.selectECH(req.URL.Hostname(), rejected.RetryConfigs); err != nil {
+			return nil, "", err
+		}
+	}
+
+	conn, err := e.dialRoute(ctx, r)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// A session from this connection is kept only where the browser
+	// offers it later (tls.realEch.retryResume, retryPlain): Chrome and
+	// Firefox over DoH do, Firefox over the system's resolver keeps none.
+	ech := e.plan.RealECH()
+	cfg := e.handshakeConfig(req, r)
+
+	if e.resumes(r) && (ech.RetryResume || ech.RetryPlain) {
+		cfg.Tickets, cfg.TicketKey = e.tickets, ticketKey(r.key)
+	}
+
+	cfg.ECH = config
+
+	hello := e.echHello(e.plan.RetryHello(e.plan.Hello()), config)
+
+	hctx, cancel := context.WithTimeout(ctx, e.dialer.Timeout)
+
+	defer cancel()
+
+	c, proto, err := handshake.Client(hctx, conn, hello, cfg)
+	if _, again := errors.AsType[*handshake.ECHRejectedError](err); again {
+		return nil, "", fmt.Errorf("mimicry: %s rejected ECH again, with the retry configs it sent: %w", req.URL.Hostname(), err)
+	}
+
+	if err == nil && config != nil && ech.RetryPlain {
+		e.echPlain.Store(ticketKey(r.key), struct{}{})
+	}
+
+	return c, proto, err
 }
 
 // resumes reports whether TLS connections on route r resume sessions:

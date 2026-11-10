@@ -272,6 +272,10 @@ func (s *Server) serveQUIC(ctx context.Context, sc *Scenario, log *pageLog, issu
 		return state, nil
 	}
 
+	if sc.ech {
+		base.GetEncryptedClientHelloKeys = echServerKeys
+	}
+
 	cfg := base
 
 	if sc.multi != nil {

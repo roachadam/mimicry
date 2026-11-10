@@ -42,22 +42,22 @@ func cleanUp(string) error {
 	return errors.Join(err, derr)
 }
 
-// startDNSStub answers *.test lookups with addr until ctx ends. Safari here
-// resolves through the system: the loopback stub answers its *.test lookups
-// (Chrome, Edge, Brave and Firefox map the names themselves). With clients
-// (-listen), a second stub on port 53 is a device's DNS server, forwarding
-// other names to this Mac's resolver for clients only; an error says it
-// could not start. It listens on every IPv4 address: macOS lets a user bind
-// a port below 1024 only there, not on addr alone.
+// startDNSStub answers *.test lookups with addr until ctx ends, and the ech
+// page's HTTPS records (stubConfig). Safari here resolves through the
+// system: the loopback stub answers its *.test lookups (Chrome, Edge, Brave
+// and Firefox map the names themselves, but for the ech page's, which
+// Firefox looks up here too). With clients (-listen), a second stub on port
+// 53 is a device's DNS server, forwarding other names to this Mac's
+// resolver for clients only; an error says it could not start. It listens
+// on every IPv4 address: macOS lets a user bind a port below 1024 only
+// there, not on addr alone.
 func startDNSStub(ctx context.Context, addr netip.Addr, clients netip.Prefix) error {
 	dns, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", dnsstub.Addr)
 	if err != nil {
 		log.Printf("DNS stub for *.test on %s: %v; Safari will not reach the capture hosts", dnsstub.Addr, err)
 	} else {
 		go func() {
-			if err := dnsstub.Serve(ctx, dns, dnsstub.Config{
-				Answer: addr,
-			}); err != nil {
+			if err := dnsstub.Serve(ctx, dns, stubConfig(addr)); err != nil {
 				log.Printf("DNS stub: %v", err)
 			}
 		}()
@@ -81,12 +81,13 @@ func startDNSStub(ctx context.Context, addr netip.Addr, clients netip.Prefix) er
 
 	log.Printf("DNS stub on %s: *.test is %s, other names go to %s, for %s only", netip.AddrPortFrom(addr, dnsstub.LANPort), addr, upstream, clients)
 
+	cfg := stubConfig(addr)
+
+	cfg.Upstream = upstream
+	cfg.Clients = clients
+
 	go func() {
-		if err := dnsstub.Serve(ctx, pc, dnsstub.Config{
-			Answer:   addr,
-			Upstream: upstream,
-			Clients:  clients,
-		}); err != nil {
+		if err := dnsstub.Serve(ctx, pc, cfg); err != nil {
 			log.Printf("DNS stub on %s: %v", lanAddr, err)
 		}
 	}()

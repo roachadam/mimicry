@@ -308,6 +308,10 @@ tunnel is up are the server's, not the proxy's. See
 - `Config.DialContext` opens the connection to the proxy, so it cannot
   also pin the server's address.
 - Chrome's speculative extra connections to the proxy are not made.
+- Through a proxy no DNS HTTPS record is looked up, so a site gets the
+  ClientHello with GREASE ECH, never real Encrypted Client Hello; the TLS
+  to an `https://` proxy uses GREASE too. No capture shows what the
+  browsers do there ([decision 0068](../decisions/0068-real-ech.md)).
 - HTTP/3 through an `http://` or `https://` proxy goes only by
   CONNECT-UDP over HTTP/3, with the default URI template; CONNECT-UDP
   over HTTP/2 or HTTP/1.1 (capsules), and other templates, are not

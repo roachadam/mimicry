@@ -39,6 +39,7 @@ it, use [`Transport.Plan`](how-a-request-is-built.md#5-seeing-it-before-it-is-se
 | [QUIC dial delay](#a-new-quic-connection-starts-at-once) | none: a dial a few ms sooner than Safari's and Firefox's | `Config.BrowserDialDelay` |
 | [Keep-alive and housekeeping](#keep-alive-and-housekeeping-frames) | PING, WINDOW_UPDATE, ACK frames | none |
 | [TLS resumption and 0-RTT](#tls-resumption-and-0-rtt) | a `425 Too Early` request sent again | `Config.DisableHTTP3` stops 0-RTT |
+| [Encrypted Client Hello](#encrypted-client-hello) | a DNS HTTPS query per new host (Chrome, Edge, Brave 157; Firefox 159) | a profile without `tls.realEch` |
 | [WebSockets](#websockets) | only when you call `DialWebSocket` | don't call it |
 | [Proxies](#proxies) | CONNECT or SOCKS5 handshakes | `Config.Proxy` |
 | [Certificate pins](#certificate-pins-and-checks) | none unless set | `Config.Pins`; `Config.VerifyConnection` |
@@ -351,6 +352,43 @@ them, which also lets you save them for another process
 ([saving an identity](sessions.md)); a relaunched Chrome or Firefox starts
 without any, a relaunched Safari keeps its QUIC ones.
 
+## Encrypted Client Hello
+
+**What happens.** A profile with `tls.realEch` (Chrome 157 on macOS and
+Linux, Edge and Brave 157, Firefox 159) looks up the DNS HTTPS record
+(type 65) of each host it connects to over TLS, beside the connection.
+When the record carries an ECH config, the handshake encrypts the real
+ClientHello to it as the browser does: the browser's choice of config and
+cipher suite, its inner hello, and its reconnection when the server
+rejects the config. A host without a record, or a lookup that fails,
+gets the usual hello with the GREASE extension. With a Chrome, Edge or
+Brave profile, a host whose record carries a config list that does not
+parse gets no connection (the request fails, as in Chrome); Firefox
+sends the usual hello. A config the browser was never seen to use is
+`ErrNotMeasured`.
+
+The query is plain DNS, over UDP (TCP when the answer is truncated),
+through `Config.Resolver`'s `Dial` when you set one, otherwise to the
+system's nameservers (`/etc/resolv.conf`, or the network adapters' on
+Windows): `Config.DialContext` does not carry it. The address lookup
+stays `Config.Resolver`'s, so a host gets A, AAAA and HTTPS queries.
+Answers are kept per Transport for their TTL (a day at most), a missing
+record for the zone's negative TTL and a failed lookup for 30 s. The
+handshake waits for the lookup, up to 5 s.
+
+No lookup happens for an IP address, through a proxy, for a WebSocket's
+own HTTP/1.1 connection or for HTTP/3: those connections keep GREASE.
+Safari profiles, and profiles never captured with ECH (Chrome 155 and
+156, Firefox 158, the iPhone profiles), look nothing up.
+
+**Why.** A server that publishes an ECH config holds its key, and sees
+whether a client calling itself Chrome or Firefox used it. See
+[decision 0068](../decisions/0068-real-ech.md).
+
+**How to change it.** No option, as a browser has none. To send GREASE
+everywhere and look nothing up, use a profile without the section:
+`profiles.ChromeMacOS().With(func(s *profile.Spec) { s.TLS.RealECH = nil })`.
+
 ## WebSockets
 
 **What happens.** Only when you call `Transport.DialWebSocket`; mimicry
@@ -419,7 +457,6 @@ and nothing else. It never:
   [decision 0023](../decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects));
 - upgrades `http://` to `https://` or applies HSTS;
 - caches or revalidates responses;
-- looks up DNS HTTPS records;
 - fetches OCSP responses, CRLs or intermediate certificates. With
   `Config.RootCAs` nil, the operating system verifies certificates and may
   contact a certificate authority; that traffic never goes to the site.
@@ -444,4 +481,5 @@ Background: decisions
 [0045](../decisions/0045-udp-receive-buffer-default.md),
 [0046](../decisions/0046-response-decompression.md),
 [0052](../decisions/0052-http1-upload-records.md),
-[0066](../decisions/0066-http3-over-connect-udp.md).
+[0066](../decisions/0066-http3-over-connect-udp.md),
+[0068](../decisions/0068-real-ech.md).

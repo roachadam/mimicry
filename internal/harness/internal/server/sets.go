@@ -54,6 +54,14 @@ var QuickScenarios = []Planned{
 		Samples:  3,
 	},
 	{
+		Scenario: ECH,
+		Samples:  3,
+	},
+	{
+		Scenario: ECHH3,
+		Samples:  3,
+	},
+	{
 		Scenario: ClientHints,
 		Samples:  3,
 	},

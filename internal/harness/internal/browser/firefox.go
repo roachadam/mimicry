@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -13,7 +14,9 @@ import (
 // silence first-run pages, plus a certificate exception for the server (or,
 // when it trusts the capture CA (trustsCA), trust in the system roots: the
 // capture CA in the macOS keychain, or in the Windows machine's Root store
-// for the run). The same profile serves macOS and Windows.
+// for the run). The same profile serves macOS and Windows. A Resolve
+// target's hosts are looked up instead: on macOS through the system's
+// resolver, elsewhere through t.DoH (firefoxTRR).
 // network.dns.localDomains maps to loopback only, so t.Addr must be
 // Loopback.
 func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
@@ -21,7 +24,7 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 		return nil, fmt.Errorf("firefox maps the capture hosts to loopback only (network.dns.localDomains), not %s: capture it without -listen", t.Addr)
 	}
 
-	local := append([]string{t.Host}, t.Hosts...)
+	local := t.mapped()
 	if h := t.proxyHost(); h != "" {
 		local = append(local, h)
 	}
@@ -41,6 +44,14 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 
 	if t.H3LocalRoots {
 		prefs = append(prefs, `user_pref("network.http.http3.disable_when_third_party_roots_found", false);`)
+	}
+
+	if t.Resolve && runtime.GOOS != "darwin" {
+		if t.DoH == "" {
+			return nil, fmt.Errorf("firefox looks the hosts up through the capture tool's DoH endpoint on %s, but the target has none", runtime.GOOS)
+		}
+
+		prefs = append(prefs, firefoxTRR(t)...)
 	}
 
 	if t.Proxy != nil {
@@ -105,6 +116,27 @@ func firefoxProfile(dir string, t Target, headless bool) ([]string, error) {
 	}
 
 	return args, nil
+}
+
+// firefoxTRR are the prefs having Firefox resolve every name through its
+// own DoH client (TRR) only, at t.DoH (Browser.Conditions says why).
+// Firefox asks for HTTPS records only through TRR or a system resolver
+// that answers them; network.dns.echconfig.enabled, on by default, has it
+// use their ECH configs.
+func firefoxTRR(t Target) []string {
+	return []string{
+		`user_pref("network.trr.mode", 3);`,
+		`user_pref("network.trr.uri", "` + firefoxTRRURI(t) + `");`,
+		`user_pref("network.trr.bootstrapAddr", "` + t.Addr + `");`,
+		`user_pref("network.trr.allow-rfc1918", true);`,
+		`user_pref("network.trr.confirmationNS", "skip");`,
+	}
+}
+
+// firefoxTRRURI is t.DoH as network.trr.uri takes it: without the URI
+// template's {?dns}, since TRR sends its queries by POST.
+func firefoxTRRURI(t Target) string {
+	return strings.TrimSuffix(t.DoH, "{?dns}")
 }
 
 // firefoxOverride is a cert_override.txt accepting the server certificate for

@@ -144,6 +144,10 @@ func regenerate(data, captured []byte, dir string) ([]byte, []byte, error) {
 		return nil, nil, fmt.Errorf("tls.clientAuth: %w", err)
 	}
 
+	if p.TLS.RealECH, err = realECH(dir, p); err != nil {
+		return nil, nil, fmt.Errorf("tls.realEch: %w", err)
+	}
+
 	if p.Proxy != nil {
 		if p.Proxy.HTTPS, err = proxyHTTPS(dir, p); err != nil {
 			return nil, nil, fmt.Errorf("proxy.https: %w", err)
@@ -309,7 +313,9 @@ func (sh *shape) add(conn *capture.Connection) error {
 		return fmt.Errorf("encrypted_client_hello present %v, in the samples %v", got != nil, want != nil)
 	}
 
-	if got == nil {
+	if got == nil || conn.ECH != nil {
+		// A real ECH extension (the ech capture) is no GREASE sample:
+		// realECH derives what it says.
 		return nil
 	}
 

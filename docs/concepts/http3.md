@@ -35,6 +35,15 @@ Once a site has used HTTP/3, a request that finds no QUIC connection opens
 a new one. One exception: after the server closes a connection, Firefox
 sends the next request on a new TCP connection and opens QUIC after it.
 
+**Hosts with Encrypted Client Hello.** Chrome and Firefox on macOS took
+no HTTP/3 from `Alt-Svc` for a host whose ECH config they used: every
+request stayed on TCP with ECH. Their profiles do the same: a response on
+a connection whose ECH the server accepted teaches no `Alt-Svc`
+(`tls.realEch.altSvcIgnored`). Profiles where this was not captured
+(Chrome on Linux, Edge, Brave, Firefox on Windows and Linux) move such a
+host to HTTP/3 like any other. See
+[What mimicry does: Encrypted Client Hello](what-mimicry-does.md#encrypted-client-hello).
+
 QUIC looks up the host through `Config.Resolver`. `Config.DialContext` is
 not used for QUIC: to send HTTP/3 from the address your TCP leaves from,
 set `Config.LocalAddrs` (one IPv4 and one IPv6 at most), which binds TCP,
@@ -190,7 +199,12 @@ whole range), so it meets the same failures; mimicry keeps Chrome's draw.
 ## Not supported
 
 - Finding HTTP/3 through DNS HTTPS records. Only the `Alt-Svc` header is
-  used.
+  used. Profiles that look the records up for ECH ignore their `alpn`, so
+  a site whose record names `h3` stays on TCP until `Alt-Svc` moves it;
+  Chrome and Firefox, given such a record with an ECH config, went to
+  QUIC at once ([decision 0068](../decisions/0068-real-ech.md)).
+- Encrypted Client Hello over QUIC. A QUIC ClientHello never carries a
+  real ECH config: Chrome's and Firefox's carry the GREASE extension.
 - Connection migration for Firefox and Safari, path MTU probing and ECN.
   DATAGRAM frames only carry CONNECT-UDP to a proxy, never a site's
   traffic.
@@ -210,4 +224,5 @@ fallback), [0011](../decisions/0011-connection-partitioning.md)
 rate), [0045](../decisions/0045-udp-receive-buffer-default.md) (receive
 buffer), [0049](../decisions/0049-streams-blocked.md) (STREAMS_BLOCKED),
 [0050](../decisions/0050-quic-resumption-and-dial-delays.md) (QUIC
-resumption, dial delays, close on GOAWAY).
+resumption, dial delays, close on GOAWAY), [0068](../decisions/0068-real-ech.md)
+(ECH and `Alt-Svc`).

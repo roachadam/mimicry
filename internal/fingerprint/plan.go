@@ -90,6 +90,12 @@ type Hello struct {
 	// X25519Reuse sends X25519MLKEM768's X25519 key as the x25519 share
 	// too (profile tls.x25519Reuse): every hello with both shares.
 	X25519Reuse bool
+	// Inner, when set, is the ClientHelloInner this hello carries as its
+	// ClientHelloOuter (ECHHello), whose encrypted_client_hello is then
+	// real; GREASEPSK has the outer hello end with a GREASE
+	// pre_shared_key sized from the inner one's.
+	Inner     *InnerHello
+	GREASEPSK bool
 }
 
 // Hello returns a new connection's ClientHello. For a shuffled profile, it

@@ -6,6 +6,10 @@ github.com/molecule-man/go-brrr v1.2.0 h1:dOJU45BC3Gc2WXoxAW0rgCAgVuu2gruAOGncfi
 github.com/molecule-man/go-brrr v1.2.0/go.mod h1:7ybW6/7gA3oKY45jOfVNjSJDtrr6ea4tzbsTkjmQDC4=
 github.com/roachadam/utls v0.0.0-20261107020059-5e9089fc4824 h1:YeElZxTxOMd37iqS2YSsaTFzmIgq8C8+w7SbUbZI0+8=
 github.com/roachadam/utls v0.0.0-20261107020059-5e9089fc4824/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
+github.com/roachadam/utls v0.0.0-20261110052921-d88ff1a34143 h1:bywytaFZfc7NEQuagC8RaGk4uj3zT2ypEoPys7B4kt4=
+github.com/roachadam/utls v0.0.0-20261110052921-d88ff1a34143/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
+github.com/roachadam/utls v0.0.0-20261110054027-c9772780426f h1:eDHY4pdbCV0F/qToJ3evlqB8lMygLdXg5asRvu2yO/w=
+github.com/roachadam/utls v0.0.0-20261110054027-c9772780426f/go.mod h1:tYowH3Rjl8RTBCZkNEyYe9dEz+3jpbsobGtHUf7quuw=
 golang.org/x/crypto v0.58.0 h1:COkYLr4k7nDI4r6QtMML2AfzeIswWHAJthLS6K/M/54=
 golang.org/x/crypto v0.58.0/go.mod h1:Xh+kl5A+M0gMiWDytH2Hhr5Z7WbNCpv/eB/EFgfSk+w=
 golang.org/x/net v0.61.0 h1:RR+6j/BTBCrggOLugxa+66R8FvoN6MHlzDlZIbN9YFw=

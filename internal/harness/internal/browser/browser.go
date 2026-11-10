@@ -5,6 +5,7 @@ package browser
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -74,9 +77,34 @@ type Target struct {
 	// on Linux; on macOS and Windows they read the system's store, where
 	// the capture tool put it for the scenario.
 	ClientCert *ClientIdentity
+	// Resolve has the browser look Host and Hosts up in DNS instead of
+	// mapping them to Addr, so it sees their HTTPS records (the ech
+	// scenario): through DoH where UsesDoH says so, otherwise (Firefox and
+	// Safari on macOS) through the system's resolver, which sends *.test
+	// to the capture tool's DNS stub.
+	Resolve bool
+	// DoH is the DNS-over-HTTPS template a browser that UsesDoH resolves
+	// with when Resolve is set ("https://<DoHHost>:port/dns-query{?dns}"):
+	// the Chromium browsers in secure mode, Firefox TRR-only. Its host is
+	// mapped to Addr.
+	DoH string
 	// debugPort is Firefox's remote debugging port, for ProxyAuth or
 	// ClickTitle.
 	debugPort int
+}
+
+// DoHHost is the name of the capture tool's DNS-over-HTTPS endpoint
+// (Target.DoH).
+const DoHHost = "doh.mimicry.test"
+
+// mapped are the hosts the browser maps to Addr itself: every capture
+// host, unless the browser looks them up (Resolve).
+func (t Target) mapped() []string {
+	if t.Resolve {
+		return nil
+	}
+
+	return append([]string{t.Host}, t.Hosts...)
 }
 
 // Loopback is Target.Addr unless the capture tool serves the network.
@@ -89,23 +117,33 @@ const h3UnusedPort = 1
 // Conditions describes, with reasons, what b changes from its defaults for
 // t beyond host mapping and certificate acceptance. A capture records them.
 func (b *Browser) Conditions(t Target) []string {
+	var conditions []string
+
+	if t.Resolve && chromium(b.Name) {
+		conditions = append(conditions, "dns_over_https.mode=secure, dns_over_https.templates="+t.DoH+" (Local State): Chrome on macOS with a resolver for *.test (/etc/resolver/test, the capture tool's DNS stub) resolves through the system's getaddrinfo, which looks up no HTTPS records (Chrome 157: A and AAAA only, then GREASE ECH); with secure DNS it asks its DoH server for HTTPS records and uses their ECH configs")
+	}
+
+	if t.Resolve && b.Name == "firefox" && b.UsesDoH() {
+		conditions = append(conditions, "network.trr.mode=3, network.trr.uri="+firefoxTRRURI(t)+", network.trr.bootstrapAddr="+t.Addr+", network.trr.allow-rfc1918=true, network.trr.confirmationNS=skip: off macOS the capture tool changes nothing in the system's DNS, so nothing sends *.test to its DNS stub; Firefox resolves through its own DoH client (TRR) only, at the capture tool's DoH endpoint, which answers the hosts' A and HTTPS records (their ECH configs); bootstrapAddr is the endpoint's address, allow-rfc1918 accepts its loopback answers (TRR refuses them otherwise), and confirmation is skipped because the endpoint answers names under .test only")
+	}
+
 	if !t.H3LocalRoots {
-		return nil
+		return conditions
 	}
 
 	switch {
 	case chromium(b.Name):
-		return []string{
-			"--origin-to-force-quic-on=" + chromeQUICOrigins(t) + ": Chrome refuses a QUIC certificate not issued by a known root (ERR_QUIC_CERT_ROOT_NOT_KNOWN, net/quic/crypto/proof_verifier_chromium.cc) unless its host is among these origins' hosts; it forces QUIC only on these origins, whose port the page never uses, so HTTP/3 is still discovered through Alt-Svc",
-		}
+		return append(conditions,
+			"--origin-to-force-quic-on="+chromeQUICOrigins(t)+": Chrome refuses a QUIC certificate not issued by a known root (ERR_QUIC_CERT_ROOT_NOT_KNOWN, net/quic/crypto/proof_verifier_chromium.cc) unless its host is among these origins' hosts; it forces QUIC only on these origins, whose port the page never uses, so HTTP/3 is still discovered through Alt-Svc",
+		)
 
 	case b.Name == "firefox":
-		return []string{
+		return append(conditions,
 			`network.http.http3.disable_when_third_party_roots_found=false: Firefox abandons an HTTP/3 connection whose certificate chain ends at a root that is not built in (Http3Session::Authenticated), as the capture CA's, trusted through security.enterprise_roots.enabled`,
-		}
+		)
 	}
 
-	return nil
+	return conditions
 }
 
 // chromeQUICOrigins are the origins of --origin-to-force-quic-on for t:
@@ -189,6 +227,14 @@ type Browser struct {
 // imports nothing of the module's (its depguard rule).
 func chromium(name string) bool {
 	return name == "chrome" || name == "edge" || name == "brave"
+}
+
+// UsesDoH reports whether b looks a Resolve target's hosts up through
+// Target.DoH: the Chromium browsers everywhere, and Firefox off macOS,
+// where nothing sends the system's lookups of *.test to the capture
+// tool's DNS stub.
+func (b *Browser) UsesDoH() bool {
+	return chromium(b.Name) || b.Name == "firefox" && runtime.GOOS != "darwin"
 }
 
 // chromeAgent are the browsers whose user agent is Chrome's, word for word:
@@ -556,12 +602,32 @@ func (s *Session) quit() error {
 
 func chromeArgs(dir string, t Target, headless bool) ([]string, error) {
 	rules := make([]string, 0, 2+len(t.Hosts))
-	for _, h := range append([]string{t.Host}, t.Hosts...) {
+	for _, h := range t.mapped() {
 		rules = append(rules, "MAP "+h+" "+t.Addr)
 	}
 
 	if h := t.proxyHost(); h != "" {
 		rules = append(rules, "MAP "+h+" "+Loopback)
+	}
+
+	if t.Resolve {
+		// Secure DNS from a fresh profile's Local State, read at launch;
+		// the DoH server's own name is mapped like a capture host.
+		rules = append(rules, "MAP "+DoHHost+" "+t.Addr)
+
+		state, err := json.Marshal(map[string]any{
+			"dns_over_https": map[string]string{
+				"mode":      "secure",
+				"templates": t.DoH,
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if err := os.WriteFile(filepath.Join(dir, "Local State"), state, 0o600); err != nil {
+			return nil, err
+		}
 	}
 
 	args := []string{
