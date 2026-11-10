@@ -6,13 +6,14 @@ TLS cipher list or a cookie rule.
 
 **Covered:** `brave-157-macos`, `brave-157-windows`, `brave-157-linux`,
 `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
-`edge-157-windows`, `firefox-158-macos`, `firefox-158-windows`,
-`firefox-159-macos`, `firefox-159-windows`, `firefox-159-linux`,
-`firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
-and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
-second Mac kept on macOS 26, as were Firefox 159, Edge 157 and Brave 157
-for macOS (that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and
+`chrome-157-macos`, `chrome-157-linux`, `chrome-157-ios`,
+`edge-157-macos`, `edge-157-windows`, `firefox-158-macos`,
+`firefox-158-windows`, `firefox-159-macos`, `firefox-159-windows`,
+`firefox-159-linux`, `firefox-159-ios`, `safari-27-macos`,
+`safari-26-macos`, `safari-27-ios` and `safari-26-ios`. Safari 27 was
+captured on macOS 27; Safari 26 on a second Mac kept on macOS 26, as were
+Chrome 157, Firefox 159, Edge 157 and Brave 157 for macOS (that Mac on
+26.2 by Edge's run); Chrome 156, Firefox 158 and
 159, Edge 157 and Brave 157 for Windows on Windows 10; Chrome
 157.0.8103.38, Firefox 159.0.1 and Brave 1.99.55 for Linux, Google's,
 Mozilla's and Brave's own builds, in WSL2 (Ubuntu 24.04) on that Windows
@@ -51,8 +52,8 @@ rows with the 2026-11-04 `urls` captures (0057), `chrome-157-linux` and
 `firefox-159-linux` with their 2026-11-05 captures (0058),
 `edge-157-macos` with its 2026-11-06 captures (0059), the
 `tls.clientAuth` rows with the 2026-11-08 `client-cert-*` captures
-(0064), and the Brave profiles with their 2026-11-09 captures (0067).
-The "Not covered"
+(0064), the Brave profiles with their 2026-11-09 captures (0067), and
+`chrome-157-macos` with its 2026-11-09 quick refresh. The "Not covered"
 list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
@@ -86,6 +87,39 @@ its own too (two samples, 2026-10-28), so its resumption rows are its own
 difference beyond the user agent and `sec-ch-ua`
 ([report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
 and `realcheck` showed none against the real Chrome 156.
+
+**`chrome-157-macos`** (quick refresh, 2026-11-09, Chrome 157.0.8103.39 on
+the second Mac, macOS 26.2,
+[report](../internal/harness/reports/refresh-chrome-157-macos-2026-11-09.md))
+has no column of its own either. Read its class from `chrome-155-macos`'s
+column. Rows whose evidence is a quick-refresh scenario (`page`, `http1`,
+`kinds`, `kinds-http1`, `kinds-plain`, `websocket`, `websocket-h2`,
+`h3-discovery`, `h3-page`, `hrr`, `client-hints`) are its own **W**: three
+samples for `page`, `h3-discovery`, `h3-page`, `hrr` and `client-hints`,
+one for the others. Every other row is inherited: `I: from chrome-156`
+where Chrome 156 took the scenario itself (`resume`, `urls`, the cookie
+twins, `bodiless`, `h2-upload`, `http1-upload`, `h3-resume-table`,
+`h3-streams-blocked`, `client-cert-*`, `proxy-https*`), `I: from
+chrome-155` for the rest. Nothing differs from `chrome-156-macos` beyond
+the version tokens but:
+
+- **W, client hints:** `fullVersion` 157.0.8103.39 and the second Mac's
+  machine (macOS 26.2.0, arm, 16 GB, reduced motion and transparency,
+  viewport 1200×1195), as `edge-157-macos`'s; Chrome 156's `client-hints`
+  capture was taken on this Mac (macOS 27.0.1, 32 GB, 1200×953). `width`
+  100, as Chrome 156's.
+- **W, `quic.crypto.head`:** 56–86 (Chrome 156: 55–86), the range of
+  quiche's random head length over the samples.
+- **Pinned as Chrome 156's:** the server's Initial acknowledged in 2 of
+  21 full handshakes and two PRIORITY_UPDATEs read 1 ms after their
+  HEADERS (h3gen's `sampleGaps`), the client-hints third party's
+  connection and `width` (`h3Gaps`); through the inherited captures the
+  plain-HTTP page's link navigation (`proxyPlainGaps`) and the pooled
+  host ending in a dot (`urlsKnown`), as Chrome 156's and 155's.
+
+`realcheck` on the second Mac found no difference between Chrome 157 and
+`chrome-157-macos` on the echo endpoints (tls.peet.ws, browserleaks' TLS
+and HTTP/2 pages, impersonate.pro over HTTP/2 and HTTP/3).
 
 **`chrome-156-windows`** (2026-10-29, Chrome 156.0.8078.80 on Windows 10,
 [report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
@@ -976,7 +1010,8 @@ derived by kindsgen from the `urls` captures (2026-11-04, 3 samples each,
 all identical within a browser): Chrome 156 and Firefox 159 on macOS and
 Windows, Safari 27 and Safari 26 on macOS: **W**. `safari-27-ios`,
 `chrome-157-ios` and `firefox-159-ios` inherit Safari 27's, `safari-26-ios`
-Safari 26's: **I**. `chrome-155-macos`, `firefox-158-macos` and
+Safari 26's, `chrome-157-macos` Chrome 156's on macOS: **I**.
+`chrome-155-macos`, `firefox-158-macos` and
 `firefox-158-windows` have none (see "Not covered"). The page has each
 browser fetch and navigate to (an iframe) 43 URLs; Windows matched macOS
 on all of them. kindsgen refuses samples that disagree, a fetch and a
@@ -1438,7 +1473,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
 - **Edge's second Initial in 1 byte** (Edge and Brave): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte (Brave: 7 of 150 on macOS, 12 of 150 on Windows, 8 of 156 on Linux), all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Brave's late Initial ACK out of order** (Brave on macOS): the one connection of 21 that acknowledged the server's Initial sent that Initial packet after the Handshake and 1-RTT packets it led; mimicry never acknowledges an Initial (`ackInitial` false); detection low (h3gen's `coalescedOrder` pin).
-- **Chrome's late PRIORITY_UPDATE** (Chrome 156, Brave on Windows and Linux): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
+- **Chrome's late PRIORITY_UPDATE** (Chrome 156 and 157, Brave on Windows and Linux): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
 - **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
@@ -1835,7 +1870,7 @@ plain-HTTP requests do; Safari 26 copies Safari 27 there (not captured).
 `TestDeriveReproducesProfiles` (in `cmd/refresh`) derives every built-in
 profile from its own captures and requires it unchanged. The last quick
 refresh is the
-[Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md);
+[Chrome 157 report](../internal/harness/reports/refresh-chrome-157-macos-2026-11-09.md);
 the first full refresh on Windows the
 [Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md)
 (Firefox's: the

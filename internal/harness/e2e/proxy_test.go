@@ -23,7 +23,6 @@ import (
 	"github.com/roachadam/mimicry/internal/harness/internal/diff"
 	"github.com/roachadam/mimicry/internal/harness/internal/proxy"
 	"github.com/roachadam/mimicry/internal/harness/internal/server"
-	"github.com/roachadam/mimicry/internal/harness/internal/testprofiles"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -164,7 +163,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 					}
 				}
 
-				seen := map[string]bool{}
+				src, seen := capture.Source(p, "proxy-plain"), map[string]bool{}
 
 				for _, g := range got {
 					if slices.ContainsFunc(want, func(sample []capture.H1Request) bool {
@@ -176,8 +175,8 @@ func TestProxyMatchesBrowser(t *testing.T) {
 					}
 
 					line := portless([]string{g.Line})[0]
-					if why, ok := proxyPlainGaps[name+" "+line]; ok {
-						seen[name+" "+line] = true
+					if why, ok := proxyPlainGaps[src+" "+line]; ok {
+						seen[src+" "+line] = true
 						t.Logf("known gap: %s: %s", line, why)
 
 						continue
@@ -187,7 +186,7 @@ func TestProxyMatchesBrowser(t *testing.T) {
 				}
 
 				for k := range proxyPlainGaps {
-					if strings.HasPrefix(k, name+" ") && !seen[k] {
+					if strings.HasPrefix(k, src+" ") && !seen[k] {
 						t.Errorf("listed gap %q no longer appears", k)
 					}
 				}
@@ -250,8 +249,9 @@ func TestProxyMatchesBrowser(t *testing.T) {
 
 // proxyPlainGaps are forwarded plain-HTTP requests of the capture page
 // known to differ from every sample, as "<profile> <request line>" (ports
-// as PORT), with why: the request is not compared. A listed gap that no
-// longer appears fails.
+// as PORT), with why: the request is not compared. The profile is the
+// one that took the capture (capture.Source), so a pin applies to every
+// profile inheriting it. A listed gap that no longer appears fails.
 var proxyPlainGaps = func() map[string]string {
 	const (
 		nav    = "GET http://capture.mimicry.test:PORT/nav HTTP/1.1"
@@ -266,11 +266,11 @@ var proxyPlainGaps = func() map[string]string {
 	)
 
 	gaps := map[string]string{}
-	for _, name := range []string{"firefox-158-macos", "firefox-158-windows", "firefox-159-macos", "firefox-159-windows", "firefox-159-linux"} {
+	for _, name := range []string{"firefox-158-macos", "firefox-158-windows", "firefox-159-linux"} {
 		gaps[name+" GET http://capture.mimicry.test:PORT/app.js HTTP/1.1"] = "Firefox sent no Priority for the page's script, last in its body; kinds-plain's blocking script, in the head, went at u=2, the profile's one script list"
 	}
 
-	for _, name := range []string{"chrome-155-macos", testprofiles.InheritingName, "chrome-156-macos", "chrome-156-windows", "chrome-157-linux", "chrome-157-ios", "edge-157-macos", "edge-157-windows", "brave-157-macos", "brave-157-windows", "brave-157-linux", "firefox-158-macos", "firefox-159-ios", "firefox-158-windows", "firefox-159-macos", "firefox-159-windows", "firefox-159-linux", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
+	for _, name := range []string{"chrome-155-macos", "chrome-156-windows", "chrome-157-linux", "chrome-157-ios", "edge-157-macos", "edge-157-windows", "brave-157-macos", "brave-157-windows", "brave-157-linux", "firefox-158-macos", "firefox-159-ios", "firefox-158-windows", "firefox-159-linux", "safari-26-macos", "safari-27-macos", "safari-26-ios", "safari-27-ios"} {
 		gaps[name+" "+nav] = linkNav
 	}
 

@@ -188,7 +188,8 @@ type httpsProxyCapture struct {
 	conns [][]capture.ProxyTLS
 }
 
-// loadHTTPSProxy reads p's capture of the https:// proxy scenario name.
+// loadHTTPSProxy reads p's capture of the https:// proxy scenario name,
+// rewritten to p's version where inherited.
 func loadHTTPSProxy(t *testing.T, p *profile.Spec, name string) httpsProxyCapture {
 	t.Helper()
 
@@ -197,10 +198,6 @@ func loadHTTPSProxy(t *testing.T, p *profile.Spec, name string) httpsProxyCaptur
 	path, file, rw := capturePath(t, p, name, ".proxytls.json.gz")
 	skipIfMissing(t, path, file)
 
-	if rw != nil {
-		t.Fatalf("%s is inherited, and its hellos cannot be rewritten", file)
-	}
-
 	conns, err := capture.LoadProxyTLS(path)
 	if err != nil {
 		t.Fatal(err)
@@ -208,6 +205,10 @@ func loadHTTPSProxy(t *testing.T, p *profile.Spec, name string) httpsProxyCaptur
 
 	if len(conns) != len(reqs) {
 		t.Fatalf("%s: %d samples, its proxy trace %d", file, len(conns), len(reqs))
+	}
+
+	for _, sample := range conns {
+		rw.ProxyTLS(sample)
 	}
 
 	return httpsProxyCapture{
