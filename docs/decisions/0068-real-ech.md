@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-10
-- Commits: `22ebfb3`
+- Commits: the merge of PR #124, filled in on main
 
 **Summary.** A profile with `tls.realEch` looks up the HTTPS record (RFC
 9460) of every host it connects to directly over TLS, and to a host whose
@@ -215,7 +215,10 @@ fake nameserver.
   A and HTTPS and Firefox HTTPS and A): only the resolver sees the
   difference. The query is plain DNS to the system's nameservers, where a
   browser set to secure DNS would use DoH. `Config.DialContext` does not
-  carry it; `Config.Resolver.Dial` does.
+  carry it; `Config.Resolver.Dial` does. With `DialContext` set and no
+  `Resolver.Dial`, nothing is looked up and every server gets GREASE, as
+  through a proxy: a lookup that bypassed the caller's dialer could reveal
+  the hosts over another path.
 - The handshake waits for the lookup: a slow resolver delays each new
   host's first connection up to 5 s, once per 30 s for a failing one.
 - There is no option to turn it off: a browser has none. A caller who

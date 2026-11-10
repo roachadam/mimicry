@@ -1,9 +1,11 @@
 package handshake
 
 import (
+	"crypto/hpke"
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"golang.org/x/crypto/cryptobyte"
 
@@ -43,14 +45,17 @@ const echConfigVersion = 0xfe0d
 
 // SelectECH picks the ECH config of list, the ech SvcParam of a server's
 // HTTPS record, that the browser of r encrypts its inner hello to (profile
-// tls.realEch): the first, in the list's order, with a measured KEM, the
-// version RFC 9849 defines and no mandatory extension (RFC 9849, section
-// 6.1). It returns nil for a list with none the browser uses, which is
-// then sent the ClientHello as to any server. A list that does not parse
-// is ErrMalformedECH. A config the browser was never seen to use or pass
-// over, ahead of the one picked, and a picked config whose first HPKE
-// suite (the one the browser takes) is not among r.CipherSuites, are
-// ErrNotMeasured: what the browser would send is unknown.
+// tls.realEch): the first, in the list's order, with a measured KEM, among
+// those the handshake can use, which it picks as uTLS's pickECHConfig
+// does: the version RFC 9849 defines, a public name that is a DNS name, no
+// mandatory extension, a public key its KEM reads, and a suite whose KDF
+// and AEAD it has (RFC 9849, section 6.1). It returns nil for a list with
+// none the browser uses, which is then sent the ClientHello as to any
+// server. A list that does not parse is ErrMalformedECH. A config the
+// browser was never seen to use or pass over, ahead of the one picked, and
+// a picked config whose first usable HPKE suite (the one the handshake
+// takes) is not among r.CipherSuites, are ErrNotMeasured: what the browser
+// would send is unknown.
 func SelectECH(list []byte, r *profile.RealECH) (*ECHConfig, error) {
 	s := cryptobyte.String(list)
 
@@ -81,17 +86,17 @@ func SelectECH(list []byte, r *profile.RealECH) (*ECHConfig, error) {
 			return nil, err
 		}
 
-		switch {
-		case c.mandatory:
+		if !c.usable {
 			continue
+		}
+
+		switch {
 		case slices.Contains(r.SkippedKEMs, c.kem):
 			continue
 		case !slices.Contains(r.KEMs, c.kem):
 			return nil, fmt.Errorf("%w: an ECH config with KEM %s, which the profile's browser was never seen to use or pass over (tls.realEch.kems)", headerorder.ErrNotMeasured, c.kem)
-		}
-
-		if !slices.Contains(r.CipherSuites, c.suites[0]) {
-			return nil, fmt.Errorf("%w: an ECH config whose first HPKE suite is %s/%s, which the profile's browser was never seen to use (tls.realEch.cipherSuites)", headerorder.ErrNotMeasured, c.suites[0].KDF, c.suites[0].AEAD)
+		case !slices.Contains(r.CipherSuites, c.suite):
+			return nil, fmt.Errorf("%w: an ECH config whose first usable HPKE suite is %s/%s, which the profile's browser was never seen to use (tls.realEch.cipherSuites)", headerorder.ErrNotMeasured, c.suite.KDF, c.suite.AEAD)
 		}
 
 		var b cryptobyte.Builder
@@ -112,14 +117,20 @@ func SelectECH(list []byte, r *profile.RealECH) (*ECHConfig, error) {
 // echConfig is what SelectECH reads of an ECHConfig.
 type echConfig struct {
 	kem        profile.Code
-	suites     []profile.HPKESuite
 	publicName string
-	// mandatory reports an extension the client must understand (the top
-	// bit of its type, RFC 9849, section 4.2); none is defined.
-	mandatory bool
+	// usable says the handshake can encrypt to it, as uTLS's
+	// pickECHConfig decides, with suite: its first suite the handshake
+	// has.
+	usable bool
+	suite  profile.HPKESuite
 }
 
-// parseECHConfig reads the contents of a version 0xfe0d ECHConfig.
+// hpkeExportOnly is HPKE's export-only AEAD, which cannot seal (RFC 9180,
+// section 7.3).
+const hpkeExportOnly = 0xffff
+
+// parseECHConfig reads the contents of a version 0xfe0d ECHConfig and
+// decides, as uTLS's pickECHConfig does, whether the handshake can use it.
 func parseECHConfig(s cryptobyte.String) (echConfig, error) {
 	var (
 		c                       echConfig
@@ -129,9 +140,9 @@ func parseECHConfig(s cryptobyte.String) (echConfig, error) {
 		maxNameLength           uint8
 	)
 
-	if !s.ReadUint8(&configID) || !s.ReadUint16(&kem) || !s.ReadUint16LengthPrefixed(&key) || key.Empty() ||
-		!s.ReadUint16LengthPrefixed(&suites) || suites.Empty() || len(suites)%4 != 0 ||
-		!s.ReadUint8(&maxNameLength) || !s.ReadUint8LengthPrefixed(&name) || name.Empty() ||
+	if !s.ReadUint8(&configID) || !s.ReadUint16(&kem) || !s.ReadUint16LengthPrefixed(&key) ||
+		!s.ReadUint16LengthPrefixed(&suites) || len(suites)%4 != 0 ||
+		!s.ReadUint8(&maxNameLength) || !s.ReadUint8LengthPrefixed(&name) ||
 		!s.ReadUint16LengthPrefixed(&exts) || !s.Empty() {
 		return c, ErrMalformedECH
 	}
@@ -139,17 +150,7 @@ func parseECHConfig(s cryptobyte.String) (echConfig, error) {
 	c.kem = profile.Code(kem)
 	c.publicName = string(name)
 
-	for !suites.Empty() {
-		var kdf, aead uint16
-
-		suites.ReadUint16(&kdf)
-		suites.ReadUint16(&aead)
-
-		c.suites = append(c.suites, profile.HPKESuite{
-			KDF:  profile.Code(kdf),
-			AEAD: profile.Code(aead),
-		})
-	}
+	mandatory := false
 
 	for !exts.Empty() {
 		var (
@@ -161,8 +162,78 @@ func parseECHConfig(s cryptobyte.String) (echConfig, error) {
 			return c, ErrMalformedECH
 		}
 
-		c.mandatory = c.mandatory || typ&0x8000 != 0
+		// The top bit marks an extension the client must understand
+		// (RFC 9849, section 4.2); none is defined.
+		mandatory = mandatory || typ&0x8000 != 0
+	}
+
+	if !validDNSName(c.publicName) || mandatory {
+		return c, nil
+	}
+
+	k, err := hpke.NewKEM(kem)
+	if err != nil {
+		return c, nil //nolint:nilerr // a KEM the handshake lacks: the config is skipped
+	}
+
+	if _, err := k.NewPublicKey(key); err != nil {
+		return c, nil //nolint:nilerr // a key that does not parse: the config is skipped
+	}
+
+	for !suites.Empty() {
+		var kdf, aead uint16
+
+		suites.ReadUint16(&kdf)
+		suites.ReadUint16(&aead)
+
+		if _, err := hpke.NewKDF(kdf); err != nil || aead == hpkeExportOnly {
+			continue
+		}
+
+		if _, err := hpke.NewAEAD(aead); err != nil {
+			continue
+		}
+
+		c.usable = true
+		c.suite = profile.HPKESuite{
+			KDF:  profile.Code(kdf),
+			AEAD: profile.Code(aead),
+		}
+
+		break
 	}
 
 	return c, nil
+}
+
+// validDNSName is uTLS's check of a public name (ech.go): dot-separated
+// LDH labels, at least two, at most 253 bytes. Like it, it lets an IPv4
+// literal through.
+func validDNSName(name string) bool {
+	if len(name) > 253 {
+		return false
+	}
+
+	labels := strings.Split(name, ".")
+	if len(labels) <= 1 {
+		return false
+	}
+
+	for _, l := range labels {
+		if l == "" {
+			return false
+		}
+
+		for i, r := range l {
+			if r == '-' && (i == 0 || i == len(l)-1) {
+				return false
+			}
+
+			if (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '-' {
+				return false
+			}
+		}
+	}
+
+	return true
 }

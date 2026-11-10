@@ -69,7 +69,9 @@ type Config struct {
 	// Resolver looks host names up: for dials without DialContext, and to
 	// find another host's HTTP/2 connection a request may take
 	// (Coalesce, profile.CoalesceOnLookup). Nil uses
-	// net.DefaultResolver.
+	// net.DefaultResolver. A profile with tls.realEch also looks up HTTPS
+	// records through it (its Dial, else the system's nameservers);
+	// with DialContext set and no Dial, none (startECHLookup).
 	Resolver *net.Resolver
 	// Proxy picks each request's proxy, as http.Transport's does; nil, or
 	// a nil URL, connects directly.
@@ -347,7 +349,12 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		e.tickets = store.Tickets(p.TLS.Resumption.TLS12, clock)
 	}
 
-	if plan.RealECH() != nil {
+	// A DialContext the lookups would bypass, with no Resolver.Dial to
+	// send them its way, means no lookups: the GREASE extension, as
+	// through a proxy.
+	lookups := cfg.DialContext == nil || cfg.Resolver != nil && cfg.Resolver.Dial != nil
+
+	if plan.RealECH() != nil && lookups {
 		e.https = httpsrr.New(httpsrr.Config{
 			Resolver: cfg.Resolver,
 			Clock:    clock,

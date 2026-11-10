@@ -370,8 +370,10 @@ sends the usual hello. A config the browser was never seen to use is
 The query is plain DNS, over UDP (TCP when the answer is truncated),
 through `Config.Resolver`'s `Dial` when you set one, otherwise to the
 system's nameservers (`/etc/resolv.conf`, or the network adapters' on
-Windows): `Config.DialContext` does not carry it. The address lookup
-stays `Config.Resolver`'s, so a host gets A, AAAA and HTTPS queries.
+Windows). `Config.DialContext` never carries it, so with `DialContext`
+set and no `Resolver.Dial` nothing is looked up and every server gets the
+GREASE extension, as through a proxy. The address lookup stays
+`Config.Resolver`'s, so a host gets A, AAAA and HTTPS queries.
 Answers are kept per Transport for their TTL (a day at most), a missing
 record for the zone's negative TTL and a failed lookup for 30 s. The
 handshake waits for the lookup, up to 5 s.

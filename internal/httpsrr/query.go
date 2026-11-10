@@ -20,6 +20,10 @@ const (
 	// ednsSize is the UDP payload size the query advertises (EDNS(0)), the
 	// DNS flag day 2020 value Go's resolver uses too.
 	ednsSize = 1232
+	// maxDatagram is the largest DNS message a datagram can carry: an
+	// answer larger than the query advertised is read whole, not cut short
+	// into one that never parses.
+	maxDatagram = 65535
 	// minTryTimeout is the least time one nameserver is given.
 	minTryTimeout = time.Second
 	// maxCNAMEs bounds the CNAME chain followed within an answer.
@@ -240,7 +244,7 @@ func packetRoundTrip(conn net.Conn, msg []byte, id uint16, q dnsmessage.Question
 		return response{}, err
 	}
 
-	buf := make([]byte, ednsSize)
+	buf := make([]byte, maxDatagram)
 
 	for {
 		n, err := conn.Read(buf)

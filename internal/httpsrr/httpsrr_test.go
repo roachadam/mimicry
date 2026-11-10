@@ -446,6 +446,28 @@ func TestLookup(t *testing.T) {
 			},
 		},
 		{
+			name:     "UDP answer larger than advertised, without TC, read whole",
+			host:     "example.com",
+			port:     443,
+			wantName: "example.com.",
+			answer: answers(reply{
+				answers: []dnsmessage.Resource{
+					httpsRR("example.com.", 300, 1, ".",
+						param(dnsmessage.SVCParamECH, make([]byte, 2*ednsSize)...),
+					),
+				},
+			}),
+			steps: []lookupStep{
+				{
+					want: Record{
+						ECH: make([]byte, 2*ednsSize),
+					},
+					wantOK:  true,
+					queries: 1,
+				},
+			},
+		},
+		{
 			name:     "CNAME chain, cached for its smallest TTL",
 			host:     "example.com",
 			port:     443,
