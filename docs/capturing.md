@@ -96,7 +96,8 @@ for the keychain on screen.
 
 - **Chrome, Edge, Brave and Firefox** run with throwaway profiles (no
   extensions, default settings) and resolve the capture hosts to
-  127.0.0.1 themselves; Chrome, Edge and Brave (Chromium, launched with
+  127.0.0.1 themselves (but for the [ECH scenarios](#ech-scenarios),
+  whose hosts they look up in DNS); Chrome, Edge and Brave (Chromium, launched with
   the same flags) ignore certificate errors and Firefox gets a certificate
   exception (or, for pages across several hosts, trusts the system's
   roots). Nothing on the system changes. Brave keeps its Shields'
@@ -118,6 +119,9 @@ for the keychain on screen.
   ```sh
   sudo mkdir -p /etc/resolver && printf 'nameserver 127.0.0.1\nport 15353\n' | sudo tee /etc/resolver/test
   ```
+
+  Firefox on macOS needs it too for the `ech` and `ech-h3` scenarios,
+  whose hosts it looks up through the system's resolver.
 
   Capture names are under `.test`, never `.localhost`: WebKit treats every
   `*.localhost` host as a site of its own, which turns same-site requests
@@ -143,7 +147,7 @@ for the keychain on screen.
   there. It needs, once: its ssh user logged in at its screen (Screen
   Sharing is enough; browsers opened over ssh show on that session), its
   own capture CA trusted there (`security add-trusted-cert` as above, at
-  its screen), `/etc/resolver/test` (Safari), python3 with aioquic (full
+  its screen), `/etc/resolver/test` (Safari, and Firefox for `ech`), python3 with aioquic (full
   mode), and each newly installed browser's first launch approved by
   Gatekeeper (open it once at the screen, or `xattr -d
   com.apple.quarantine` the app). The preflight checks each of these.
@@ -382,6 +386,74 @@ and browsers retry on fresh connections, Firefox with fallback hellos
 (no `compress_certificate`) too; every one of them counts.
 Add a scenario when a behaviour might depend on the server; reuse the
 default page wherever possible.
+
+### ECH scenarios
+
+`ech` and `ech-h3` (`internal/server/ech.go`, both quick scenarios) are
+the only scenarios whose hosts the browser looks up in DNS instead of
+mapping them itself (`Scenario.ResolvesHosts`), so it sees their HTTPS
+records. The capture tool's DNS stub (UDP, port 15353) and its
+DNS-over-HTTPS endpoint (`dnsstub.DoH`, named `doh.mimicry.test`, which
+the browser maps to the server's address) answer every `*.test` name
+with that address and the hosts below with an HTTPS record: alpn `h2`
+and an ECH config list (`server.ECHRecord`). The keys are derived from
+each config's ID, so every run, and the e2e tests' DNS stub, publish the
+same configs. Both pages are on https://'s default port (the tool
+forwards TCP 443 to the TLS port).
+
+How each browser looks the hosts up, as `browser.Browser.UsesDoH`
+decides:
+
+- **Chrome, Edge and Brave** use secure DNS: `dns_over_https` mode
+  `secure` with the DoH endpoint's template, written to the throwaway
+  profile's Local State, recorded as a capture condition. Chrome on
+  macOS with `/etc/resolver/test` resolves through the system's
+  getaddrinfo, which asks for no HTTPS record (Chrome 157: A and AAAA
+  only, then GREASE ECH); with secure DNS it asks its DoH server and uses
+  the configs. On Windows, a `DnsOverHttpsMode` policy overrides this
+  ([Refreshing profiles](refreshing-profiles.md#the-windows-machine)).
+- **Firefox on macOS** asks the system's resolver, which
+  `/etc/resolver/test` sends to the DNS stub; the tool refuses to start
+  without it (`dnsstub.ResolverFile`).
+- **Firefox on Windows and Linux** resolves through its own DoH client
+  alone, since nothing there sends `*.test` to the stub:
+  `network.trr.mode` 3, `network.trr.uri` the DoH endpoint (without
+  `{?dns}`: Firefox posts its queries), `network.trr.bootstrapAddr` the
+  server's address, `network.trr.allow-rfc1918` (its loopback answers)
+  and `network.trr.confirmationNS` `skip`, in the throwaway profile and
+  recorded as a capture condition.
+- **Safari** asks the system's resolver, as for every scenario.
+
+The page records every query it answers (`dns`: time, name, type, and
+`via`, `system` or `doh`), and the server decrypts each ClientHelloOuter
+for a config it holds the key of (crypto/tls's
+`EncryptedClientHelloKeys`) and records the connection's `ech`: config
+ID, HPKE suite, whether it accepted, whether it sent retry configs, and
+the decrypted inner hello parsed, with its padding and the extensions
+`ech_outer_extensions` copies.
+
+`ech` fetches, one after another, each response closing its connection
+so the next request opens a new one: `www.ech.test` (a config the server
+decrypts; the second connection resumes inside ECH),
+`www.ech-retry.test` twice (a config it holds no key for, rejected with
+retry configs: what follows, and whether the next connection keeps
+them), `www.ech-noretry.test` (rejected by a public name that sends no
+retry configs), `www.ech-bad.test` (a list that does not parse) and
+`www.ech-suite.test` (a P-256 config ahead of an X25519 one that lists
+AES-256-GCM first). `ech-h3` is `www.ech.test` alone, five fetches, every
+response advertising `Alt-Svc: h3=":443"` from a QUIC server on UDP 443
+holding the same keys (Chrome 157 took no `Alt-Svc` naming the TLS
+port's high-numbered UDP twin for an origin on 443): whether the browser
+moves a host whose ECH config it uses to HTTP/3. Chrome and Firefox take
+it with `-h3-local-roots` only; Safari does not take it (it ignores ECH
+configs, and its `Alt-Svc` cache for :443 outlives a sample). On Linux,
+port 443 (TCP, and UDP for `ech-h3`) needs
+`net.ipv4.ip_unprivileged_port_start` at 443 or below, which `cmd/refresh`
+lowers in WSL as for every scenario on the default port.
+
+hellogen derives `tls.realEch` from `ech` and its `altSvcIgnored` from
+`ech-h3` ([decision 0068](decisions/0068-real-ech.md));
+`TestECHMatchesBrowser` and `TestECHH3MatchesBrowser` replay them.
 
 ### Real-page replays
 
@@ -799,6 +871,13 @@ does not describe:
    `websocket` capture, `tls.helloRetry`, where the hello sent again after
    a HelloRetryRequest puts the cookie, from every retried connection of
    the `hrr` capture (left out, not measured, for a profile without one),
+   `tls.realEch`, what the browser sends to a host whose HTTPS record
+   carries an ECH config, from every connection of the `ech` capture (the
+   config and suite it took, the inner hello and its padding, the outer
+   hello of a resumed inner one, what follows a rejection, a list that
+   does not parse; samples must agree but for `echGaps`), and
+   `tls.realEch.altSvcIgnored` from the `ech-h3` capture (left out, not
+   measured, for a profile without them),
    `http1.uploadRecords`, how the browser cuts
    an HTTP/1.1 request with a body into TLS records, from every request
    of the `http1-upload` capture (testing-build captures included;

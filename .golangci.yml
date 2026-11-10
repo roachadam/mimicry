@@ -176,6 +176,8 @@ linters:
             - github.com/roachadam/mimicry/internal/headerorder$
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
+            # Reading the ECH config lists of DNS HTTPS records.
+            - golang.org/x/crypto/cryptobyte
         internal/harness/internal/browser:
           files:
             - ${config-path}/internal/harness/internal/browser/*.go
@@ -263,6 +265,18 @@ linters:
             - $gostd
             - github.com/roachadam/mimicry/profile$
             - golang.org/x/net/http2/hpack
+        # internal/httpsrr: a DNS client of its own (net.Resolver cannot ask
+        # for HTTPS records); x/sys/windows for the nameservers on Windows.
+        internal/httpsrr:
+          files:
+            - ${config-path}/internal/httpsrr/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/jonboulle/clockwork
+            - golang.org/x/net/dns/dnsmessage
+            - golang.org/x/sys/windows
         internal/platform:
           files:
             - ${config-path}/internal/platform/*.go

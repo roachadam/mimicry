@@ -6,13 +6,14 @@ TLS cipher list or a cookie rule.
 
 **Covered:** `brave-157-macos`, `brave-157-windows`, `brave-157-linux`,
 `chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`,
-`chrome-157-linux`, `chrome-157-ios`, `edge-157-macos`,
-`edge-157-windows`, `firefox-158-macos`, `firefox-158-windows`,
-`firefox-159-macos`, `firefox-159-windows`, `firefox-159-linux`,
-`firefox-159-ios`, `safari-27-macos`, `safari-26-macos`, `safari-27-ios`
-and `safari-26-ios`. Safari 27 was captured on macOS 27; Safari 26 on a
-second Mac kept on macOS 26, as were Firefox 159, Edge 157 and Brave 157
-for macOS (that Mac on 26.2 by Edge's run); Chrome 156, Firefox 158 and
+`chrome-157-macos`, `chrome-157-linux`, `chrome-157-ios`,
+`edge-157-macos`, `edge-157-windows`, `firefox-158-macos`,
+`firefox-158-windows`, `firefox-159-macos`, `firefox-159-windows`,
+`firefox-159-linux`, `firefox-159-ios`, `safari-27-macos`,
+`safari-26-macos`, `safari-27-ios` and `safari-26-ios`. Safari 27 was
+captured on macOS 27; Safari 26 on a second Mac kept on macOS 26, as were
+Chrome 157, Firefox 159, Edge 157 and Brave 157 for macOS (that Mac on
+26.2 by Edge's run); Chrome 156, Firefox 158 and
 159, Edge 157 and Brave 157 for Windows on Windows 10; Chrome
 157.0.8103.38, Firefox 159.0.1 and Brave 1.99.55 for Linux, Google's,
 Mozilla's and Brave's own builds, in WSL2 (Ubuntu 24.04) on that Windows
@@ -51,8 +52,8 @@ rows with the 2026-11-04 `urls` captures (0057), `chrome-157-linux` and
 `firefox-159-linux` with their 2026-11-05 captures (0058),
 `edge-157-macos` with its 2026-11-06 captures (0059), the
 `tls.clientAuth` rows with the 2026-11-08 `client-cert-*` captures
-(0064), and the Brave profiles with their 2026-11-09 captures (0067).
-The "Not covered"
+(0064), the Brave profiles with their 2026-11-09 captures (0067), and
+`chrome-157-macos` with its 2026-11-09 quick refresh. The "Not covered"
 list was rechecked against the code on 2026-10-29.
 
 ## How rows are classed
@@ -86,6 +87,39 @@ its own too (two samples, 2026-10-28), so its resumption rows are its own
 difference beyond the user agent and `sec-ch-ua`
 ([report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md)),
 and `realcheck` showed none against the real Chrome 156.
+
+**`chrome-157-macos`** (quick refresh, 2026-11-09, Chrome 157.0.8103.39 on
+the second Mac, macOS 26.2,
+[report](../internal/harness/reports/refresh-chrome-157-macos-2026-11-09.md))
+has no column of its own either. Read its class from `chrome-155-macos`'s
+column. Rows whose evidence is a quick-refresh scenario (`page`, `http1`,
+`kinds`, `kinds-http1`, `kinds-plain`, `websocket`, `websocket-h2`,
+`h3-discovery`, `h3-page`, `hrr`, `client-hints`) are its own **W**: three
+samples for `page`, `h3-discovery`, `h3-page`, `hrr` and `client-hints`,
+one for the others. Every other row is inherited: `I: from chrome-156`
+where Chrome 156 took the scenario itself (`resume`, `urls`, the cookie
+twins, `bodiless`, `h2-upload`, `http1-upload`, `h3-resume-table`,
+`h3-streams-blocked`, `client-cert-*`, `proxy-https*`), `I: from
+chrome-155` for the rest. Nothing differs from `chrome-156-macos` beyond
+the version tokens but:
+
+- **W, client hints:** `fullVersion` 157.0.8103.39 and the second Mac's
+  machine (macOS 26.2.0, arm, 16 GB, reduced motion and transparency,
+  viewport 1200×1195), as `edge-157-macos`'s; Chrome 156's `client-hints`
+  capture was taken on this Mac (macOS 27.0.1, 32 GB, 1200×953). `width`
+  100, as Chrome 156's.
+- **W, `quic.crypto.head`:** 56–86 (Chrome 156: 55–86), the range of
+  quiche's random head length over the samples.
+- **Pinned as Chrome 156's:** the server's Initial acknowledged in 2 of
+  21 full handshakes and two PRIORITY_UPDATEs read 1 ms after their
+  HEADERS (h3gen's `sampleGaps`), the client-hints third party's
+  connection and `width` (`h3Gaps`); through the inherited captures the
+  plain-HTTP page's link navigation (`proxyPlainGaps`) and the pooled
+  host ending in a dot (`urlsKnown`), as Chrome 156's and 155's.
+
+`realcheck` on the second Mac found no difference between Chrome 157 and
+`chrome-157-macos` on the echo endpoints (tls.peet.ws, browserleaks' TLS
+and HTTP/2 pages, impersonate.pro over HTTP/2 and HTTP/3).
 
 **`chrome-156-windows`** (2026-10-29, Chrome 156.0.8078.80 on Windows 10,
 [report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md);
@@ -774,6 +808,10 @@ or a refusal.
 | `clientAuth.tls13`, `clientAuth.tls12` (the CertificateVerify scheme per key type and TLS version; the certificate sent) | W (Chrome 156 macOS and Windows, 157 Linux; Edge 157 macOS and Windows alike; `client-cert-*` 2026-11-08, 3 samples each, 143 signed handshakes, Edge 95): TLS 1.3 `0x0403` (P-256), `0x0804` (RSA); TLS 1.2 `0x0403`, `0x0401` (RSA PKCS#1); the leaf alone in all; Chrome 155: — (not captured) | W (Firefox 159 macOS, Windows, Linux, 432 signed): TLS 1.3 and 1.2 `0x0403`, `0x0804`; the leaf alone in all; Firefox 158: — (not captured) | — (not capturable: Safari sent an empty Certificate or stalled) | — | Generated by `hellogen` from every signed handshake of the four `client-cert-*` captures; samples that disagree fail it. Only P-256 and RSA-2048 identities captured; other keys are `ErrNotMeasured`. `TestClientCertMatchesBrowser` ([0064](../docs/decisions/0064-client-certificates.md)) |
 | `clientAuth.resume` (a session the certificate was sent in is resumed, without it) | W: true (Chrome 289 and Edge 193 resumed connections after the one that sent it) | W: false: no ticket or PSK offered on any of 432 connections, each a full handshake with the certificate | — | — | Generated by `hellogen`; every sample must agree. `TestClientCertMatchesBrowser` |
 | `clientAuth.restart` (the first connection a host and port asks on is closed with nothing sent; the request goes again on a new one) | W: true: in every sample the first connection to each of the 3 hosts sent nothing after the CertificateRequest and no connection answered without the certificate (Chrome 144 drops over 36 samples, the page's host twice, its preconnect; Edge 72 over 24) | W: false in every sample: each has a first connection that answered, or an empty Certificate (its dropped connections are speculative, carrying no request) | — | — | Generated by `hellogen`, per sample; samples that disagree fail it. mimicry drops once per host and port per Transport and dials again at once (the browsers took a few ms to 1.7 s choosing). Chrome's second drop on the page's host is its preconnect (Not covered). `TestClientCertMatchesBrowser` |
+| `realEch` (a host whose DNS HTTPS record carries an ECH config list: `ignore`, `kems`, `skippedKems`, `cipherSuites`, `malformed`) | W (Chrome 157 macOS and Linux, Edge 157 macOS and Windows, Brave 157 macOS, Windows and Linux: `ech` 2026-11-09, 3 samples each, 27 ECH connections per capture, Chrome on Linux 30): `kems` X25519 (0x0020), `skippedKems` P-256 (0x0010): `www.ech-suite.test`'s list starts with a P-256 config, and every sample used the X25519 one after it; `cipherSuites` HKDF-SHA256 with AES-128-GCM, AES-256-GCM and ChaCha20Poly1305, each the first suite of the config used (the retry config lists ChaCha20Poly1305 first, the suite host's AES-256-GCM); `malformed` `fail`: no connection to `www.ech-bad.test` in any sample; Chrome 155 and 156: — (not captured) | W (Firefox 159 macOS, Windows and Linux, 3 samples each, 24 to 28 ECH connections per capture): `kems` P-256 and X25519, nothing skipped (the suite host's P-256 config taken); `cipherSuites` AES-128-GCM and ChaCha20Poly1305 (AES-256-GCM was never a used config's first suite); `malformed` `grease`: the usual hello with the GREASE extension; Firefox 158: — | W (`ech`, 3 samples, 24 connections): `ignore`: no `encrypted_client_hello`, real or GREASE, on any connection | — (not captured) | Generated by `hellogen` (`realECH`), which refuses a connection that did not take the first config with a KEM the browser uses, or not that config's first suite. mimicry looks the record up beside the dial for direct `https://` connections only (`internal/httpsrr`, through `Config.Resolver`) and picks the config as the browser did (`handshake.SelectECH`); a config with a KEM or first suite the browser was never seen to use or pass over is `ErrNotMeasured` (`TestSelectECH`). A profile without `realEch`, or with `ignore`, looks nothing up. `TestECHMatchesBrowser` replays the page: each connection's host, config, suite and acceptance, in order, and an HTTPS lookup before each host's first connection. [Decision 0068](../docs/decisions/0068-real-ech.md) |
+| `realEch.inner`, `realEch.outerPsk` (the ClientHelloInner; the outer hello of a resumed inner one) | W (as above, every ECH connection): own extensions `encrypted_client_hello` (inner), `server_name` and `supported_versions` (GREASE, TLS 1.3), shuffled per connection, then `ech_outer_extensions` (0xfd00) naming the outer hello's others in its order, GREASE included, but `extended_master_secret`, `renegotiation_info`, `ec_point_formats` and `session_ticket` (`drop`); cipher suites GREASE and TLS 1.3's three; `outerPsk` `none`: no `pre_shared_key` in the outer hello when the inner one resumes | W: the same own extensions in a fixed order (ECH, `server_name`, `supported_versions`, 0xfd00) and the same `drop`; cipher suites its full outer list (15); `outerPsk` `grease`: a random `pre_shared_key` of the inner one's lengths | — | — | Generated by `hellogen`, which also checks every inner hello's padding against RFC 9849, section 6.1.3 (the configs' `maximum_name_length` 0, 64 and 32). Sent through the uTLS fork's `ECHInnerSpec` (branch `fork/ech-inner-spec`). `TestECHMatchesBrowser`: outer and inner hellos (a shuffled order compared as a set), the extensions copied through `ech_outer_extensions`, padding and session offers |
+| `realEch.retryResume`, `retryPlain`, `retryDrop` (what follows a rejection) | W: rejected with retry configs (`www.ech-retry.test`, every sample): one more connection with them, accepted; the next connection there offered the DNS config again with that connection's session (`retryResume`); rejected without (`www.ech-noretry.test`): one more connection, the usual hello with GREASE and the real `server_name`; nothing dropped | W: both reconnections as Chrome's but without `compress_certificate` (`retryDrop`); after the connection with retry configs, on macOS (the system's resolver) the DNS config offered again without a session, on Windows and Linux (its own DoH) the usual resumed hello with GREASE and the real `server_name` (`retryPlain`), in every sample | — | — | Generated by `hellogen`. A rejecting server must prove itself the public name (a certificate valid for it), or the handshake fails. mimicry reconnects once (`echRetry`); a second rejection fails the request. Firefox's racing rejected offers and the speculative connections of Chrome on Linux and Firefox over DoH are not modelled (Not covered). `TestECHMatchesBrowser` |
+| `realEch.altSvcIgnored` (no HTTP/3 from `Alt-Svc` for a host whose ECH config is used) | W (Chrome 157 macOS, `ech-h3` with `-h3-local-roots`, 3 samples): true: all 21 connections on HTTP/2 with ECH accepted and no QUIC packet, with `Alt-Svc: h3=":443"` on every response and QUIC served on UDP 443; Chrome on Linux, Edge, Brave: — (not captured) | W (Firefox 159 macOS, 21 connections): true, as Chrome; Windows, Linux: — | — (not capturable: Safari ignores the configs, and its `Alt-Svc` cache for :443 outlived a sample) | — | Generated by `hellogen` from `ech-h3`; any QUIC connection there fails it, so false is never measured. Trials not committed: the same record without its ECH config moved both browsers to HTTP/3. mimicry learns no `Alt-Svc` from a response on an ECH-accepted connection where it is set. `TestECHH3MatchesBrowser` |
 | `quic` (the hello sent over QUIC: `cipherSuites`, `sessionIdLength`, `extensionOrder`, `last`, `drop`, `replace`, `transportParametersBefore`, `resumedEchPayloadLengths`) | W (`h3-discovery`, `h3-page`, with and without `-h3-local-roots`: 33 QUIC connections, 9 resumed): TLS 1.3 suites without GREASE; session ID 0; shuffled, no GREASE extension; drops GREASE, `ec_point_formats`, SCT, EMS, `renegotiation_info`, `session_ticket`, `status_request`; replaces ALPS and ALPN (`h3`), key shares and groups (no GREASE), signature algorithms (no ML-DSA, `0201` added), `supported_versions` `0304`; ECH from the TLS sets (9 resumed showed 144 and 240 of the four) | W (33, 9 resumed): suites `1301 1303 1302`; shuffled with `quic_transport_parameters`, then `encrypted_client_hello` last; drops `ec_point_formats`, `session_ticket`, SCT; replaces ALPN, `supported_versions`, signature algorithms (`0203` 4th), `compress_certificate` `0001 0003 0002`; resumed ECH payload 432 (TCP 400) | W (3): GREASE + TLS 1.3 suites; fixed: TCP's order without EMS, `renegotiation_info`, `ec_point_formats`, `quic_transport_parameters` before `compress_certificate`; ALPN `h3`, `supported_versions` GREASE `0304` | W (3): as Safari 27 | Generated by `hellogen` from every QUIC connection's ClientHello, and every resumed one of the edge captures, which it diffs against the TLS hello with these changes (order exactly when fixed; `last` and `pre_shared_key` at the end when shuffled; a resumed hello also without `resumption.drop`, with `earlyData` 0x002a) and refuses any other difference. Safari resumed over QUIC only on the edge pages (next row). The transport parameters' body is `quic.transportParameters` (below) |
 | `quic.earlyDataBefore` (a resumed QUIC hello's `early_data` place in a fixed order) and the resumed QUIC hello | — (shuffled; its resumed hellos also checked from the edge captures) | — (shuffled; as Chrome) | W (the edge captures' resumed hellos, 60: `h3-broken` 6, `h3-early` 27, `h3-too-early` 27): `early_data` before `supported_versions`, `pre_shared_key` last, the full QUIC hello otherwise, every one | W: as 27 (60) | Generated by `hellogen`, which since decision 0050 checks every resumed QUIC hello of the edge captures too and refuses any other difference. mimicry's resumed Safari hello is built from it (`fingerprint.ResumedQUICHello`). A ticket allowing no 0-RTT (`max_early_data_size` 0) gets the resumed hello without `early_data`, every profile (#52): derived, not measured. Every resumed QUIC hello captured (Chrome 9, Firefox 9, Safari 60 each) was to a server allowing 0-RTT; the rule is BoringSSL's `should_offer_early_data`, NSS's `tls13_ClientAllow0Rtt` and RFC 8446 section 4.2.10, and Chrome's 13 extensions without it (14 with) agree with httpcloak PR 145's report. `TestQUICInterop` `0rtt-offer-follows-ticket` checks both against quic-go. |
 | `quic.versionNegotiation` (the hello of a connection retried after Version Negotiation: `drop`, `replace`, `padding`) | — (no retry) | W (`h3-vn`, 3 connections retried in v2): the full QUIC hello without `compress_certificate` and GREASE ECH; groups and key shares without X25519MLKEM768 (key share X25519 only, 32 B); padding (0x0015) after `quic_transport_parameters`, last, the hello 512 bytes (NSS's 256–511 → 512); shuffled as the full one | — (no retry) | — | Generated by `hellogen` from every h3-vn connection that followed a Version Negotiation in another version, diffed against the full QUIC hello; any other difference is refused. Required iff `quic.versionNegotiation.retry` |
@@ -976,7 +1014,8 @@ derived by kindsgen from the `urls` captures (2026-11-04, 3 samples each,
 all identical within a browser): Chrome 156 and Firefox 159 on macOS and
 Windows, Safari 27 and Safari 26 on macOS: **W**. `safari-27-ios`,
 `chrome-157-ios` and `firefox-159-ios` inherit Safari 27's, `safari-26-ios`
-Safari 26's: **I**. `chrome-155-macos`, `firefox-158-macos` and
+Safari 26's, `chrome-157-macos` Chrome 156's on macOS: **I**.
+`chrome-155-macos`, `firefox-158-macos` and
 `firefox-158-windows` have none (see "Not covered"). The page has each
 browser fetch and navigate to (an iframe) 43 URLs; Windows matched macOS
 on all of them. kindsgen refuses samples that disagree, a fetch and a
@@ -1353,8 +1392,12 @@ A difference closed is removed here, with its pinned gap entry.
 **TLS and below**
 
 - **TCP/IP fingerprint** (all): the SYN is the host OS's (or the proxy's); detection high when the OS differs from the profile's, none on it; not planned ([0029, amendment](../docs/decisions/0029-scope-what-gets-modelled.md#amendment-2026-10-30-the-tcpip-fingerprint)).
-- **Real ECH** (Chrome, Firefox): always GREASE ECH, where a browser that finds an ECH config in DNS sends real ECH; detection medium; needs DNS HTTPS lookups and an ECH capture.
+- **Real ECH in profiles without an `ech` capture** (`chrome-155-macos`, `chrome-156-macos`, `chrome-156-windows`, Firefox 158, Safari 26, the iPhone profiles): no `tls.realEch`, so no HTTPS lookup and GREASE ECH everywhere, where Chrome and Firefox of later versions send real ECH to a host publishing a config (Chrome 157 on Windows was not captured: no `chrome-157-windows` profile); detection medium for the Chrome and Firefox ones on such hosts, none where the browser ignores configs as Safari 27 does; an `ech` capture of each.
+- **ECH on WebSocket and proxy connections** (Chrome, Firefox): a WebSocket's own HTTP/1.1 connection (`tls.websocketH1`), the TLS to an `https://` proxy, and every connection through a proxy keep GREASE ECH and look nothing up; no capture shows what the browsers do there; detection low to medium (only a host publishing a config can tell); `ech` captures of a WebSocket and through each proxy kind ([0068](../docs/decisions/0068-real-ech.md)).
+- **Whether the browser sees the record** (Chrome): Chrome on macOS resolving through getaddrinfo (with a scoped resolver, `/etc/resolver/test`) asked for no HTTPS record and sent GREASE; with secure DNS it asked and sent ECH, which is what mimicry always does; a user's Chrome may take either path by its DNS settings; detection low; captures of Chrome's default DNS path on each platform.
+- **DNS queries around ECH** (Chrome, Firefox, Safari): mimicry asks HTTPS beside Go's A and AAAA, in plain DNS to the system's nameservers (or `Config.Resolver`'s `Dial`); Chrome asked A and HTTPS (no AAAA) and Firefox HTTPS and A (IPv6 off in the harness), both over DoH in the captures but Firefox on macOS; Safari asks HTTPS, A and AAAA, where a Safari profile asks no HTTPS; detection none at the server, only the resolver sees the queries; not planned.
 - **Firefox's resumed GREASE ECH size** (Firefox): fixed at 400 bytes (432 over QUIC), measured against one ticket size; detection low; a `resume` capture with other ticket sizes ([report](../internal/harness/reports/hello-record-2026-10-24.md)).
+- **Firefox's next connection after ECH retry configs** (Firefox): each profile records what its own `ech` capture showed in every sample (`firefox-159-macos`, the system's resolver: the DNS config offered again, without the session; `firefox-159-windows` and `firefox-159-linux`, Firefox's own DoH: no ECH, the retry connection's session resumed with GREASE ECH and the real server_name, `tls.realEch.retryPlain`), but an uncommitted trial on macOS through Firefox's own DoH showed both in one run (the latter in 1 of 3 samples), so Firefox picks between them by something the captures do not show; detection low; more `ech` samples per platform and resolver.
 - **A WebSocket's full hello** (Chrome, Firefox): `tls.websocketH1` captured resumed only; first socket with no ticket; detection low; a `websocket` capture on a fresh host.
 - **HelloRetryRequest cookie position** (Windows, iOS, Chrome 155, Safari 26; every QUIC hello): the uTLS fork places it at random among the extensions that are not pinned; detection low; an `hrr` capture on each machine, and a QUIC server sending a HelloRetryRequest with a cookie.
 - **Resumption forms** (all): TCP 0-RTT, several tickets at once, session-ID resumption never captured; mimicry uses one single-use ticket per key; detection low; `resume` captures.
@@ -1397,7 +1440,8 @@ A difference closed is removed here, with its pinned gap entry.
 
 **QUIC and HTTP/3**
 
-- **DNS HTTPS discovery** (all): only `Alt-Svc` is read; first visit to sites with HTTPS records; detection medium; records in the DNS stub and a resolver ([report](../internal/harness/reports/http3-2026-10-25.md)).
+- **HTTP/3 and ECH from DNS HTTPS records** (all; ECH over QUIC: Chrome, Firefox): records are looked up for their ECH configs only, and only by profiles with `tls.realEch` ([0068](../docs/decisions/0068-real-ech.md)); their `alpn` is never used, so a site whose record names `h3` is reached over TCP until `Alt-Svc` moves it (for an ECH host, where `altSvcIgnored` holds, never), and no QUIC hello carries real ECH, only GREASE. Uncommitted `ech-h3` trials (a record with alpn `h3,h2` and an ECH config, QUIC on UDP 443) sent Chrome 157 and Firefox 159 straight to QUIC with real ECH (outer `server_name` the public name), as such a record would in the wild (`cloudflare-ech.com`'s, 2026-11-10: alpn `h3,h2` and `ech`); mimicry stays on TCP with ECH there; detection medium; HTTP/3 discovery from records, and `quictrace` finding the keys of an ECH-accepted QUIC connection to capture its inner hello ([report](../internal/harness/reports/http3-2026-10-25.md)).
+- **`Alt-Svc` on ECH connections where not measured** (Chrome on Linux, Edge, Brave, Firefox on Windows and Linux): `realEch.altSvcIgnored` comes from `ech-h3`, captured on macOS only, so these profiles move a host whose ECH config they use to HTTP/3 (with GREASE ECH) after its `Alt-Svc`, where Chrome and Firefox on macOS stayed on TCP with ECH; detection medium; an `ech-h3` capture on each machine.
 - **A returning browser's first request** (all; Firefox most): a saved alternative starts like any known one; no browser captured restarting; detection low; restart captures.
 - **Dead-path waits** (Firefox, Safari): a sent request on a silent path waits as the browser's does (30 s, 12 s); detection none; a dead-path signal and a resend rule.
 - **Safari's other kinds** (Safari): only `fetch()` measured over HTTP/3, so other kinds stay on TCP; also its QPACK table, PRIORITY_UPDATE, bodies, close reply; detection medium; a fuller `h3-page` capture.
@@ -1438,7 +1482,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome's NEW_TOKEN cache** (Chrome): Chrome often omits a token it has (3 of 9); mimicry always presents it; detection low; token-cache captures (`sampleGaps`).
 - **Edge's second Initial in 1 byte** (Edge and Brave): 8 of 123 connections on macOS and 9 of 123 on Windows sent the second Initial's packet number in 1 byte (Brave: 7 of 150 on macOS, 12 of 150 on Windows, 8 of 156 on Linux), all with a token, against `shared_second_long`'s 2; nothing on the wire tells them apart (scenario, timing, `initial_rtt`, hello size); mimicry always sends 2; detection low; more captures, or Edge's field trials (h3gen's `sampleGaps`, `h3Gaps`).
 - **Brave's late Initial ACK out of order** (Brave on macOS): the one connection of 21 that acknowledged the server's Initial sent that Initial packet after the Handshake and 1-RTT packets it led; mimicry never acknowledges an Initial (`ackInitial` false); detection low (h3gen's `coalescedOrder` pin).
-- **Chrome's late PRIORITY_UPDATE** (Chrome 156, Brave on Windows and Linux): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
+- **Chrome's late PRIORITY_UPDATE** (Chrome 156 and 157, Brave on Windows and Linux): sometimes 1 ms after HEADERS under load; mimicry sends it first; detection low; more samples (`sampleGaps`).
 - **`h3-early` POST on Windows** (Chrome and Firefox on Windows): the replay makes both requests at once, so mimicry's POST is held; detection none; replay at the browser's issue times (`h3EdgeSchedulingGaps`).
 - **Chrome's TCP delay from the smoothed RTT** (Chrome): 1.5 × RTT, invisible on loopback; detection low; a real-network capture.
 - **Migration by Firefox and Safari** (Firefox, Safari): never seen, never done; NAT rebinding; detection low; a rebinding capture.
@@ -1516,6 +1560,7 @@ A difference closed is removed here, with its pinned gap entry.
 
 - **No top-level-site partition** (all): a third-party host reached from two sites shares a connection, a cross-site socket may share its host's own, and a shared `AltSvcCache` spans sites; detection medium; one Transport per site ([0011](../docs/decisions/0011-connection-partitioning.md)).
 - **Chrome's preconnect** (Chrome): one more handshake to the page's host per page load (through a proxy, extra CONNECTs); detection low to medium; not planned ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects)).
+- **Speculative and raced ECH connections** (Chrome on Linux, Firefox): in the `ech` captures Chrome on Linux opened a second connection to the page's host about 7 ms after the first in every sample, and Firefox over its DoH (Windows, Linux) one more too, each carrying no request; Firefox on macOS raced two connections with the config the server rejects in 1 of 3 samples (`echGaps`); mimicry opens neither (the e2e test leaves them out); detection low; not planned, as Chrome's preconnect ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-10-30-no-preconnects)).
 - **Firefox on Windows's unused opening connection** (Firefox on Windows): a second TCP connection to the page's host 0–27 ms after the first, its HTTP/2 preface and GOAWAY, unused (131 of 135 page samples opened directly over HTTPS, none through a proxy); its handshake leaves Firefox one more TLS 1.2 ticket, so one more connection resumes (`resume-tls12`: 5/3 to the page's host, mimicry 5/2); detection low to medium; not planned, as Chrome's preconnect ([0023, amendment](../docs/decisions/0023-connection-limits-and-coalescing.md#amendment-2026-11-01-firefox-on-windowss-unused-connection); `unusedOpenings`, `resumeCountGaps`).
 - **Firefox's credential-less connections** (Firefox): their own connection to some hosts (every macOS sample, 2 of 3 on Windows, 1 of 3 on Linux), no rule found; detection low to medium (`partitionGaps`).
 - **Safari on iOS's beacon connection** (Safari 27 on iOS): its beacon, cookies and all, goes on the credential-less connection; mimicry sends it on the credentialed one; detection low; a rule for which kinds share that pool (`partitionGaps`).
@@ -1639,6 +1684,16 @@ with fake servers. Header placement by `TestHeaderPlacement`
 over HTTP/1.1 and a raw HTTP/2 peer, and its error paths. Over HTTP/3 by
 `TestHeaderPlacementOverHTTP3` in `internal/engine/native`, against a QUIC
 server decoding the field sections.
+
+ECH (the `realEch` rows): `TestECHMatchesBrowser` replays the `ech` page
+with mimicry looking its hosts up in a DNS stub publishing the same
+configs, and `TestECHH3MatchesBrowser` the `ech-h3` page (no QUIC, every
+connection's ECH accepted). Outside the e2e suite, `TestSelectECH`
+(`internal/handshake`) the configs and lists no capture reaches (unknown
+KEMs and suites, other versions, mandatory extensions, lists that do not
+parse), and `TestLookup` and `TestLookupSharesQuery` (`internal/httpsrr`)
+the DNS client against fake nameservers: truncation, TTLs, negative and
+failure caching, aliases and `Config.Resolver`'s `Dial`.
 
 ### HTTP/3
 
@@ -1835,7 +1890,7 @@ plain-HTTP requests do; Safari 26 copies Safari 27 there (not captured).
 `TestDeriveReproducesProfiles` (in `cmd/refresh`) derives every built-in
 profile from its own captures and requires it unchanged. The last quick
 refresh is the
-[Chrome 156 report](../internal/harness/reports/refresh-chrome-156-macos-2026-10-26.md);
+[Chrome 157 report](../internal/harness/reports/refresh-chrome-157-macos-2026-11-09.md);
 the first full refresh on Windows the
 [Chrome 156 on Windows report](../internal/harness/reports/refresh-chrome-156-windows-2026-10-29.md)
 (Firefox's: the

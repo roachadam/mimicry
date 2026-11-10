@@ -172,7 +172,10 @@
     "helloRetry": {
       "cookieAfter": "0x002b"
     },
-    "trailingDotSni": "omit"
+    "trailingDotSni": "omit",
+    "realEch": {
+      "ignore": true
+    }
   },
   "http2": {
     "settings": [

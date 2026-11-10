@@ -1052,6 +1052,8 @@ var h3Gaps = map[string]string{
 	"chrome-156-windows/client-hints transport /h3/b.fetch #1":          noSitePartition,
 	"chrome-157-linux/client-hints transport /h3/b.nav #1":              noSitePartition,
 	"chrome-157-linux/client-hints transport /h3/b.fetch #1":            noSitePartition,
+	"chrome-157-macos/client-hints transport /h3/b.nav #1":              noSitePartition,
+	"chrome-157-macos/client-hints transport /h3/b.fetch #1":            noSitePartition,
 	"edge-157-macos/client-hints transport /h3/b.nav #1":                noSitePartition,
 	"edge-157-macos/client-hints transport /h3/b.fetch #1":              noSitePartition,
 	"edge-157-windows/client-hints transport /h3/b.nav #1":              noSitePartition,
@@ -1071,6 +1073,7 @@ var h3Gaps = map[string]string{
 	"chrome-156-macos/client-hints header list /h3/next.width-img #1":   noWidth,
 	"chrome-156-windows/client-hints header list /h3/next.width-img #1": noWidth,
 	"chrome-157-linux/client-hints header list /h3/next.width-img #1":   noWidth,
+	"chrome-157-macos/client-hints header list /h3/next.width-img #1":   noWidth,
 	"edge-157-macos/client-hints header list /h3/next.width-img #1":     noWidth,
 	"edge-157-windows/client-hints header list /h3/next.width-img #1":   noWidth,
 }

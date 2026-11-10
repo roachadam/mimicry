@@ -369,6 +369,23 @@ func (r *Rewriter) Proxy(reqs []ProxyRequest) {
 	}
 }
 
+// ProxyTLS rewrites the connections to an https:// proxy in place: each
+// HTTP/2 connection's CONNECT header blocks, as Traces does. The
+// ClientHellos carry no header value, so they stay as captured.
+func (r *Rewriter) ProxyTLS(conns []ProxyTLS) {
+	if r == nil {
+		return
+	}
+
+	for i := range conns {
+		if conns[i].H2 != nil {
+			r.Traces([]*h2trace.Trace{
+				conns[i].H2,
+			})
+		}
+	}
+}
+
 // Pages rewrites page captures in place: HTTP/2 traces, HTTP/1.1 requests,
 // and each QUIC connection's HTTP/3 field sections and QPACK encoder
 // inserts. Encoded blocks keep their captured bytes (see Traces).

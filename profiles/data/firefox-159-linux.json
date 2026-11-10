@@ -272,6 +272,71 @@
         "0x0403",
         "0x0804"
       ]
+    },
+    "realEch": {
+      "kems": [
+        "0x0010",
+        "0x0020"
+      ],
+      "cipherSuites": [
+        {
+          "kdf": "0x0001",
+          "aead": "0x0001"
+        },
+        {
+          "kdf": "0x0001",
+          "aead": "0x0003"
+        }
+      ],
+      "inner": {
+        "cipherSuites": [
+          "0x1301",
+          "0x1303",
+          "0x1302",
+          "0xc02b",
+          "0xc02f",
+          "0xcca9",
+          "0xcca8",
+          "0xc02c",
+          "0xc030",
+          "0xc013",
+          "0xc014",
+          "0x009c",
+          "0x009d",
+          "0x002f",
+          "0x0035"
+        ],
+        "extensionOrder": "fixed",
+        "extensions": [
+          {
+            "type": "0xfe0d"
+          },
+          {
+            "type": "0x0000"
+          },
+          {
+            "type": "0x002b",
+            "versions": [
+              "0x0304"
+            ]
+          },
+          {
+            "type": "0xfd00"
+          }
+        ],
+        "drop": [
+          "0x0017",
+          "0xff01",
+          "0x000b",
+          "0x0023"
+        ]
+      },
+      "outerPsk": "grease",
+      "malformed": "grease",
+      "retryDrop": [
+        "0x001b"
+      ],
+      "retryPlain": true
     }
   },
   "http2": {

@@ -14,8 +14,10 @@ import (
 
 // urlsKnown are the urls cases mimicry does not send as the browser
 // measured does, fetched or navigated to, and why: keyed by case for
-// every profile, or "<profile>/<case>" for one. TestURLsMatchBrowser
-// fails once one matches every sample, so the entry goes.
+// every profile, or "<profile>/<case>" for the profile that took the
+// capture (capture.Source), so a pin applies to every profile inheriting
+// it. TestURLsMatchBrowser fails once one matches every sample, so the
+// entry goes.
 var urlsKnown = func() map[string]string {
 	known := map[string]string{
 		"p-lonepct": "Go's url.Parse refuses a path with a lone %, so http.NewRequest fails before mimicry sees the URL (URL.Opaque sends it); browsers send it as written",
@@ -56,6 +58,7 @@ func TestURLsMatchBrowser(t *testing.T) {
 			}
 
 			got := runURLs(t, p)
+			src := capture.Source(p, server.URLs.Name)
 			differs := map[string]bool{}
 
 			for i, page := range want {
@@ -71,7 +74,7 @@ func TestURLsMatchBrowser(t *testing.T) {
 
 						differs[c.ID] = true
 
-						if !urlKnown(name, c.ID) {
+						if !urlKnown(src, c.ID) {
 							t.Errorf("sample %d, %s-%s %s:\n  browser %s\n  mimicry %s", i, kind, c.ID, c.URL, b, m)
 						}
 					}
@@ -79,7 +82,7 @@ func TestURLsMatchBrowser(t *testing.T) {
 			}
 
 			for _, c := range server.URLCases() {
-				if urlKnown(name, c.ID) && !differs[c.ID] {
+				if urlKnown(src, c.ID) && !differs[c.ID] {
 					t.Errorf("%s matches every sample now: drop it from urlsKnown", c.ID)
 				}
 			}
@@ -88,10 +91,10 @@ func TestURLsMatchBrowser(t *testing.T) {
 }
 
 // urlKnown reports whether urlsKnown lists case id for every profile or
-// for name.
-func urlKnown(name, id string) bool {
+// for src, the profile whose capture is compared.
+func urlKnown(src, id string) bool {
 	_, all := urlsKnown[id]
-	_, one := urlsKnown[name+"/"+id]
+	_, one := urlsKnown[src+"/"+id]
 
 	return all || one
 }

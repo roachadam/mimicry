@@ -40,7 +40,7 @@ resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 
 | Platform | Browser | Newest | Pinned versions |
 |---|---|---|---|
-| macOS | Chrome | `profiles.ChromeMacOS()` | `Chrome156MacOS()`, `Chrome155MacOS()` |
+| macOS | Chrome | `profiles.ChromeMacOS()` | `Chrome157MacOS()`, `Chrome156MacOS()`, `Chrome155MacOS()` |
 | | Firefox | `profiles.FirefoxMacOS()` | `Firefox159MacOS()`, `Firefox158MacOS()` |
 | | Safari | `profiles.SafariMacOS()` | `Safari27MacOS()`, `Safari26MacOS()` |
 | | Edge | `profiles.EdgeMacOS()` | `Edge157MacOS()` |
@@ -83,6 +83,7 @@ Runnable examples are in [`example_test.go`](example_test.go).
 - **Certificate pins:** `go run github.com/roachadam/mimicry/cmd/pins https://example.com/`, then `Config.Pins`.
 - **Client certificates (mutual TLS):** `Config.GetClientCertificate` answers a server that asks, signed and resumed as the profile's browser does (Chrome and Edge also drop the first connection a host asks on, as the browsers do). [Client certificates](docs/concepts/client-certificates.md)
 - **WebSockets and HTTP/3** need no setup. [WebSockets](docs/concepts/websockets.md) · [HTTP/3](docs/concepts/http3.md)
+- **Encrypted Client Hello** needs no setup either: Chrome 157 (macOS, Linux), Edge, Brave and Firefox 159 profiles look up each host's DNS HTTPS record (through `Config.Resolver`) and, where it carries an ECH config, send real ECH as the browser does; other hosts, and connections through proxies or over HTTP/3, get GREASE ECH. [Encrypted Client Hello](docs/concepts/what-mimicry-does.md#encrypted-client-hello)
 
 A request the profile can't describe fails with `mimicry.ErrNotMeasured` before anything is sent, rather than guessing.
 
@@ -115,6 +116,7 @@ mimicry sends what a browser sends around your requests (redirects, CORS preflig
 
 - No iPad or Android profiles yet. Windows profiles are from Windows 10 x64. Linux profiles are Google's Chrome and Mozilla's Firefox on x86-64; a distribution's own build of either (Fedora's Firefox, Debian's ESR, a packaged Chromium) is a different browser.
 - The TCP/IP fingerprint is your machine's (or your proxy's), not the browser's.
+- Encrypted Client Hello needs mimicry's own DNS HTTPS lookup, in plain DNS to the system's nameservers (or `Config.Resolver`'s `Dial`), never `Config.DialContext`. It is never sent over HTTP/3, and HTTPS records never move a site to HTTP/3, where Chrome and Firefox go to QUIC at once for a record naming `h3`.
 - One `Transport` acts as one browser tab: give parallel tasks and different sites one each. They can share a cookie jar.
 - HTTP/3 ignores `Config.DialContext`; bind it with `Config.LocalAddrs`, which sets the local address of TCP and HTTP/3 alike. Proxied requests use HTTP/1.1 or HTTP/2, as in browsers. `https://` proxies take `https://` URLs only (Chrome, Edge and Firefox profiles; Safari's refuse them), and never HTTP/3.
 - Headers you set are sent as set, even ones a page couldn't set, which can make a request look less like the browser's.

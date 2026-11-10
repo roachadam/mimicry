@@ -16,7 +16,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/roachadam/mimicry/internal/harness/internal/capture"
 	"github.com/roachadam/mimicry/internal/harness/internal/tlsflight"
@@ -66,6 +69,28 @@ type Server struct {
 	// flightKeys is the key log of a client-certificate scenario's TLS
 	// server, which recordClientAuth reads TLS 1.3 flights with.
 	flightKeys *tlsflight.KeyLog
+	// page is the page Serve is recording, for DNSQuery.
+	page atomic.Pointer[pageLog]
+}
+
+// DNSQuery records, in the page Serve is recording, that the browser looked
+// name up for a record of type typ (dnsstub.Config.OnQuery), when name is
+// one of a ResolvesHosts scenario's hosts (an HTTPS record's name for
+// another port than 443 recorded as its host's).
+func (s *Server) DNSQuery(name string, typ dnsmessage.Type, via string) {
+	name = httpsHost(name)
+
+	l := s.page.Load()
+	if l == nil || s.Scenario == nil || !s.Scenario.ResolvesHosts() || !IsECHHost(name) {
+		return
+	}
+
+	l.dnsQuery(capture.DNSQuery{
+		Millis: time.Since(l.start).Milliseconds(),
+		Name:   name,
+		Type:   strings.TrimPrefix(typ.String(), "Type"),
+		Via:    via,
+	})
 }
 
 // Serve handles connections from ln until ctx is canceled, then closes the
@@ -92,6 +117,7 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 		start:     time.Now(),
 		onRequest: s.OnRequest,
 	}
+	s.page.Store(log)
 
 	if sc.plainPort && s.PlainListener == nil {
 		_ = ln.Close()
@@ -108,6 +134,11 @@ func (s *Server) Serve(ctx context.Context, ln net.Listener) error {
 	} else if _, ok := sc.multi.(wsPage); ok {
 		// Its script names the port in every URL.
 		sc = sc.onPorts(ln.Addr(), nil)
+	} else if p, ok := sc.multi.(echPage); ok && p.altSvc {
+		// Its Alt-Svc names the QUIC socket's port, which need not be the
+		// TLS port's twin: the capture tool serves its QUIC on 443.
+		sc = sc.onPorts(ln.Addr(), nil)
+		_, sc.ports.quic, _ = net.SplitHostPort(s.PacketConn.LocalAddr().String())
 	}
 
 	serves := []func(context.Context) error{
@@ -216,6 +247,10 @@ func (s *Server) tlsConfig(sc *Scenario, issue func([]string) (tls.Certificate, 
 		cfg.ClientAuth = tls.RequestClientCert
 		cfg.ClientCAs = s.ClientCAs
 		cfg.KeyLogWriter = s.flightKeys
+	}
+
+	if sc.ech {
+		cfg.GetEncryptedClientHelloKeys = echServerKeys
 	}
 
 	if sc.multi == nil {
@@ -357,6 +392,13 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		return helloRetry(conn, sc.helloRetryHost, msg, t, helloAt, log)
 	}
 
+	var ech *capture.ECH
+	if sc.ech {
+		if ech, err = openECH(msg); err != nil {
+			return err
+		}
+	}
+
 	rlog := &recordLog{
 		Conn: conn,
 		all:  sc.recordUploads,
@@ -403,8 +445,13 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 
 	state := tlsConn.ConnectionState()
 
+	if ech != nil {
+		ech.Accepted = state.ECHAccepted
+		ech.Retry = !ech.Accepted && echSendsRetry(serverName(msg))
+	}
+
 	c.Protocol = state.NegotiatedProtocol
-	log.connection(c, state.ServerName, state.DidResume, helloAt)
+	log.connection(c, state.ServerName, state.DidResume, helloAt, ech)
 
 	if tap != nil {
 		recordClientAuth(log, c, tap, raw, s.flightKeys, state, nil, rlog, helloAt)
@@ -426,7 +473,7 @@ func (s *Server) handle(ctx context.Context, conn net.Conn, cfg *tls.Config, sc 
 		err = serveHTTP1(tlsConn, rlog, state.ServerName, c, sc, log, emit)
 	}
 
-	if isClosed(err) {
+	if isClosed(err) || ech != nil && !ech.Accepted && echRequired(err) {
 		return nil
 	}
 

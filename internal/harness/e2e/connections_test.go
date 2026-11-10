@@ -364,8 +364,16 @@ func h2Requests(tr *h2trace.Trace) []string {
 
 // stubResolver is a resolver answering as the capture machines' DNS does
 // (dnsstub): every name under .test is 127.0.0.1, where the test servers
-// listen.
+// listen, and the ech page's hosts have its HTTPS records.
 func stubResolver(t *testing.T) *net.Resolver {
+	t.Helper()
+
+	return stubResolverFor(t, nil)
+}
+
+// stubResolverFor is stubResolver telling srv, when set, of every lookup
+// of a name under .test (server.Server.DNSQuery).
+func stubResolverFor(t *testing.T, srv *server.Server) *net.Resolver {
 	t.Helper()
 
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
@@ -373,13 +381,19 @@ func stubResolver(t *testing.T) *net.Resolver {
 		t.Fatal(err)
 	}
 
+	cfg := dnsstub.Config{
+		Answer: netip.AddrFrom4([4]byte{127, 0, 0, 1}),
+		HTTPS:  server.ECHRecord,
+	}
+	if srv != nil {
+		cfg.OnQuery = srv.DNSQuery
+	}
+
 	done := make(chan error, 1)
 
 	go func() {
 		// Serve stops as the test ends, before its cleanups run.
-		done <- dnsstub.Serve(t.Context(), pc, dnsstub.Config{
-			Answer: netip.AddrFrom4([4]byte{127, 0, 0, 1}),
-		})
+		done <- dnsstub.Serve(t.Context(), pc, cfg)
 	}()
 
 	t.Cleanup(func() {

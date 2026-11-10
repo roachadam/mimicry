@@ -40,6 +40,16 @@ type pageLog struct {
 	quic quicLog
 	// onRequest is Server.OnRequest.
 	onRequest func(path string)
+	// dns are the browser's lookups of the page's hosts.
+	dns []capture.DNSQuery
+}
+
+// dnsQuery records a lookup of one of the page's hosts.
+func (l *pageLog) dnsQuery(q capture.DNSQuery) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	l.dns = append(l.dns, q)
 }
 
 // arrived reports a request that arrived whole to Server.OnRequest.
@@ -50,11 +60,12 @@ func (l *pageLog) arrived(path string) {
 }
 
 // connection records a connection whose handshake completed: its
-// ClientHello, which arrived at helloAt, and whether it offered and got a
-// resumed session.
-func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, helloAt time.Time) {
+// ClientHello, which arrived at helloAt, whether it offered and got a
+// resumed session, and its real ECH (nil for none).
+func (l *pageLog) connection(c *capture.Capture, host string, accepted bool, helloAt time.Time, ech *capture.ECH) {
 	conn := newConnection(host, c.Protocol, c.ClientHello, c.Profile.TLS, c.RecordVersion(), accepted)
 
+	conn.ECH = ech
 	conn.Millis = helloAt.Sub(l.start).Milliseconds()
 
 	l.mu.Lock()
@@ -296,6 +307,7 @@ func (l *pageLog) page() *capture.Page {
 		WSResults:   append([]capture.WSResult(nil), l.results...),
 		QUIC:        quic,
 		Start:       l.start,
+		DNS:         slices.Clone(l.dns),
 	}
 	for _, s := range l.h2 {
 		p.H2 = append(p.H2, s.stopTracing())

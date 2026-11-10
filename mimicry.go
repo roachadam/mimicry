@@ -114,6 +114,9 @@ type Config struct {
 	// DialContext opens TCP connections, to the proxy if there is one, as
 	// in http.Transport. TLS stays the browser's. Nil uses net.Dialer.
 	// HTTP/3's UDP sockets never go through it: bind them with LocalAddrs.
+	// With DialContext set and no Resolver with a Dial of its own, no DNS
+	// HTTPS record is looked up, and every server gets the GREASE ECH
+	// extension, as through a proxy: the lookup would bypass it.
 	DialContext func(ctx context.Context, network, addr string) (net.Conn, error)
 	// LocalAddrs are the local addresses mimicry's connections leave from,
 	// at most one IPv4 and one IPv6: TCP (unless DialContext opens it),
@@ -128,6 +131,12 @@ type Config struct {
 	// Resolver looks up host names. Nil uses net.DefaultResolver. Set it
 	// alongside DialContext when DialContext sends hosts to addresses DNS
 	// does not give, so connection sharing between hosts stays correct.
+	// A profile that sends real ECH (tls.realEch) also looks up the DNS
+	// HTTPS record of each host it connects to directly: through
+	// Resolver's Dial when it has one (to the system's nameserver
+	// address), otherwise over UDP and TCP to the system's nameservers
+	// (/etc/resolv.conf; on Windows, the adapters' DNS servers); with
+	// DialContext set, only through Resolver's Dial.
 	Resolver *net.Resolver
 	// Proxy picks the proxy for each request, as in http.Transport. Nil,
 	// the default, connects directly. Supported schemes are "http",

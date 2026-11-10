@@ -295,7 +295,15 @@ func parseExtension(typ profile.Code, data cryptobyte.String) (profile.Extension
 		return e, nil
 
 	case profile.ExtEncryptedClientHello:
+		if len(data) == 1 && data[0] == echInnerMarker {
+			// An inner hello's (the ech scenario's capture.ECH.Inner).
+			e.Data = profile.Bytes{echInnerMarker}
+
+			return e, nil
+		}
+
 		e.ECH, err = readGREASEECH(&data)
+
 	case profile.ExtSupportedGroups:
 		e.Groups, err = readCodeList16(&data)
 	case profile.ExtSignatureAlgorithms, profile.ExtSignatureAlgorithmsCert, profile.ExtDelegatedCredentials:

@@ -366,6 +366,10 @@ func run() error {
 				why = clientCertRefusal(b)
 			}
 
+			if why == "" && sc.ResolvesHosts() && !b.OnIPhone() {
+				why = resolveRefusal(b)
+			}
+
 			if why == "" {
 				return false
 			}
@@ -581,9 +585,20 @@ func tcpPort(ln net.Listener) (int, error) {
 // sample runs a fresh capture server answering as sc, sends the browser to
 // it, and returns the first complete capture from that browser.
 func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts options) (*capture.Capture, error) {
-	ln, pc, err := listen(ctx, opts.addr, sc.HTTP3())
+	ln, pc, err := listen(ctx, opts.addr, sc.HTTP3() && !sc.DefaultPort())
 	if err != nil {
 		return nil, err
+	}
+
+	if sc.HTTP3() && sc.DefaultPort() {
+		// The page is on https://'s default port, and Chrome 157 took
+		// no Alt-Svc naming the TLS port's twin for it (ech-h3, 2026-11-09:
+		// no QUIC at all): QUIC is served on UDP 443, which Alt-Svc names.
+		if pc, err = listenUDP443(ctx, opts.addr); err != nil {
+			_ = ln.Close()
+
+			return nil, fmt.Errorf("scenario %s needs UDP port 443: %w", sc.Name, err)
+		}
 	}
 
 	// A replayed page opens a connection per host, each handing over a
@@ -806,6 +821,23 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 		t.ClickTitle = server.ClickTitle
 	}
 
+	if sc.ResolvesHosts() {
+		// The page is on https://'s default port, whose HTTPS records
+		// the browser looks up (port 443 forwards here: DefaultPort).
+		t.Resolve = true
+		t.Port = 443
+
+		resolving.Store(srv)
+
+		defer resolving.Store(nil)
+
+		if b.UsesDoH() {
+			if t.DoH, err = serveDoH(serveCtx, opts); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	timeout := opts.timeout
 	hosts, length, multi := sc.MultiHost()
 
@@ -876,8 +908,11 @@ func sample(ctx context.Context, b *browser.Browser, sc *server.Scenario, opts o
 	}
 
 	if c != nil && len(conditions) > 0 {
-		// A capture under other conditions is another capture.
-		c.Scenario += "." + localRootsSuffix
+		if t.H3LocalRoots {
+			// A capture under other conditions is another capture.
+			c.Scenario += "." + localRootsSuffix
+		}
+
 		if c.Page != nil {
 			c.Page.Conditions = conditions
 		}
@@ -917,6 +952,48 @@ func listen(ctx context.Context, addr string, udp bool) (net.Listener, net.Packe
 	}
 
 	return nil, nil, errors.New("no port free for both TCP and UDP")
+}
+
+// listenUDP443 opens UDP port 443 on addr or, where a user may bind it only
+// on every address (macOS, as forward's TCP 443), on every address, then
+// keeping only datagrams from loopback if addr is loopback.
+func listenUDP443(ctx context.Context, addr string) (net.PacketConn, error) {
+	pc, err := (&net.ListenConfig{}).ListenPacket(ctx, "udp", net.JoinHostPort(addr, "443"))
+	if err == nil {
+		return pc, nil
+	}
+
+	if pc, err = (&net.ListenConfig{}).ListenPacket(ctx, "udp", ":443"); err != nil {
+		return nil, err
+	}
+
+	only, err := netip.ParseAddr(addr)
+	if udp, ok := pc.(*net.UDPConn); ok && err == nil && only.IsLoopback() {
+		return &loopbackUDP{
+			UDPConn: udp,
+		}, nil
+	}
+
+	return pc, nil
+}
+
+// loopbackUDP is a UDP socket bound to every address that drops every
+// datagram from a peer not on loopback.
+type loopbackUDP struct {
+	*net.UDPConn
+}
+
+func (l *loopbackUDP) ReadFrom(p []byte) (int, net.Addr, error) {
+	for {
+		n, addr, err := l.UDPConn.ReadFrom(p)
+		if err != nil {
+			return n, addr, err
+		}
+
+		if u, ok := addr.(*net.UDPAddr); ok && u.IP.IsLoopback() {
+			return n, addr, nil
+		}
+	}
 }
 
 // forward hands every connection ln accepts to a connection of its own to

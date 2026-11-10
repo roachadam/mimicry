@@ -59,6 +59,11 @@ type Config struct {
 	// then closes the connection with nothing sent and fails with
 	// ErrRestart, and ClientCertificate is not asked.
 	FirstRequest func() bool
+	// ECH, when set, is the config the hello's inner hello is encrypted to
+	// (fingerprint.Plan.ECHHello). A server that rejects it, proving
+	// itself the config's public name, fails the handshake with
+	// *ECHRejectedError.
+	ECH *ECHConfig
 }
 
 // ErrRestart reports a connection Client closed at its host's first
@@ -101,6 +106,13 @@ func Client(ctx context.Context, conn net.Conn, hello fingerprint.Hello, cfg Con
 
 	if err := tlsConn.HandshakeContext(ctx); err != nil {
 		_ = conn.Close()
+
+		if rejected, ok := errors.AsType[*utls.ECHRejectionError](err); ok {
+			return nil, "", &ECHRejectedError{
+				RetryConfigs: rejected.RetryConfigList,
+			}
+		}
+
 		return nil, "", err
 	}
 
@@ -183,6 +195,16 @@ func TLSConfig(cfg Config) *utls.Config {
 	if cfg.OmitSNI {
 		config.ServerName = ""
 		config.InsecureServerNameToVerify = cfg.ServerName
+	}
+
+	if ech := cfg.ECH; ech != nil {
+		config.EncryptedClientHelloConfigList = ech.List
+		// A server rejecting ECH answers as the public name, and must
+		// prove it before its retry configs count (RFC 9849, section
+		// 6.1.7).
+		config.EncryptedClientHelloRejectionVerify = func(cs utls.ConnectionState) error {
+			return verifyPublicName(cs, ech.PublicName, cfg.RootCAs)
+		}
 	}
 
 	var cache *connCache
@@ -355,7 +377,89 @@ func Spec(h fingerprint.Hello) (*utls.ClientHelloSpec, error) {
 		return nil, errors.New("handshake: profile has no supported_versions; TLS 1.2-only profiles are not supported")
 	}
 
+	if h.GREASEPSK {
+		spec.Extensions = append(spec.Extensions, &utls.GREASEPreSharedKeyExtension{})
+	}
+
+	if h.Inner != nil {
+		inner, err := innerSpec(h.Inner)
+		if err != nil {
+			return nil, err
+		}
+
+		spec.ECHInner = inner
+	}
+
 	return spec, nil
+}
+
+// innerSpec turns a connection's inner hello into uTLS's: its own
+// extensions, as the outer hello's, but for the inner forms of
+// encrypted_client_hello and server_name (the real name), and
+// ech_outer_extensions naming the copied ones.
+func innerSpec(in *fingerprint.InnerHello) (*utls.ECHInnerSpec, error) {
+	spec := &utls.ECHInnerSpec{
+		CipherSuites: codes16(in.CipherSuites),
+	}
+
+	for i := range in.Extensions {
+		e := &in.Extensions[i]
+
+		var (
+			ext utls.TLSExtension
+			err error
+		)
+
+		switch e.Type {
+		case profile.ExtEncryptedClientHello:
+			ext = &utls.ECHInnerExtension{}
+		case profile.ExtECHOuterExtensions:
+			ext = &utls.ECHOuterExtensions{
+				Types: codes16(in.Copied),
+			}
+
+		case profile.ExtServerName:
+			// Without a name: Config.ServerName, the real one.
+			ext = &utls.SNIExtension{
+				KeepTrailingDot: true,
+			}
+
+		default:
+			ext, err = extension(e)
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("handshake: inner extension %s: %w", e.Type, err)
+		}
+
+		spec.Extensions = append(spec.Extensions, ext)
+	}
+
+	return spec, nil
+}
+
+// verifyPublicName checks that cs, the handshake of a server rejecting
+// ECH, presented a chain valid for publicName from roots (nil: the
+// system's).
+func verifyPublicName(cs utls.ConnectionState, publicName string, roots *x509.CertPool) error {
+	if len(cs.PeerCertificates) == 0 {
+		return errors.New("handshake: a server rejecting ECH sent no certificate")
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:         roots,
+		DNSName:       publicName,
+		Intermediates: x509.NewCertPool(),
+	}
+	for _, c := range cs.PeerCertificates[1:] {
+		opts.Intermediates.AddCert(c)
+	}
+
+	if _, err := cs.PeerCertificates[0].Verify(opts); err != nil {
+		return fmt.Errorf("handshake: a server rejecting ECH is not %s: %w", publicName, err)
+	}
+
+	return nil
 }
 
 // reuseX25519 has uTLS send X25519MLKEM768's X25519 key as the x25519 share

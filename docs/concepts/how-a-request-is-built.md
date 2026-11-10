@@ -190,10 +190,16 @@ limit, coalescing and idle timeouts are described in
 [proxies](proxies.md).
 
 A new connection is dialled, through the proxy if there is one, and
-handshaked with the profile's ClientHello. Its certificate is checked
-against `Config.RootCAs`, then `Config.Pins` and `Config.VerifyConnection`.
-A request of which nothing was sent is retried on another connection. The
-request is then written:
+handshaked with the profile's ClientHello. For a direct `https://`
+connection with a profile that has `tls.realEch`, the host's DNS HTTPS
+record is looked up while the TCP connection opens; when it carries an
+ECH config the browser would use, the ClientHello names the config's
+public name and carries the real one encrypted, and a server that rejects
+it gets one more connection as the browser makes it
+([Encrypted Client Hello](what-mimicry-does.md#encrypted-client-hello)).
+Its certificate is checked against `Config.RootCAs`, then `Config.Pins`
+and `Config.VerifyConnection`. A request of which nothing was sent is
+retried on another connection. The request is then written:
 
 - **HTTP/2** (`internal/h2`): pseudo-headers in the browser's order, the
   plan's headers, cookies split as the browser splits them, HPACK encoded
@@ -317,7 +323,11 @@ asked.
   only over HTTP/3 sent over TCP (custom profiles); an `http://` request
   or a redirect hop in a condition no capture showed; Safari's `fetch()`
   with method OPTIONS; on a profile without `urls` (`chrome-155-macos`,
-  `firefox-158-*`), a `|` in a path or an invalid `xn--` host label.
+  `firefox-158-*`), a `|` in a path or an invalid `xn--` host label; a
+  host whose DNS HTTPS record lists, ahead of a config the browser uses,
+  one with a KEM it was never seen to use or pass over, or whose picked
+  config's first cipher suite it never used (Firefox: AES-256-GCM;
+  [decision 0068](../decisions/0068-real-ech.md)).
 - **A lone `%` in a path** cannot be written in a URL: Go's `url.Parse`
   refuses it inside `http.NewRequest`, where browsers send it as written.
   Send it with `req.URL.Opaque` (above).

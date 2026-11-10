@@ -4,12 +4,18 @@
 // real-looking site names. macOS sends *.test lookups to it once
 // ResolverFile holds ResolverConfig; a phone capturing over the network
 // (cmd/capture -listen) uses it as its only DNS server, so there it forwards
-// every other name to the Mac's own resolver.
+// every other name to the Mac's own resolver. DoH answers the same queries
+// over DNS-over-HTTPS (RFC 8484), for a browser that can be pointed at a
+// resolver of its own but not at the system's (Chrome on macOS, the ech
+// scenario).
 package dnsstub
 
 import (
 	"context"
+	"encoding/base64"
+	"io"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"strings"
@@ -49,7 +55,24 @@ type Config struct {
 	// network); every query from elsewhere is refused, so the stub is no
 	// open resolver.
 	Clients netip.Prefix
+	// HTTPS, when set, gives the HTTPS record (RFC 9460) of a name under
+	// .test (lowercase, without the final dot): its service parameters;
+	// ok is false for a name without one.
+	HTTPS func(name string) (params []dnsmessage.SVCParam, ok bool)
+	// OnQuery, when set, is told of every query for a name under .test
+	// (lowercase, without the final dot) and how it came (ViaSystem,
+	// ViaDoH), from the goroutine answering it.
+	OnQuery func(name string, typ dnsmessage.Type, via string)
 }
+
+// How a query reached the stub, for Config.OnQuery.
+const (
+	// ViaSystem is a query over UDP: from the system's resolver, or a
+	// device using the stub as its DNS server.
+	ViaSystem = "system"
+	// ViaDoH is a query to DoH.
+	ViaDoH = "doh"
+)
 
 // ResolverInstalled reports whether ResolverFile routes *.test to the stub.
 func ResolverInstalled() bool {
@@ -87,7 +110,7 @@ func Serve(ctx context.Context, conn net.PacketConn, cfg Config) error {
 			fail = dnsmessage.RCodeRefused
 		}
 
-		resp, forward, err := answer(buf[:n], cfg, fail)
+		resp, forward, err := answer(buf[:n], cfg, fail, ViaSystem)
 		if err != nil {
 			continue // not a DNS query
 		}
@@ -96,7 +119,7 @@ func Serve(ctx context.Context, conn net.PacketConn, cfg Config) error {
 			select {
 			case forwards <- struct{}{}:
 			default:
-				if resp, _, err := answer(buf[:n], cfg, dnsmessage.RCodeServerFailure); err == nil {
+				if resp, _, err := answer(buf[:n], cfg, dnsmessage.RCodeServerFailure, ViaSystem); err == nil {
 					_, _ = conn.WriteTo(resp, addr)
 				}
 
@@ -167,10 +190,10 @@ func exchange(ctx context.Context, upstream string, query []byte) ([]byte, error
 	}
 }
 
-// answer returns the stub's own answer to query, or forward when query is
-// for cfg.Upstream. A fail rcode (not RCodeSuccess) is the answer to any
-// query, forwarded or not.
-func answer(query []byte, cfg Config, fail dnsmessage.RCode) ([]byte, bool, error) {
+// answer returns the stub's own answer to query, which came via (ViaSystem,
+// ViaDoH), or forward when query is for cfg.Upstream. A fail rcode (not
+// RCodeSuccess) is the answer to any query, forwarded or not.
+func answer(query []byte, cfg Config, fail dnsmessage.RCode, via string) ([]byte, bool, error) {
 	var p dnsmessage.Parser
 
 	h, err := p.Start(query)
@@ -186,6 +209,10 @@ func answer(query []byte, cfg Config, fail dnsmessage.RCode) ([]byte, bool, erro
 	name := strings.ToLower(q.Name.String())
 	inZone := strings.HasSuffix(name, ".test.") && fail == dnsmessage.RCodeSuccess
 	ddr := name == "resolver.arpa." || strings.HasSuffix(name, ".resolver.arpa.")
+
+	if inZone && cfg.OnQuery != nil {
+		cfg.OnQuery(strings.TrimSuffix(name, "."), q.Type, via)
+	}
 
 	if !inZone && !ddr && cfg.Upstream != "" && fail == dnsmessage.RCodeSuccess {
 		return nil, true, nil
@@ -219,23 +246,104 @@ func answer(query []byte, cfg Config, fail dnsmessage.RCode) ([]byte, bool, erro
 		return nil, false, err
 	}
 
-	if inZone && q.Type == dnsmessage.TypeA && q.Class == dnsmessage.ClassINET {
+	if !inZone || q.Class != dnsmessage.ClassINET {
+		resp, err := b.Finish()
+
+		return resp, false, err
+	}
+
+	header := dnsmessage.ResourceHeader{
+		Name:  q.Name,
+		Class: dnsmessage.ClassINET,
+		TTL:   1,
+	}
+
+	switch q.Type {
+	case dnsmessage.TypeA:
 		if err := b.StartAnswers(); err != nil {
 			return nil, false, err
 		}
 
-		if err := b.AResource(dnsmessage.ResourceHeader{
-			Name:  q.Name,
-			Class: dnsmessage.ClassINET,
-			TTL:   1,
-		}, dnsmessage.AResource{
+		if err := b.AResource(header, dnsmessage.AResource{
 			A: cfg.Answer.As4(),
 		}); err != nil {
 			return nil, false, err
 		}
+
+	case dnsmessage.TypeHTTPS:
+		if cfg.HTTPS == nil {
+			break
+		}
+
+		params, ok := cfg.HTTPS(strings.TrimSuffix(name, "."))
+		if !ok {
+			break
+		}
+
+		if err := b.StartAnswers(); err != nil {
+			return nil, false, err
+		}
+
+		// A ServiceMode record for the name itself (TargetName ".").
+		if err := b.HTTPSResource(header, dnsmessage.HTTPSResource{
+			Priority: 1,
+			Target:   dnsmessage.MustNewName("."),
+			Params:   params,
+		}); err != nil {
+			return nil, false, err
+		}
+
+	default:
+		// No records of other types: the capture server listens on IPv4.
 	}
 
 	resp, err := b.Finish()
 
 	return resp, false, err
+}
+
+// maxDoHQuery bounds a DoH query's size: a DNS message over UDP or HTTPS
+// is at most 64 KiB.
+const maxDoHQuery = 65535
+
+// DoH answers DNS-over-HTTPS queries (RFC 8484, GET with ?dns= or POST) as
+// Serve answers queries over UDP, without forwarding: names outside .test
+// are refused.
+func DoH(cfg Config) http.Handler {
+	cfg.Upstream = ""
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var (
+			query []byte
+			err   error
+		)
+
+		switch r.Method {
+		case http.MethodGet:
+			query, err = base64.RawURLEncoding.DecodeString(r.URL.Query().Get("dns"))
+		case http.MethodPost:
+			query, err = io.ReadAll(io.LimitReader(r.Body, maxDoHQuery))
+		default:
+			http.Error(w, "GET or POST", http.StatusMethodNotAllowed)
+
+			return
+		}
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		resp, _, err := answer(query, cfg, dnsmessage.RCodeSuccess, ViaDoH)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/dns-message")
+
+		_, _ = w.Write(resp) //nolint:gosec // a DNS message, application/dns-message, never rendered
+	})
 }

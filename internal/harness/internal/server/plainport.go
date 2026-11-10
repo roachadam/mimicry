@@ -6,9 +6,11 @@ import (
 )
 
 // portPair is where a PlainPort scenario's page is served: TLS on the
-// first port, plain HTTP/1.1 on the second.
+// first port, plain HTTP/1.1 on the second. quic is the UDP port of a
+// scenario whose Alt-Svc names its QUIC socket's own (ech-h3), zero
+// otherwise.
 type portPair struct {
-	tls, plain string
+	tls, plain, quic string
 }
 
 // PlainPort reports a scenario that serves plain HTTP on a second port of

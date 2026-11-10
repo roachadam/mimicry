@@ -93,6 +93,10 @@ the browser does:
   as `ws://` from an `http://` page.
 - Reads are bounded at 64 MiB per message and 64 queued messages: safety
   bounds, not browser values.
+- A socket on its own HTTP/1.1 connection sends the WebSocket hello with
+  GREASE ECH, never real Encrypted Client Hello; one over an existing
+  HTTP/2 connection rides that connection, ECH included. Not captured
+  ([decision 0068](../decisions/0068-real-ech.md)).
 
 Background: decisions [0025](../decisions/0025-websockets.md) and
 [0039](../decisions/0039-proxy-credentials-up-front.md).

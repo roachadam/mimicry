@@ -106,6 +106,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0061](decisions/0061-tls-key-log.md) | `Config.KeyLogWriter` writes TLS secrets on request; `SSLKEYLOGFILE` is never read | Accepted |
 | [0062](decisions/0062-saved-tls-tickets.md) | Session tickets shared and saved on request (`Config.Tickets`), one browser per cache; proxies named by a hash, swept proxies' tickets dropped | Accepted |
 | [0064](decisions/0064-client-certificates.md) | Client certificates as each browser sends them: `tls.clientAuth` (schemes, resumption, Chrome's dropped first connection), unmeasured is `ErrNotMeasured` | Accepted |
+| [0068](decisions/0068-real-ech.md) | Real ECH from DNS HTTPS records, as each browser sends it (`tls.realEch`, hellogen from the `ech` capture): the browser's config, suite, inner hello and reconnection; GREASE over QUIC, through proxies and where not measured | Accepted |
 
 ### Proxies and WebSockets
 

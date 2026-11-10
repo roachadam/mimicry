@@ -402,6 +402,8 @@ func (c *checker) checkTLS(t *TLS) {
 			c.add("tls.helloRetry.cookieAfter", "extension %s is not in the ClientHello", *h.CookieAfter)
 		}
 	}
+
+	c.checkRealECH(t)
 }
 
 // describe writes an extension body for a message.

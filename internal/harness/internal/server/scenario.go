@@ -83,6 +83,17 @@ type Scenario struct {
 	// (capture.ClientAuth); it names the key of the identity the capture
 	// tool gives the browser (ClientKeyEC, ClientKeyRSA).
 	clientCert string
+	// ech has the browser look the page's hosts up in DNS, where their
+	// HTTPS records carry ECH configs (ECHRecord), and the server decrypt
+	// ECH for the configs it holds keys of (ECH).
+	ech bool
+}
+
+// ResolvesHosts reports a scenario whose hosts the browser looks up in DNS
+// (the capture tool's DNS stub, or its DoH endpoint) instead of mapping
+// them to the server's address itself, so it sees their HTTPS records.
+func (sc *Scenario) ResolvesHosts() bool {
+	return sc.ech
 }
 
 // request is what a scenario needs to know to answer a request.
@@ -333,6 +344,8 @@ var Scenarios = []*Scenario{
 	H3StreamsBlocked,
 	Bodiless,
 	HRR,
+	ECH,
+	ECHH3,
 	ClientHints,
 	URLs,
 	ClientCertEC,
@@ -371,6 +384,8 @@ func (sc *Scenario) UnsupportedOnIOS() string {
 		return "its lo-* steps navigate to http://localhost, which on the iPhone is the phone itself, so the page stops there"
 	case sc.clientCert != "":
 		return "nothing installs a client identity on the iPhone, and " + noSafariClientCert
+	case sc == ECHH3:
+		return "[INFERENCE] as macOS Safari: " + safariECHH3
 	}
 
 	return ""
@@ -385,10 +400,15 @@ func (sc *Scenario) UnsupportedBy(tool string) string {
 		return noSafariClientCert
 	case sc.Proxy == ProxyHTTPS && tool == "safari":
 		return "macOS gives Safari no proxy it reaches over TLS: its secure web proxy setting is a plain HTTP proxy for https:// URLs, and the system " + noSafariHTTPSProxy
+	case sc == ECHH3 && tool == "safari":
+		return safariECHH3
 	}
 
 	return ""
 }
+
+// safariECHH3 is why Safari does not take ech-h3.
+const safariECHH3 = "Safari ignores ECH configs (tls.realEch.ignore), so the page shows nothing of ECH, and its HTTP/3 discovery is h3-discovery's; and on https://'s default port, unlike the h3 pages' fresh port per sample, its Alt-Svc cache outlives a sample: Safari 27's first sample used TCP and a later one HTTP/3 alone, so the run failed, and every sample of the next run used HTTP/3 alone (macOS 27, 2026-11-09)"
 
 // noSafariHTTPSProxy is what macOS (27.0.1, Safari 27, 2026-11-09) did
 // with a proxy script answering HTTPS host:port for *.test.
