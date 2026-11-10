@@ -51,7 +51,7 @@ The public packages are the root package, `cookies`, `profile`, `profiles` and `
 
 ## The uTLS fork
 
-mimicry depends on `github.com/roachadam/utls` at a pseudo-version of its `main` branch. To move to a newer fork commit, merge it there and run `go get github.com/roachadam/utls@main`. To try an unmerged fork change, use a local `go.work` that includes `../utls`; it is gitignored and must never be committed.
+mimicry depends on `github.com/roachadam/utls` at a version tag of its `main` branch (`v1.8.3` on). To move to newer fork changes, merge them to the fork's `main` (rebase merge: its `PATCHES.md` keeps one patch per commit), tag the merged commit with the next patch version (a minor or major bump past any upstream release an upstream sync brings in), and run `go get github.com/roachadam/utls@<tag>` in every module (root, `internal/harness`, `internal/bench`). To try an unmerged fork change, use a local `go.work` that includes `../utls`; it is gitignored and must never be committed.
 
 ## Code style
 
