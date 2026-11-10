@@ -278,6 +278,8 @@ Errors are returned, not encoded as a status code. Worth checking for:
 - `mimicry.ErrNotMeasured`: the profile cannot describe the request, so
   nothing was sent. This is a programming error; do not retry;
 - `*mimicry.CORSError`: the browser would not have sent the request;
+- `mimicry.ErrBlocked`: the profile's browser blocks the request (a
+  cross-site beacon with a Brave profile), so nothing was sent;
 - `*mimicry.ProxyError`: the proxy failed, not the site;
 - `*mimicry.PinError`: the certificate matched none of `Config.Pins`.
 

@@ -8,7 +8,7 @@ import (
 	"github.com/roachadam/mimicry/profile"
 )
 
-// Brave's Shields farble Accept-Language (decision 0066): its last
+// Brave's Shields farble Accept-Language (decision 0067): its last
 // language takes a q value drawn per top-level page origin and session,
 // so every sample of Brave sends another. The captures keep what was sent.
 // The generators and the e2e comparisons read them unfarbled (Unfarble*):

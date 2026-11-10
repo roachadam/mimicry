@@ -597,8 +597,8 @@ func (e *Engine) quicFor(ctx context.Context, r route) (c *quicConn, race chan s
 // then returns nil for TCP; a failed attempt holds the request no longer
 // with fast fallback, until the delay with browser timing. With
 // ZeroRTTHolds a 0-RTT attempt holds the request until it is dialled,
-// however short the delay (Brave's 3–5 ms), and on its connection for
-// the handshake; with AbandonOnTCP the attempt is dropped.
+// however short the delay (Brave's 2–5 ms on macOS and Linux), and on its
+// connection for the handshake; with AbandonOnTCP the attempt is dropped.
 //
 // held is how long the attempt's dial is held back for a request that
 // started it (Discovery.DialDelayMillis): TCPDelayMillis counts from the
@@ -610,6 +610,10 @@ func (e *Engine) await(ctx context.Context, a *attempt, held time.Duration) (*qu
 	if a.together {
 		delay = 0
 	}
+
+	// The race delay counts from here, the pre-wait for a 0-RTT dial
+	// included: a failed resumed dial leaves the rest of it.
+	start := e.clock.Now()
 
 	if fb.ZeroRTTHolds && a.resumed && !a.together {
 		// The browser sends the request on the 0-RTT connection the
@@ -625,7 +629,7 @@ func (e *Engine) await(ctx context.Context, a *attempt, held time.Duration) (*qu
 		}
 	}
 
-	t := e.clock.NewTimer(delay)
+	t := e.clock.NewTimer(max(0, delay-e.clock.Now().Sub(start)))
 
 	defer t.Stop()
 

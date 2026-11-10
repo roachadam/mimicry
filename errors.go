@@ -23,6 +23,12 @@ var ErrNotMeasured = headerorder.ErrNotMeasured
 // HeaderOrderKey). Test for it with errors.Is.
 var ErrPlacement = headerorder.ErrPlacement
 
+// ErrBlocked reports a request the profile's browser blocks and never
+// sends: a cross-site Beacon where its profile says so (Brave's Shields,
+// profile.Context.BlocksCrossSiteBeacons). RoundTrip returns it wrapped,
+// with nothing sent. Test for it with errors.Is.
+var ErrBlocked = errors.New("mimicry: the profile's browser blocks this request")
+
 // CORSError is a request the browser would not send: its CORS preflight's
 // answer does not allow it, or it follows a redirect that fails the CORS
 // check (Redirect). RoundTrip did not send it (Request.IgnoreCORS sends it

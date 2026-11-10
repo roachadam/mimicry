@@ -218,7 +218,7 @@ type Context struct {
 	// AcceptLanguageQ are the q values one of which the browser puts on
 	// Accept-Language's last language instead of the lists' own, drawn
 	// for each top-level page's origin and kept for the session: Brave's
-	// Shields farbling, 0.5 to 0.9 (decision 0066). Every request takes
+	// Shields farbling, 0.5 to 0.9 (decision 0067). Every request takes
 	// its top-level page's (a navigation and its redirects, the one it
 	// started from) but a CORS preflight, which keeps the lists' value.
 	// Empty: the lists' value always.

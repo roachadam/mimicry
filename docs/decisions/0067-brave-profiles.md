@@ -72,8 +72,9 @@ rule (decision 0003) forbids settling by picking one sample.
 - **Cross-site beacons: `context.blocksCrossSiteBeacons`.** Brave never
   sends a `navigator.sendBeacon` to another site; a cross-site `Beacon`
   request is an error. kindsgen derives it from the kinds pages.
-- **HTTP/3 fallback.** Brave races TCP after 2 to 5 ms where Chrome waits
-  about 300 (`tcpDelayMs`); h3gen now reads a race whose 0-RTT attempt
+- **HTTP/3 fallback.** Brave on macOS and Linux races TCP after 2 to 5 ms
+  where Chrome waits about 300, Brave on Windows after 305 to 313 as
+  Chrome does (`tcpDelayMs`); h3gen now reads a race whose 0-RTT attempt
   holds its request (`zeroRttHolds`) as a race whatever the delay. A
   0-RTT attempt holds its request until it is dialled, and fast fallback
   gives a resumed connection at least the first probe timeout.
@@ -124,9 +125,9 @@ each. A trial on this Mac (macOS 27.0.1) showed the same headers.
   packet after the Handshake and 1-RTT ones it led (pinned,
   `coalescedOrder`).
 - **HTTP/3 fallback:** after a GOAWAY the first request on the
-  blackholed host waited 2–5 ms for QUIC (Chrome 305, Edge 313); the
-  0-RTT attempt after the server's close held its request 4.0 s, as
-  Chrome's.
+  blackholed host waited 3–5 ms for QUIC on macOS, 2–5 ms on Linux and
+  305–313 ms on Windows (Chrome 305, Edge 313); the 0-RTT attempt after
+  the server's close held its request 4.0 s, as Chrome's.
 - **Background traffic:** Brave's own requests (`star-randsrv.bsg.brave.com`,
   `usage-ping.brave.com`) appear only through the capture proxy, which
   refuses and does not record them.

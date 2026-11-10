@@ -192,7 +192,7 @@ func chromium(name string) bool {
 }
 
 // chromeAgent are the browsers whose user agent is Chrome's, word for word:
-// Brave's (decision 0066). capture.ParseUserAgent names them chrome, so a
+// Brave's (decision 0067). capture.ParseUserAgent names them chrome, so a
 // capture of one is named after the browser launched (Named).
 var chromeAgent = map[string]bool{
 	"brave": true,

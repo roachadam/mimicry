@@ -158,7 +158,7 @@ func (c *Capture) UserAgent() string {
 // Identify fills in the profile's name, browser, major version and platform
 // from the user agent, but for the browser where named is set: Brave's
 // user agent is Chrome's word for word, so the capture tool names the
-// browser it launched (decision 0066). Unrecognised values become
+// browser it launched (decision 0067). Unrecognised values become
 // "unknown".
 func (c *Capture) Identify(named string) {
 	browser, version, platform := ParseUserAgent(c.UserAgent())

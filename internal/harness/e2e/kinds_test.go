@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"maps"
 	"net"
@@ -496,8 +497,8 @@ func runKindsPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *capture.P
 
 		if blockedBeacon(p, r.label) {
 			// The browser drops it (Brave's Shields): mimicry refuses.
-			if err := s.do(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body); err == nil {
-				t.Errorf("%s: mimicry sent a cross-site beacon its profile blocks", r.label)
+			if err := s.do(r.method, s.url(host, "/k/"+r.label), r.req, r.headers, r.body); !errors.Is(err, mimicry.ErrBlocked) {
+				t.Errorf("%s: mimicry sent a cross-site beacon its profile blocks, or failed otherwise: %v", r.label, err)
 			}
 
 			continue

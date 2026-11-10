@@ -475,7 +475,8 @@ Windows 10, a per-user install,
 [report](../internal/harness/reports/refresh-brave-157-windows-2026-11-09.md))
 started from `brave-157-macos` and inherits nothing. Its rows are
 `brave-157-macos`'s but for the platform strings, the machine's client
-hints, `tcpDelayMs` and the dial delays (h3gen), and the pins: 138 of 150
+hints, `tcpDelayMs` (305–313, as Chrome on Windows; macOS 3–5, Linux
+2–5) and the dial delays (h3gen), and the pins: 138 of 150
 second Initials in 2 bytes (12 with a token in 1); one `h3-page`
 PRIORITY_UPDATE read 1 ms after its HEADERS and one `h3-streams-blocked`
 sample with 2 more STREAMS_BLOCKED (h3gen's `sampleGaps`); the second

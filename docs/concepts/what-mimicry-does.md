@@ -156,8 +156,9 @@ kept for the Transport's life: a navigation and its redirects take their
 first URL's draw, every other request (a WebSocket handshake too) its
 page's (`Request.From`, or the last navigation). CORS preflights keep the
 profile's own value, as Brave's do. Third-party cookies are kept apart
-per top-level site, and a cross-site `Beacon` is an error: Brave sends
-neither. Its client hints are the smaller set Brave answers with. See
+per top-level site, and a cross-site `Beacon` is an error wrapping
+`ErrBlocked`: Brave sends neither. Its client hints are the smaller set
+Brave answers with. See
 [decision 0067](../decisions/0067-brave-profiles.md).
 
 **Why.** These are Brave's defaults on the wire; a Brave whose

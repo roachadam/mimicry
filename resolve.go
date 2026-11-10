@@ -172,7 +172,7 @@ func resolve(p *profile.Spec, req *http.Request, r Request, from *url.URL, confi
 
 	if r.Kind == Beacon && targetSite == "cross-site" && p.Context != nil && p.Context.BlocksCrossSiteBeacons {
 		// Brave's Shields drop it: the browser never sends one.
-		return nil, fmt.Errorf("mimicry: profile %s sends no beacon to another site: its browser blocks them (profile.Context.BlocksCrossSiteBeacons)", p.Name)
+		return nil, fmt.Errorf("%w: profile %s sends no beacon to another site (profile.Context.BlocksCrossSiteBeacons)", ErrBlocked, p.Name)
 	}
 
 	values := map[string]string{}
