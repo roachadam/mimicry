@@ -33,12 +33,15 @@ jobs:
           - os: ubuntu-latest
             node: '24'
             check: true
+            save: true
           - os: ubuntu-latest
             node: '26'
           - os: macos-latest
             node: '24'
+            save: true
           - os: windows-latest
             node: '24'
+            save: true
     defaults:
       run:
         working-directory: bindings/node
@@ -46,10 +49,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The Go caches are per runner OS: one leg of each saves them.
       - uses: ./.github/actions/setup
         with:
           cache: node-sdk
-          save: ${{ github.ref == 'refs/heads/main' }}
+          save: ${{ github.ref == 'refs/heads/main' && matrix.save == true }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
