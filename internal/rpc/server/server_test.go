@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/roachadam/mimicry/internal/rpc/client"
+	"github.com/roachadam/mimicry/internal/rpc/convert"
 	"github.com/roachadam/mimicry/internal/rpc/pb"
 	"github.com/roachadam/mimicry/internal/rpc/wire"
 	"github.com/roachadam/mimicry/internal/ws"
@@ -236,6 +238,40 @@ func TestVerifyConnection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A VerifyConnection no request waits for any more fails with why the
+// last one left: a request's deadline reads as CODE_DEADLINE, whichever
+// of the handshake and the request notices it first.
+func TestVerifyNoWaiter(t *testing.T) {
+	core, sdk := net.Pipe()
+
+	wc, err := wire.NewConn(core, wire.Config{
+		Role: wire.RoleCore,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		_ = wc.Close()
+		_ = sdk.Close()
+	})
+
+	v := newVerifier(&session{
+		wc:  wc,
+		ctx: t.Context(),
+	}, time.Minute)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 0)
+	defer cancel()
+
+	defer v.waiting(ctx)()
+
+	err = v.verify(tls.ConnectionState{})
+	if code := convert.Error(err).GetCode(); code != pb.Code_CODE_DEADLINE {
+		t.Errorf("error %v, code %v; want CODE_DEADLINE", err, code)
 	}
 }
 

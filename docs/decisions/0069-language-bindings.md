@@ -688,8 +688,10 @@ this is why they are what they are.
   no context, so the core cannot see which request a handshake is for; it
   counts the transport's live requests (and WebSocket dials) and gives the
   reverse call up (a RESET) once none is left, so each request is bounded
-  by its own deadline. The SDK's error fails the handshake as `CODE_VERIFY`
-  with its message.
+  by its own deadline. The handshake then fails with why the last request
+  left (its deadline: `CODE_DEADLINE`), so the request's error is the
+  same whichever of it and the handshake notices first. The SDK's error
+  fails the handshake as `CODE_VERIFY` with its message.
 - **Two codes beyond the record's list**: `CODE_INVALID`, a call the core
   cannot carry out as given (an unknown or wrong object, a malformed
   argument, no Hello first, another major version), and `CODE_VERIFY`.

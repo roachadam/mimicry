@@ -20,7 +20,9 @@ import (
 const defaultDialTimeout = 30 * time.Second
 
 // errNoWaiter ends a VerifyConnection call no request waits for any more:
-// each ended, by its deadline, a RESET or the connection's end.
+// each ended, by its deadline, a RESET or the connection's end. It wraps
+// why the last one ended, so the handshake's failure reads as the
+// request's own (CODE_DEADLINE for its deadline).
 var errNoWaiter = errors.New("no request of the transport waits for it any more")
 
 // verifier is a transport's VerifyConnection: the state of each verified
@@ -38,8 +40,17 @@ type verifier struct {
 
 	mu   sync.Mutex
 	live int
-	// idle is closed while no request of the transport is live.
-	idle chan struct{}
+	// idle is the current stretch while no request of the transport is
+	// live, or the next one.
+	idle *idleSpell
+}
+
+// idleSpell is a stretch while no request of a transport is live: done is
+// closed when it starts, cause is why the last request left (nil when it
+// stopped waiting itself).
+type idleSpell struct {
+	done  chan struct{}
+	cause error
 }
 
 func newVerifier(s *session, dialTimeout time.Duration) *verifier {
@@ -47,8 +58,10 @@ func newVerifier(s *session, dialTimeout time.Duration) *verifier {
 		dialTimeout = defaultDialTimeout
 	}
 
-	idle := make(chan struct{})
-	close(idle)
+	idle := &idleSpell{
+		done: make(chan struct{}),
+	}
+	close(idle.done)
 
 	return &verifier{
 		s:       s,
@@ -63,7 +76,9 @@ func (v *verifier) waiting(ctx context.Context) func() {
 	v.mu.Lock()
 
 	if v.live == 0 {
-		v.idle = make(chan struct{})
+		v.idle = &idleSpell{
+			done: make(chan struct{}),
+		}
 	}
 
 	v.live++
@@ -71,22 +86,25 @@ func (v *verifier) waiting(ctx context.Context) func() {
 
 	var once sync.Once
 
-	end := func() {
+	end := func(cause error) {
 		once.Do(func() {
 			v.mu.Lock()
 			defer v.mu.Unlock()
 
 			v.live--
 			if v.live == 0 {
-				close(v.idle)
+				v.idle.cause = cause
+				close(v.idle.done)
 			}
 		})
 	}
-	stop := context.AfterFunc(ctx, end)
+	stop := context.AfterFunc(ctx, func() {
+		end(context.Cause(ctx))
+	})
 
 	return func() {
 		stop()
-		end()
+		end(nil)
 	}
 }
 
@@ -115,8 +133,13 @@ func (v *verifier) verify(cs tls.ConnectionState) (err error) {
 
 	go func() {
 		select {
-		case <-idle:
-			cancel(errNoWaiter)
+		case <-idle.done:
+			if idle.cause != nil {
+				cancel(fmt.Errorf("%w: %w", errNoWaiter, idle.cause))
+			} else {
+				cancel(errNoWaiter)
+			}
+
 		case <-ctx.Done():
 		}
 	}()
