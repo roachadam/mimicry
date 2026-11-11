@@ -1,0 +1,14 @@
+{
+  // The published build: src/ to dist/ as ES modules with declarations;
+  // src/gen (generated JavaScript and its .d.ts) is copied as it is.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "declaration": true,
+    "sourceMap": false
+  },
+  "include": ["src"],
+  "exclude": ["src/gen"]
+}
