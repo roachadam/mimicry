@@ -140,7 +140,9 @@ async function readFull(s: Stream, n: number): Promise<Buffer> {
   return Buffer.concat(parts);
 }
 
-async function replay(v: Vector, data: Buffer, signal: AbortSignal): Promise<void> {
+// pieces writes each frame the endpoint reads in pieces of 1, 2 and 3
+// bytes in turn, so its reader joins headers and payloads across reads.
+async function replay(v: Vector, data: Buffer, signal: AbortSignal, pieces: boolean): Promise<void> {
   const input = new PassThrough();
   const output = new PassThrough();
   const notices: Uint8Array[] = [];
@@ -220,7 +222,13 @@ async function replay(v: Vector, data: Buffer, signal: AbortSignal): Promise<voi
       continue;
     }
 
-    input.write(b);
+    if (pieces) {
+      for (let i = 0, n = 1; i < b.length; i += n, n = (n % 3) + 1) {
+        input.write(b.subarray(i, i + n));
+      }
+    } else {
+      input.write(b);
+    }
 
     if (f.expect === "conn-error") {
       wantErr = f.error ?? "";
@@ -312,9 +320,12 @@ async function replay(v: Vector, data: Buffer, signal: AbortSignal): Promise<voi
 }
 
 for (const v of manifest.vectors) {
+  const data = readFileSync(new URL(v.file, dir));
   test(`vector ${v.name}`, async () => {
-    const data = readFileSync(new URL(v.file, dir));
-    await replay(v, data, AbortSignal.timeout(10_000));
+    await replay(v, data, AbortSignal.timeout(10_000), false);
+  });
+  test(`vector ${v.name}, in 1- to 3-byte pieces`, async () => {
+    await replay(v, data, AbortSignal.timeout(10_000), true);
   });
 }
 
