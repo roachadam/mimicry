@@ -268,6 +268,8 @@ func (s *session) respond(st *wire.Stream, err error, resp *http.Response) {
 	buf := make([]byte, wire.MaxPayload)
 
 	for {
+		checkpoint("response body")
+
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
 			if _, werr := st.Write(buf[:n]); werr != nil {

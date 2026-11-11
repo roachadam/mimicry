@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"google.golang.org/protobuf/proto"
 
@@ -37,6 +38,33 @@ const maxContinued = 64 << 20
 // told without anything of the call's (the panic's value may hold its
 // data) and never written to stderr.
 var errInternal = errors.New("mimicry-core: internal error")
+
+// panicHook, set only by tests, runs at each checkpoint with its name, so
+// a test can panic there.
+var panicHook atomic.Pointer[func(at string)]
+
+// checkpoint marks code of the core's on each kind of goroutine it runs
+// on (Hello, a call, a WebSocket's two sides, VerifyConnection, freeing
+// objects): the hook's place to panic.
+func checkpoint(at string) {
+	if h := panicHook.Load(); h != nil {
+		(*h)(at)
+	}
+}
+
+// contain runs fn and, if it panics, onPanic instead of letting the panic
+// end the process: on every goroutine the server starts, so that a bug of
+// the core's never kills it, and its value (which may hold a call's data)
+// is never written anywhere.
+func contain(fn, onPanic func()) {
+	defer func() {
+		if recover() != nil && onPanic != nil {
+			onPanic()
+		}
+	}()
+
+	fn()
+}
 
 // session is one connection and the objects it owns.
 type session struct {
@@ -126,9 +154,18 @@ func (s *session) ended(err error) error {
 }
 
 // hello answers the first call, which must be Hello with this protocol's
-// major version.
-func (s *session) hello(st *wire.Stream) error {
+// major version. A panic answers errInternal and ends the connection.
+func (s *session) hello(st *wire.Stream) (err error) {
 	defer closeStream(st)
+	defer func() {
+		if recover() != nil {
+			s.internal(st)
+
+			err = errInternal
+		}
+	}()
+
+	checkpoint("hello")
 
 	c, err := readCall(st)
 	if err != nil {
@@ -180,6 +217,8 @@ func (s *session) handle(st *wire.Stream) {
 	defer closeStream(st)
 	defer s.recovered(st)
 
+	checkpoint("call")
+
 	c, err := readCall(st)
 	if err != nil {
 		_ = s.replyErr(st, err)
@@ -222,14 +261,17 @@ func (s *session) handle(st *wire.Stream) {
 	}
 }
 
-// recovered answers a call that panicked with errInternal (CODE_INTERNAL):
-// its REPLY or, once that is sent, a StreamError notice and a RESET. The
-// connection and its other calls go on.
+// recovered answers a call that panicked with errInternal. The connection
+// and its other calls go on.
 func (s *session) recovered(st *wire.Stream) {
-	if recover() == nil {
-		return
+	if recover() != nil {
+		s.internal(st)
 	}
+}
 
+// internal fails a call with errInternal (CODE_INTERNAL): its REPLY or,
+// once that is sent, a StreamError notice and a RESET.
+func (s *session) internal(st *wire.Stream) {
 	if s.replyErr(st, errInternal) != nil {
 		s.failStream(st, errInternal)
 	}

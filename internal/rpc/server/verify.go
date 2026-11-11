@@ -90,8 +90,18 @@ func (v *verifier) waiting(ctx context.Context) func() {
 	}
 }
 
-// verify asks the SDK about cs: Config.VerifyConnection.
-func (v *verifier) verify(cs tls.ConnectionState) error {
+// verify asks the SDK about cs: Config.VerifyConnection. It runs on the
+// handshake's goroutine, mimicry's: a panic fails the handshake with
+// errInternal instead of ending the process.
+func (v *verifier) verify(cs tls.ConnectionState) (err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("mimicry-core: VerifyConnection: %w", errInternal)
+		}
+	}()
+
+	checkpoint("verify")
+
 	v.mu.Lock()
 
 	idle := v.idle

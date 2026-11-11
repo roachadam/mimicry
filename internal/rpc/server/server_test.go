@@ -14,6 +14,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -520,6 +521,317 @@ func TestWebSocketReset(t *testing.T) {
 			case <-closed:
 			case <-time.After(5 * time.Second):
 				t.Error("the WebSocket stayed open after its stream's RESET")
+			}
+		})
+	}
+}
+
+// A panic in the core's code, on every kind of goroutine it runs its code
+// on, fails only what it was doing, with CODE_INTERNAL and a fixed
+// message, and never the process: nothing of the panic's value (which may
+// hold a call's data) reaches the SDK or stderr. A panic in Hello ends
+// the connection as a refused Hello does; anywhere else the connection
+// goes on.
+func TestPanicContained(t *testing.T) {
+	const callData = "the call's own data"
+
+	closed := make(chan struct{}, 1)
+
+	srv, roots := tlsServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/ws" {
+			_, _ = io.WriteString(w, "ok")
+
+			return
+		}
+
+		conn, brw, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			return
+		}
+
+		_, _ = fmt.Fprintf(brw, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", ws.AcceptKey(r.Header.Get("Sec-WebSocket-Key")))
+		_ = brw.Flush()
+
+		// The socket's close frame, answered with the server's; a
+		// socket left open gives up after 5 s.
+		_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		if _, err := brw.Read(make([]byte, 512)); err == nil {
+			_, _ = conn.Write([]byte{0x88, 0x02, 0x03, 0xe8})
+
+			closed <- struct{}{}
+		}
+
+		_ = conn.Close()
+	}), nil)
+
+	wsURL := "wss" + strings.TrimPrefix(srv.URL, "https") + "/ws"
+
+	// internal checks err is the core's errInternal, the call's data nowhere.
+	internal := func(t *testing.T, err error) {
+		t.Helper()
+
+		if code := codeOf(err); code != pb.Code_CODE_INTERNAL || !strings.Contains(err.Error(), errInternal.Error()) || strings.Contains(err.Error(), callData) {
+			t.Errorf("error %v (code %v), want CODE_INTERNAL %q", err, code, errInternal)
+		}
+	}
+
+	// alive checks the connection still answers calls.
+	alive := func(t *testing.T, c *client.Client) {
+		t.Helper()
+
+		if _, err := c.Call(t.Context(), &pb.Call{
+			Method: &pb.Call_ListProfiles{
+				ListProfiles: &pb.ListProfiles{},
+			},
+		}); err != nil {
+			t.Errorf("a call after the panic: %v", err)
+		}
+	}
+
+	// socketClosed waits for the test server to see the socket closed.
+	socketClosed := func(t *testing.T) {
+		t.Helper()
+
+		select {
+		case <-closed:
+		case <-time.After(5 * time.Second):
+			t.Error("the WebSocket stayed open")
+		}
+	}
+
+	for _, tc := range []struct {
+		at  string
+		run func(t *testing.T, arm func() <-chan struct{})
+	}{
+		{
+			at: "hello",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				arm()
+
+				sdk, done := serve(t)
+
+				wc, err := wire.NewConn(sdk, wire.Config{
+					Role: wire.RoleSDK,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				defer func() {
+					_ = wc.Close()
+				}()
+
+				r := call(t, wc, &pb.Call{
+					Method: &pb.Call_Hello{
+						Hello: &pb.Hello{
+							ProtocolMajor: pb.ProtocolMajor,
+						},
+					},
+				})
+				if e := r.GetError(); e.GetCode() != pb.Code_CODE_INTERNAL || e.GetMessage() != errInternal.Error() {
+					t.Errorf("reply %v, want CODE_INTERNAL %q", r, errInternal)
+				}
+
+				if err := <-done; !errors.Is(err, errInternal) {
+					t.Errorf("Serve: %v, want errInternal", err)
+				}
+			},
+		},
+		{
+			at: "call",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{})
+
+				arm()
+
+				_, err := c.Call(t.Context(), &pb.Call{
+					Method: &pb.Call_ListProfiles{
+						ListProfiles: &pb.ListProfiles{},
+					},
+				})
+				internal(t, err)
+				alive(t, c)
+			},
+		},
+		{
+			at: "response body",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{})
+				nc := newClient(t, c, roots, nil)
+
+				arm()
+
+				_, _, err := c.Do(t.Context(), nc.GetClient(), &pb.Request{
+					Url: srv.URL,
+				}, nil)
+				internal(t, err)
+				alive(t, c)
+			},
+		},
+		{
+			at: "verify",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{
+					Verify: func(context.Context, *pb.VerifyConnection) *pb.Error {
+						return nil
+					},
+				})
+				nc := newClient(t, c, roots, func(cfg *pb.Config) {
+					cfg.VerifyConnection = true
+				})
+
+				arm()
+
+				req := &pb.Request{
+					Url: srv.URL,
+				}
+
+				_, _, err := c.Do(t.Context(), nc.GetClient(), req, nil)
+				if err == nil || !strings.Contains(err.Error(), errInternal.Error()) || strings.Contains(err.Error(), callData) {
+					t.Errorf("error %v, want one holding %q", err, errInternal)
+				}
+
+				if _, _, err := c.Do(t.Context(), nc.GetClient(), req, nil); err != nil {
+					t.Errorf("a request after the panic: %v", err)
+				}
+			},
+		},
+		{
+			at: "websocket read",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{})
+				nc := newClient(t, c, roots, nil)
+
+				arm()
+
+				sock, _, err := c.DialWebSocket(t.Context(), &pb.DialWebSocket{
+					Transport: nc.GetClient(),
+					Url:       wsURL,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				_, _, err = sock.ReadMessage()
+				internal(t, err)
+				socketClosed(t)
+				alive(t, c)
+			},
+		},
+		{
+			at: "websocket write",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{})
+				nc := newClient(t, c, roots, nil)
+
+				arm()
+
+				sock, _, err := c.DialWebSocket(t.Context(), &pb.DialWebSocket{
+					Transport: nc.GetClient(),
+					Url:       wsURL,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				_, _, err = sock.ReadMessage()
+				internal(t, err)
+				socketClosed(t)
+				alive(t, c)
+			},
+		},
+		{
+			at: "websocket close",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				c := connect(t, client.Config{})
+				nc := newClient(t, c, roots, nil)
+
+				sock, _, err := c.DialWebSocket(t.Context(), &pb.DialWebSocket{
+					Transport: nc.GetClient(),
+					Url:       wsURL,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				fired := arm()
+
+				sock.Abort()
+
+				// The close panics on its own goroutine (the stream's
+				// AfterFunc), before its close frame: the socket stays
+				// open, the core runs on.
+				select {
+				case <-fired:
+				case <-time.After(5 * time.Second):
+					t.Fatal("the socket's close never ran")
+				}
+
+				alive(t, c)
+			},
+		},
+		{
+			at: "free",
+			run: func(t *testing.T, arm func() <-chan struct{}) {
+				t.Helper()
+
+				sdk, done := serve(t)
+
+				c, err := client.New(t.Context(), sdk, client.Config{})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				newClient(t, c, roots, nil)
+				arm()
+				c.Close()
+
+				if err := <-done; err != nil {
+					t.Errorf("Serve: %v", err)
+				}
+			},
+		},
+	} {
+		t.Run(tc.at, func(t *testing.T) {
+			var armed atomic.Bool
+
+			fired := make(chan struct{})
+			hook := func(at string) {
+				if at == tc.at && armed.CompareAndSwap(true, false) {
+					close(fired)
+					panic(callData)
+				}
+			}
+
+			panicHook.Store(&hook)
+			t.Cleanup(func() {
+				panicHook.Store(nil)
+			})
+
+			tc.run(t, func() <-chan struct{} {
+				armed.Store(true)
+
+				return fired
+			})
+
+			select {
+			case <-fired:
+			default:
+				t.Errorf("nothing panicked at %q", tc.at)
 			}
 		})
 	}

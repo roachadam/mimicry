@@ -704,11 +704,16 @@ this is why they are what they are.
   field the core parses.
 - **A panic fails its call alone**: `CODE_INTERNAL` with the fixed message
   `mimicry-core: internal error` (in the REPLY, or a `StreamError` and a
-  RESET once that is sent), and the connection's other calls go on.
-  Nothing of it is written anywhere: the panic's value may hold the
-  call's data, and stderr carries at most the connection's failure.
-  Rejected: letting it kill the core, which takes every other call and
-  object of the SDK's process with it.
+  RESET once that is sent), and the connection's other calls go on. Every
+  goroutine the core runs its own code on is covered: a call's, a
+  WebSocket's reader and writer (the socket closes), VerifyConnection
+  (the handshake fails with that error), closing a socket or freeing an
+  object on a goroutine of its own (dropped), and Hello (refused, so the
+  connection ends as after any refused Hello). Nothing of it is written
+  anywhere: the panic's value may hold the call's data, and stderr
+  carries at most the connection's failure. `TestPanicContained` panics
+  at each through a test hook. Rejected: letting it kill the core, which
+  takes every other call and object of the SDK's process with it.
 - **Hello**: protocol 1.0 (`pb.ProtocolMajor`, `ProtocolMinor`), the core's
   version (`-ldflags -X main.version=…`, else the module's), no feature bits
   yet; `Feature` f will be bit `1 << f`, values from 1, `FEATURE_NONE`

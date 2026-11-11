@@ -121,6 +121,8 @@ func kindOf(v any) string {
 // free lets go of v: a transport's idle connections and key log close, a
 // WebSocket closes. Other objects hold nothing open.
 func free(v any) {
+	checkpoint("free")
+
 	switch v := v.(type) {
 	case *transport:
 		if v.t != nil {
@@ -137,7 +139,8 @@ func free(v any) {
 }
 
 // freeAll frees every object, WebSockets at once (each may wait for its
-// close handshake), and returns when all are.
+// close handshake), and returns when all are. A panic freeing one leaves
+// the others freed.
 func (o *objects) freeAll() {
 	o.mu.Lock()
 
@@ -149,7 +152,9 @@ func (o *objects) freeAll() {
 	var wg sync.WaitGroup
 	for _, v := range all {
 		wg.Go(func() {
-			free(v)
+			contain(func() {
+				free(v)
+			}, nil)
 		})
 	}
 

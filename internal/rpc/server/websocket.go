@@ -26,9 +26,15 @@ func newWebSocket(ws *mimicry.WebSocket) *webSocket {
 		ws: ws,
 		// The public API has no abort: a socket the SDK drops (Close of
 		// its id, a RESET of its stream, a disconnect) closes as
-		// Close(1000, "") does.
+		// Close(1000, "") does. It runs on goroutines of its own
+		// (context.AfterFunc, freeAll), and sync.OnceFunc would panic
+		// again on every call: a panic is contained here.
 		close: sync.OnceFunc(func() {
-			_ = ws.Close(1000, "")
+			contain(func() {
+				checkpoint("websocket close")
+
+				_ = ws.Close(1000, "")
+			}, nil)
 		}),
 	}
 }
@@ -103,11 +109,23 @@ func (s *session) dialWebSocket(st *wire.Stream, c *pb.DialWebSocket) {
 
 	var reading sync.WaitGroup
 
+	// A panic on either side fails the stream, then closes the socket;
+	// the other side then ends too, its writes failing on the reset
+	// stream.
+	failed := func() {
+		s.failStream(st, errInternal)
+		w.close()
+	}
+
 	reading.Go(func() {
-		s.readMessages(st, w)
+		contain(func() {
+			s.readMessages(st, w)
+		}, failed)
 	})
 
-	s.writeMessages(st, id, w)
+	contain(func() {
+		s.writeMessages(st, id, w)
+	}, failed)
 	reading.Wait()
 }
 
@@ -134,6 +152,8 @@ func (s *session) dial(st *wire.Stream, tr *transport, c *pb.DialWebSocket, opts
 // closes, then a RecordEnd with why and END.
 func (s *session) readMessages(st *wire.Stream, w *webSocket) {
 	for {
+		checkpoint("websocket read")
+
 		typ, data, err := w.ws.ReadMessage(s.ctx)
 		if err != nil {
 			end, _ := proto.Marshal(convert.Error(err))
@@ -159,6 +179,8 @@ func (s *session) writeMessages(st *wire.Stream, id uint64, w *webSocket) {
 	var seq uint64
 
 	for {
+		checkpoint("websocket write")
+
 		typ, data, err := convert.ReadRecord(st)
 		if errors.Is(err, io.EOF) {
 			return
