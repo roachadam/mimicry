@@ -1,6 +1,6 @@
 module github.com/roachadam/mimicry/internal/bench
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/Noooste/azuretls-client v1.13.2

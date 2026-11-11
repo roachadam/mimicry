@@ -1,6 +1,6 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126)
 - Date: 2026-11-10
 - Commits: `2f9c670` (the record; no code yet)
 
@@ -517,3 +517,78 @@ What users lose without a daemon, and what they do instead:
   library's own cost.
 - Users ask for a client-certificate signer callback, or Windows numbers
   show the pipes cost more than the socketpair numbers here.
+
+## Amendment 2026-11-10: the wire protocol's details
+
+The first pull request ([#126](https://github.com/roachadam/mimicry/issues/126),
+`internal/rpc/wire`) settled what the record left open. The rules, written
+for the SDKs, and the test vectors every implementation replays are in
+[`proto/testdata/wire/`](../../proto/testdata/wire/README.md); this is why
+they are what they are.
+
+- **Types are 1 to 6; 0 is invalid**, so a run of zero bytes fails at once
+  (`UNKNOWN_TYPE`).
+- **Who opens with what.** The SDK opens a stream with CALL, the core with
+  EVENT (reverse calls); EVENT on stream 0 is a notice nothing answers. A
+  CALL from the core or an EVENT from the SDK is a protocol error, so each
+  frame type has one meaning per direction.
+- **The window and the stream limit are agreed values, not negotiated:**
+  256 KiB of credit per direction of each stream and 256 streams per side,
+  the same on both ends (`wire.Config`; the vectors use 8 bytes and 2).
+  The receiver enforces them: DATA beyond the credit resets that stream
+  (`CREDIT_OVERRUN`), and a peer opening one stream too many fails the
+  connection (`STREAM_LIMIT`), while the opener waits for a free stream.
+  Rejected: HTTP/2's REFUSED_STREAM, which turns load into errors the SDK
+  must retry, and leaves the refusing side either tracking each refused
+  stream until its in-flight DATA is over (unbounded) or ignoring frames on
+  unknown streams (and so detecting no stray frame at all). If the values
+  ever change, Hello carries them.
+- **A RESET is answered by a RESET**, unless the answering side already
+  sent END. Each side then knows exactly when the peer stopped sending on a
+  stream, frees it then, and needs to remember only the highest id each
+  side opened: any frame on a closed stream other than a WINDOW or RESET in
+  flight is an error (`STREAM_CLOSED`). Rejected: remembering reset ids
+  (unbounded) and HTTP/2's leniency towards frames on recently closed
+  streams (a timing rule).
+- **A stream holds its place in the limit until its RESET is written.**
+  Otherwise a peer that stops reading could open and reset streams in a
+  loop, each answering RESET (and the stream behind it) queued without
+  bound; holding the place caps the queue at one RESET per stream allowed,
+  and the peer, still counting the stream until the answer reaches it,
+  never notices.
+- **Errors have a precedence** (the header, the frame's shape, the
+  stream's state, the order of its frames, credit; the README lists it),
+  so every implementation names the same error when a frame breaks two
+  rules, and the vectors pin each overlap.
+- **A connection failure always wraps `ErrConnClosed`** with its cause,
+  and a stream failing alone never does, so the layer above tells a lost
+  connection from a reset call. `Stream.Reset` sends any code; `Close` is
+  `Reset(CANCEL)`.
+- **Credit returns at half the window**: once the bytes the application
+  read since the last WINDOW reach half the window, they go back in one
+  WINDOW, never after END. It is the rule the vectors assume, so every SDK
+  sends the same frames.
+- **Protocol errors fail the connection** with a RESET on stream 0 naming
+  the error (a code per error, `CANCEL` 0 to `BAD_FRAME` 9), except a
+  credit overrun, which resets only its stream: a peer that broke the
+  framing rules cannot be trusted with the rest of the connection, while
+  an overrun is a per-stream accounting mistake.
+- **Fairness**: one writer takes frames first come, first served, and each
+  stream has at most one frame of its caller's queued, so a frame waits
+  for at most the one being written and one queued frame per other active
+  stream; a 1 MiB body goes out one 64 KiB frame at a time between other
+  streams' frames (`TestNoStall`).
+- **No timer in the protocol.** Deadlines are the callers' contexts; an
+  ended context resets its stream. The one local timer bounds a failed
+  connection: its writer has `wire.AbortGrace` (1 s) to write what it
+  owes (the RESET on stream 0 after a protocol error) before the
+  connection is closed under it, so a peer that stopped reading cannot
+  keep it, and `Done`, from ending until the owner calls `Close`.
+- **Hello is a message**, the SDK's first CALL, built and checked in the
+  second pull request; the wire carries it like any other call.
+
+Open for the second pull request: the record says a WebSocket message's
+DATA frames end with END, but END ends a direction of the stream, which a
+WebSocket keeps open across messages. Message boundaries need to live
+inside the DATA bytes (a length or a flag leading each message), decided
+with the schema.

@@ -1,0 +1,639 @@
+{
+  "version": 1,
+  "window": 8,
+  "maxStreams": 2,
+  "vectors": [
+    {
+      "name": "call-reply",
+      "description": "Two calls, each a CALL and a REPLY with END, on streams 1 and 3.",
+      "role": "sdk",
+      "file": "call-reply.bin",
+      "frames": [
+        {"dir":"out","size":14,"stream":1,"type":"CALL","end":true,"payload":"70696e67"},
+        {"dir":"in","size":14,"stream":1,"type":"REPLY","end":true,"payload":"706f6e67"},
+        {"dir":"out","size":14,"stream":3,"type":"CALL","end":true,"payload":"70696e67"},
+        {"dir":"in","size":14,"stream":3,"type":"REPLY","end":true,"payload":"706f6e67"}
+      ]
+    },
+    {
+      "name": "call-reply-core",
+      "description": "The core's side of a call.",
+      "role": "core",
+      "file": "call-reply-core.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":1,"type":"CALL","end":true,"payload":"70696e67"},
+        {"dir":"out","size":14,"stream":1,"type":"REPLY","end":true,"payload":"706f6e67"}
+      ]
+    },
+    {
+      "name": "response-body",
+      "description": "A 10-byte body after the REPLY, more than the 8-byte window: the reader grants each 4 bytes read back with WINDOW, and none after END.",
+      "role": "sdk",
+      "file": "response-body.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":14,"stream":1,"type":"REPLY","payload":"68656164"},
+        {"dir":"in","size":14,"stream":1,"type":"DATA","payload":"61626364"},
+        {"dir":"out","size":14,"stream":1,"type":"WINDOW","payload":"00000004","auto":true},
+        {"dir":"in","size":14,"stream":1,"type":"DATA","payload":"65666768"},
+        {"dir":"out","size":14,"stream":1,"type":"WINDOW","payload":"00000004","auto":true},
+        {"dir":"in","size":12,"stream":1,"type":"DATA","end":true,"payload":"696a"}
+      ]
+    },
+    {
+      "name": "request-body",
+      "description": "A body after the CALL; the core grants the 6 bytes read back, then replies.",
+      "role": "core",
+      "file": "request-body.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":1,"type":"CALL","payload":"706f7374"},
+        {"dir":"in","size":16,"stream":1,"type":"DATA","payload":"616263646566"},
+        {"dir":"out","size":14,"stream":1,"type":"WINDOW","payload":"00000006","auto":true},
+        {"dir":"in","size":12,"stream":1,"type":"DATA","end":true,"payload":"6768"},
+        {"dir":"out","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "bidirectional",
+      "description": "DATA both ways after the REPLY; the SDK ends its direction first with an empty DATA, the core keeps sending, then ends.",
+      "role": "core",
+      "file": "bidirectional.bin",
+      "frames": [
+        {"dir":"in","size":16,"stream":1,"type":"CALL","payload":"736f636b6574"},
+        {"dir":"out","size":14,"stream":1,"type":"REPLY","payload":"6f70656e"},
+        {"dir":"in","size":12,"stream":1,"type":"DATA","payload":"6869"},
+        {"dir":"out","size":12,"stream":1,"type":"DATA","payload":"796f"},
+        {"dir":"in","size":10,"stream":1,"type":"DATA","end":true},
+        {"dir":"out","size":13,"stream":1,"type":"DATA","payload":"627965"},
+        {"dir":"out","size":10,"stream":1,"type":"DATA","end":true}
+      ]
+    },
+    {
+      "name": "bidirectional-sdk",
+      "description": "DATA both ways after the REPLY, from the SDK's side; the SDK ends first, the core's last DATA carries END.",
+      "role": "sdk",
+      "file": "bidirectional-sdk.bin",
+      "frames": [
+        {"dir":"out","size":16,"stream":1,"type":"CALL","payload":"736f636b6574"},
+        {"dir":"in","size":14,"stream":1,"type":"REPLY","payload":"6f70656e"},
+        {"dir":"out","size":12,"stream":1,"type":"DATA","payload":"6869"},
+        {"dir":"in","size":12,"stream":1,"type":"DATA","payload":"796f"},
+        {"dir":"out","size":10,"stream":1,"type":"DATA","end":true},
+        {"dir":"in","size":13,"stream":1,"type":"DATA","end":true,"payload":"627965"}
+      ]
+    },
+    {
+      "name": "send-credit",
+      "description": "The SDK spends its 8 bytes of credit; a WINDOW of 4 lets it send 4 more.",
+      "role": "sdk",
+      "file": "send-credit.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","payload":"707574"},
+        {"dir":"out","size":18,"stream":1,"type":"DATA","payload":"6162636465666768"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004"},
+        {"dir":"out","size":14,"stream":1,"type":"DATA","payload":"696a6b6c"},
+        {"dir":"out","size":10,"stream":1,"type":"DATA","end":true},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reverse-call",
+      "description": "The core opens stream 2 with an EVENT (as VerifyConnection does); the SDK answers with a REPLY.",
+      "role": "sdk",
+      "file": "reverse-call.bin",
+      "frames": [
+        {"dir":"in","size":16,"stream":2,"type":"EVENT","end":true,"payload":"766572696679"},
+        {"dir":"out","size":16,"stream":2,"type":"REPLY","end":true,"payload":"616363657074"}
+      ]
+    },
+    {
+      "name": "reverse-call-core",
+      "description": "The core's side of a reverse call.",
+      "role": "core",
+      "file": "reverse-call-core.bin",
+      "frames": [
+        {"dir":"out","size":16,"stream":2,"type":"EVENT","end":true,"payload":"766572696679"},
+        {"dir":"in","size":16,"stream":2,"type":"REPLY","end":true,"payload":"616363657074"}
+      ]
+    },
+    {
+      "name": "notice",
+      "description": "An EVENT on stream 0: a notice nothing answers.",
+      "role": "sdk",
+      "file": "notice.bin",
+      "frames": [
+        {"dir":"in","size":16,"stream":0,"type":"EVENT","payload":"636f6f6b6965"}
+      ]
+    },
+    {
+      "name": "notice-core",
+      "description": "The core sends a notice.",
+      "role": "core",
+      "file": "notice-core.bin",
+      "frames": [
+        {"dir":"out","size":16,"stream":0,"type":"EVENT","payload":"636f6f6b6965"}
+      ]
+    },
+    {
+      "name": "reset-by-peer",
+      "description": "The core resets a call the SDK has not ended: the stream fails with the core's CANCEL, and the SDK answers with a RESET of its own.",
+      "role": "sdk",
+      "file": "reset-by-peer.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","payload":"676574"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000000","auto":true}
+      ]
+    },
+    {
+      "name": "reset-after-end",
+      "description": "The SDK resets a call the core has ended (REPLY with END): no answer, the END said the core stopped. A WINDOW in flight afterwards is ignored.",
+      "role": "core",
+      "file": "reset-after-end.bin",
+      "frames": [
+        {"dir":"in","size":16,"stream":1,"type":"CALL","payload":"75706c6f6164"},
+        {"dir":"out","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004","expect":"ignore"}
+      ]
+    },
+    {
+      "name": "reset-local",
+      "description": "The SDK resets its call; the core's frames in flight are ignored until its answering RESET, then stream 3 works.",
+      "role": "sdk",
+      "file": "reset-local.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","payload":"676574"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000000"},
+        {"dir":"in","size":14,"stream":1,"type":"REPLY","payload":"68656164","expect":"ignore"},
+        {"dir":"in","size":14,"stream":1,"type":"DATA","payload":"6c617465","expect":"ignore"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000","expect":"ignore"},
+        {"dir":"out","size":14,"stream":3,"type":"CALL","end":true,"payload":"6e657874"},
+        {"dir":"in","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reset-local-ended",
+      "description": "The core resets a call the SDK had ended (CALL with END): the stream is gone at once, and a WINDOW in flight is ignored.",
+      "role": "core",
+      "file": "reset-local-ended.bin",
+      "frames": [
+        {"dir":"in","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"out","size":14,"stream":1,"type":"REPLY","payload":"68656164"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000000"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004","expect":"ignore"}
+      ]
+    },
+    {
+      "name": "late-window-reset",
+      "description": "A WINDOW and a RESET on a stream both sides ended are in flight, not errors.",
+      "role": "sdk",
+      "file": "late-window-reset.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004","expect":"ignore"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000","expect":"ignore"}
+      ]
+    },
+    {
+      "name": "credit-overrun",
+      "description": "The SDK sends 3 bytes, then 6 with 5 of credit left: the core resets the stream (CREDIT_OVERRUN), ignores frames until the SDK's answering RESET, and the connection goes on.",
+      "role": "core",
+      "file": "credit-overrun.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":1,"type":"CALL","payload":"706f7374"},
+        {"dir":"in","size":13,"stream":1,"type":"DATA","payload":"616263"},
+        {"dir":"in","size":16,"stream":1,"type":"DATA","payload":"646566676869","expect":"stream-error","error":"CREDIT_OVERRUN"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000002","auto":true},
+        {"dir":"in","size":11,"stream":1,"type":"DATA","payload":"6a","expect":"ignore"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000","expect":"ignore"},
+        {"dir":"in","size":14,"stream":3,"type":"CALL","end":true,"payload":"6e657874"},
+        {"dir":"out","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "credit-overrun-end",
+      "description": "The overrunning DATA carries END: the core resets the stream (CREDIT_OVERRUN), the END ended the SDK's direction so no answer is awaited, and once the RESET is out the stream no longer counts: two new streams open within the limit of 2.",
+      "role": "core",
+      "file": "credit-overrun-end.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":1,"type":"CALL","payload":"706f7374"},
+        {"dir":"in","size":19,"stream":1,"type":"DATA","end":true,"payload":"616263646566676869","expect":"stream-error","error":"CREDIT_OVERRUN"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000002","auto":true},
+        {"dir":"in","size":11,"stream":3,"type":"CALL","end":true,"payload":"61"},
+        {"dir":"in","size":11,"stream":5,"type":"CALL","end":true,"payload":"62"},
+        {"dir":"out","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"out","size":12,"stream":5,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reset-with-code",
+      "description": "The core resets an accepted call with a code other than CANCEL; the SDK's answering RESET is ignored, and the connection goes on.",
+      "role": "core",
+      "file": "reset-with-code.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000009"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000000","expect":"ignore"},
+        {"dir":"in","size":11,"stream":3,"type":"CALL","end":true,"payload":"62"},
+        {"dir":"out","size":12,"stream":3,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "reset-unknown-code",
+      "description": "A RESET with a code the receiver does not know still resets the stream, with that code, and is answered.",
+      "role": "sdk",
+      "file": "reset-unknown-code.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","payload":"00000063"},
+        {"dir":"out","size":14,"stream":1,"type":"RESET","payload":"00000000","auto":true}
+      ]
+    },
+    {
+      "name": "window-after-end",
+      "description": "A WINDOW for the SDK's direction after the SDK's END, while the stream is still open, is ignored.",
+      "role": "sdk",
+      "file": "window-after-end.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000004","expect":"ignore"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"}
+      ]
+    },
+    {
+      "name": "frame-too-large",
+      "description": "A header announcing 65,537 bytes fails before any payload is read.",
+      "role": "core",
+      "file": "frame-too-large.bin",
+      "frames": [
+        {"dir":"in","size":10,"expect":"conn-error","error":"FRAME_TOO_LARGE","note":"CALL 1 header with length 65537, no payload"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000003","auto":true}
+      ]
+    },
+    {
+      "name": "event-zero-end",
+      "description": "END on a notice (EVENT on stream 0).",
+      "role": "sdk",
+      "file": "event-zero-end.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":0,"type":"EVENT","end":true,"payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reset-end",
+      "description": "END on a RESET.",
+      "role": "sdk",
+      "file": "reset-end.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"RESET","end":true,"payload":"00000000","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "stream-limit-sdk",
+      "description": "The SDK enforces the limit too: a third core stream open at once, with a limit of 2.",
+      "role": "sdk",
+      "file": "stream-limit-sdk.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":2,"type":"EVENT","payload":"61"},
+        {"dir":"in","size":11,"stream":4,"type":"EVENT","payload":"62"},
+        {"dir":"in","size":11,"stream":6,"type":"EVENT","payload":"63","expect":"conn-error","error":"STREAM_LIMIT"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000001","auto":true}
+      ]
+    },
+    {
+      "name": "reply-after-end",
+      "description": "Precedence: a REPLY after a REPLY with END is STREAM_CLOSED (the direction ended), not a second REPLY's BAD_FRAME.",
+      "role": "sdk",
+      "file": "reply-after-end.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","end":true,"payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "reply-from-opener-after-end",
+      "description": "Precedence: a REPLY from the opener after its END is STREAM_CLOSED, not BAD_FRAME.",
+      "role": "core",
+      "file": "reply-from-opener-after-end.bin",
+      "frames": [
+        {"dir":"in","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "window-end-never-opened",
+      "description": "Precedence: a WINDOW with END on a stream never opened is BAD_FRAME (its shape), not STREAM_NOT_OPEN.",
+      "role": "sdk",
+      "file": "window-end-never-opened.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":3,"type":"WINDOW","end":true,"payload":"00000004","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reset-short-closed",
+      "description": "Precedence: a malformed RESET on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+      "role": "sdk",
+      "file": "reset-short-closed.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":11,"stream":1,"type":"RESET","payload":"00","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-zero-closed",
+      "description": "Precedence: a WINDOW of 0 on a closed stream is BAD_FRAME, though a well-formed one would be ignored.",
+      "role": "sdk",
+      "file": "window-zero-closed.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000000","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "unknown-type",
+      "description": "Frame type 7.",
+      "role": "core",
+      "file": "unknown-type.bin",
+      "frames": [
+        {"dir":"in","size":10,"expect":"conn-error","error":"UNKNOWN_TYPE","note":"type 7 on stream 1, empty"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000004","auto":true}
+      ]
+    },
+    {
+      "name": "unknown-type-zero",
+      "description": "Frame type 0.",
+      "role": "sdk",
+      "file": "unknown-type-zero.bin",
+      "frames": [
+        {"dir":"in","size":10,"expect":"conn-error","error":"UNKNOWN_TYPE","note":"ten zero bytes"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000004","auto":true}
+      ]
+    },
+    {
+      "name": "unknown-flags",
+      "description": "Flag bit 0x02.",
+      "role": "core",
+      "file": "unknown-flags.bin",
+      "frames": [
+        {"dir":"in","size":12,"expect":"conn-error","error":"UNKNOWN_FLAGS","note":"CALL 1 with flags 0x02"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000005","auto":true}
+      ]
+    },
+    {
+      "name": "closed-stream",
+      "description": "DATA on a stream both sides ended.",
+      "role": "sdk",
+      "file": "closed-stream.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":12,"stream":1,"type":"REPLY","end":true,"payload":"6f6b"},
+        {"dir":"in","size":11,"stream":1,"type":"DATA","payload":"78","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "ended-direction",
+      "description": "DATA after the SDK's END, on a stream still open.",
+      "role": "core",
+      "file": "ended-direction.bin",
+      "frames": [
+        {"dir":"in","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"DATA","payload":"78","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "reused-id",
+      "description": "A CALL on an id below one already opened.",
+      "role": "core",
+      "file": "reused-id.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":3,"type":"CALL","end":true,"payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"CALL","end":true,"payload":"62","expect":"conn-error","error":"STREAM_CLOSED"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000006","auto":true}
+      ]
+    },
+    {
+      "name": "never-opened",
+      "description": "A REPLY on a stream the SDK never opened.",
+      "role": "sdk",
+      "file": "never-opened.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"78","expect":"conn-error","error":"STREAM_NOT_OPEN"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000007","auto":true}
+      ]
+    },
+    {
+      "name": "never-opened-peer",
+      "description": "DATA on an SDK stream id no CALL opened.",
+      "role": "core",
+      "file": "never-opened-peer.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":3,"type":"DATA","payload":"78","expect":"conn-error","error":"STREAM_NOT_OPEN"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000007","auto":true}
+      ]
+    },
+    {
+      "name": "never-opened-window",
+      "description": "A WINDOW on a stream never opened is an error, unlike one on a closed stream.",
+      "role": "sdk",
+      "file": "never-opened-window.bin",
+      "frames": [
+        {"dir":"in","size":14,"stream":3,"type":"WINDOW","payload":"00000004","expect":"conn-error","error":"STREAM_NOT_OPEN"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000007","auto":true}
+      ]
+    },
+    {
+      "name": "wrong-parity",
+      "description": "A CALL on an even id.",
+      "role": "core",
+      "file": "wrong-parity.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":2,"type":"CALL","payload":"78","expect":"conn-error","error":"WRONG_PARITY"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000008","auto":true}
+      ]
+    },
+    {
+      "name": "wrong-parity-sdk",
+      "description": "An EVENT opening an odd id.",
+      "role": "sdk",
+      "file": "wrong-parity-sdk.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"EVENT","payload":"78","expect":"conn-error","error":"WRONG_PARITY"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000008","auto":true}
+      ]
+    },
+    {
+      "name": "call-from-core",
+      "description": "The core never sends CALL; it opens streams with EVENT.",
+      "role": "sdk",
+      "file": "call-from-core.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":2,"type":"CALL","payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "event-from-sdk",
+      "description": "The SDK never sends EVENT.",
+      "role": "core",
+      "file": "event-from-sdk.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":0,"type":"EVENT","payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "data-on-stream-zero",
+      "description": "Stream 0 carries only EVENT and RESET.",
+      "role": "core",
+      "file": "data-on-stream-zero.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":0,"type":"DATA","payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "stream-limit",
+      "description": "A third stream open at once, with a limit of 2.",
+      "role": "core",
+      "file": "stream-limit.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":11,"stream":3,"type":"CALL","payload":"62"},
+        {"dir":"in","size":11,"stream":5,"type":"CALL","payload":"63","expect":"conn-error","error":"STREAM_LIMIT"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000001","auto":true}
+      ]
+    },
+    {
+      "name": "reply-twice",
+      "description": "A second REPLY.",
+      "role": "sdk",
+      "file": "reply-twice.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "data-before-reply",
+      "description": "DATA before the REPLY.",
+      "role": "sdk",
+      "file": "data-before-reply.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":11,"stream":1,"type":"DATA","payload":"78","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reply-from-opener",
+      "description": "A REPLY from the side that opened the stream.",
+      "role": "core",
+      "file": "reply-from-opener.bin",
+      "frames": [
+        {"dir":"in","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"REPLY","payload":"62","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-zero",
+      "description": "A WINDOW of 0.",
+      "role": "sdk",
+      "file": "window-zero.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"00000000","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-overflow",
+      "description": "A WINDOW taking the credit (8) past 2^31-1.",
+      "role": "sdk",
+      "file": "window-overflow.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","payload":"7ffffff8","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-short",
+      "description": "A WINDOW with a 2-byte payload.",
+      "role": "sdk",
+      "file": "window-short.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":12,"stream":1,"type":"WINDOW","payload":"0004","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "window-end",
+      "description": "END on a WINDOW.",
+      "role": "sdk",
+      "file": "window-end.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":14,"stream":1,"type":"WINDOW","end":true,"payload":"00000004","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "reset-short",
+      "description": "A RESET with a 1-byte payload.",
+      "role": "sdk",
+      "file": "reset-short.bin",
+      "frames": [
+        {"dir":"out","size":11,"stream":1,"type":"CALL","payload":"61"},
+        {"dir":"in","size":11,"stream":1,"type":"RESET","payload":"00","expect":"conn-error","error":"BAD_FRAME"},
+        {"dir":"out","size":14,"stream":0,"type":"RESET","payload":"00000009","auto":true}
+      ]
+    },
+    {
+      "name": "truncated-header",
+      "description": "The connection ends 5 bytes into a header; nothing is sent back.",
+      "role": "core",
+      "file": "truncated-header.bin",
+      "frames": [
+        {"dir":"in","size":5,"expect":"conn-error","error":"TRUNCATED","note":"first 5 bytes of a CALL 1 header"}
+      ]
+    },
+    {
+      "name": "truncated-payload",
+      "description": "The connection ends 2 bytes into a 4-byte payload; nothing is sent back.",
+      "role": "core",
+      "file": "truncated-payload.bin",
+      "frames": [
+        {"dir":"in","size":12,"expect":"conn-error","error":"TRUNCATED","note":"CALL 1 announcing 4 bytes, 2 sent"}
+      ]
+    },
+    {
+      "name": "peer-abort",
+      "description": "The core resets the connection (RESET on stream 0, FRAME_TOO_LARGE): the SDK fails with the core's code and sends nothing.",
+      "role": "sdk",
+      "file": "peer-abort.bin",
+      "frames": [
+        {"dir":"out","size":13,"stream":1,"type":"CALL","end":true,"payload":"676574"},
+        {"dir":"in","size":14,"stream":0,"type":"RESET","payload":"00000003","expect":"conn-error","error":"FRAME_TOO_LARGE","remote":true}
+      ]
+    }
+  ]
+}
