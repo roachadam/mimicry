@@ -35,7 +35,7 @@ interface Command {
   [k: string]: unknown;
 }
 
-let client: Client | null = null;
+const state: { client: Client | null } = { client: null };
 const sockets = new Map<number, WebSocket>();
 
 function reply(m: object): void {
@@ -50,18 +50,18 @@ async function* chunks(b: Buffer): AsyncGenerator<Uint8Array> {
 }
 
 function need(): Client {
-  if (client === null) {
+  if (state.client === null) {
     throw new Error("no start");
   }
 
-  return client;
+  return state.client;
 }
 
 async function run(c: Command): Promise<object> {
   switch (c.op) {
     case "start": {
       const profile = await parseProfile(JSON.stringify(c["profile"]));
-      client = await newClient({
+      state.client = await newClient({
         profile,
         rootCAs: c["rootCAs"] as string,
         dnsServer: c["dnsServer"] as string,
@@ -146,4 +146,4 @@ for await (const line of createInterface({ input: process.stdin })) {
   );
 }
 
-await client?.close();
+await state.client?.close();

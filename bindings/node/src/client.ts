@@ -522,6 +522,12 @@ async function send(core: Core, id: bigint, req: Request): Promise<Response> {
 
 /** What a client and a transport share: plans, WebSockets, idle connections. */
 class RoundTripper extends CoreObject {
+  constructor(core: Core, id: bigint) {
+    super(core, id, () => {
+      core.verifiers.delete(id);
+    });
+  }
+
   /** Plans req as RoundTrip would send it (Go's Transport.Plan). */
   async plan(req: Request): Promise<Plan> {
     const [r] = await requestToPb({ ...req, body: null });
@@ -546,10 +552,6 @@ class RoundTripper extends CoreObject {
     await this.core.call({ case: "closeIdleConnections", value: { transport: this.id } });
   }
 
-  override async close(): Promise<void> {
-    this.core.verifiers.delete(this.id);
-    await super.close();
-  }
 }
 
 /** Go's http.Client from mimicry.NewClient: it follows redirects and keeps cookies. */

@@ -405,20 +405,29 @@ export class Core {
         ev = fromBinary(EventSchema, await readFull(st, ev.continued));
       }
 
-      const reply = create(EventReplySchema, {});
+      // Fail closed: a connection nothing here verified is refused.
+      let refusal: string | null = `mimicry: no answer to the reverse call ${ev.event.case ?? "(none)"}`;
       if (ev.event.case === "verifyConnection") {
         const v = ev.event.value;
         const fn = this.verifiers.get(v.transport);
-        if (fn !== undefined && v.state !== undefined) {
+        if (fn === undefined || v.state === undefined) {
+          refusal = "mimicry: no verifyConnection for this client or transport";
+        } else {
           try {
             await fn(v.state);
+            refusal = null;
           } catch (e) {
-            reply.error = create(ErrorSchema, {
-              code: PbCode.VERIFY,
-              message: e instanceof Error ? e.message : String(e),
-            });
+            refusal = e instanceof Error ? e.message : String(e);
           }
         }
+      }
+
+      const reply = create(EventReplySchema, {});
+      if (refusal !== null) {
+        reply.error = create(ErrorSchema, {
+          code: PbCode.VERIFY,
+          message: refusal,
+        });
       }
 
       await st.writeReply(toBinary(EventReplySchema, reply), true);
