@@ -2,6 +2,10 @@ module github.com/roachadam/mimicry
 
 go 1.27.4
 
+// The Node SDK's dependencies (npm ci in bindings/node) can ship Go files
+// (flatted's), which ./... would otherwise build, vet and lint.
+ignore node_modules
+
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/jonboulle/clockwork v0.5.0

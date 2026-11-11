@@ -110,8 +110,10 @@ type nodeVia struct {
 	stdin   io.Writer
 	next    int
 	answers map[int]chan nodeAnswer
-	// done is closed when the program's output ended.
-	done chan struct{}
+	// done is closed when the program's output ended, readErr then why
+	// reading it failed, if it did.
+	done    chan struct{}
+	readErr error
 }
 
 type nodeAnswer struct {
@@ -129,7 +131,7 @@ func startNode(t *testing.T, p *profile.Spec, s *pageSession, dns string, browse
 
 	var stderr bytes.Buffer
 
-	cmd := exec.Command("node", filepath.Join(nodeRoot, "test", "fixtures", "harness-driver.ts")) //nolint:noctx // closing its stdin stops it
+	cmd := exec.Command("node", filepath.Join(nodeRoot, "test", "fixtures", "harness-driver.ts")) //nolint:gosec,noctx // the SDK's own driver, by the node nodeSDK checked; closing its stdin stops it
 
 	cmd.Env = append(os.Environ(), "MIMICRY_CORE="+absPath(t, coreBinary(t)))
 	cmd.Stderr = &stderr
@@ -219,7 +221,9 @@ func (v *nodeVia) read(r io.Reader) {
 		}
 
 		v.mu.Lock()
+
 		ch := v.answers[a.ID]
+
 		delete(v.answers, a.ID)
 		v.mu.Unlock()
 
@@ -227,6 +231,11 @@ func (v *nodeVia) read(r io.Reader) {
 			ch <- a
 		}
 	}
+
+	v.mu.Lock()
+
+	v.readErr = sc.Err()
+	v.mu.Unlock()
 }
 
 // call sends one command and waits for its answer.
@@ -234,8 +243,11 @@ func (v *nodeVia) call(cmd map[string]any) (nodeAnswer, error) {
 	ch := make(chan nodeAnswer, 1)
 
 	v.mu.Lock()
+
 	v.next++
+
 	id := v.next
+
 	cmd["id"] = id
 	v.answers[id] = ch
 
@@ -259,7 +271,10 @@ func (v *nodeVia) call(cmd map[string]any) (nodeAnswer, error) {
 		return a, nil
 
 	case <-v.done:
-		return nodeAnswer{}, fmt.Errorf("the Node driver ended before answering %s", cmd["op"])
+		v.mu.Lock()
+		defer v.mu.Unlock()
+
+		return nodeAnswer{}, fmt.Errorf("the Node driver ended before answering %s (reading it: %w)", cmd["op"], v.readErr)
 
 	case <-v.t.Context().Done():
 		return nodeAnswer{}, context.Cause(v.t.Context())
@@ -270,7 +285,7 @@ func (v *nodeVia) call(cmd map[string]any) (nodeAnswer, error) {
 func nodeOptions(r mimicry.Request) map[string]any {
 	o := coreOptions(r)
 
-	places := []map[string]string{}
+	places := make([]map[string]string, 0, len(o.GetHeaderPlacement()))
 	for _, pl := range o.GetHeaderPlacement() {
 		places = append(places, map[string]string{
 			"header": pl.GetHeader(),
@@ -299,7 +314,7 @@ func (v *nodeVia) send(q pageReq) error {
 
 	delete(h, mimicry.HeaderOrderKey)
 
-	header := []map[string]any{}
+	header := make([]map[string]any, 0, len(h))
 	for _, name := range slices.Sorted(maps.Keys(h)) {
 		values := h[name]
 		if values == nil {
