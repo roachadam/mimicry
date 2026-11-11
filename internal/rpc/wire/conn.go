@@ -10,6 +10,9 @@ import (
 	"math"
 	"slices"
 	"sync"
+	"time"
+
+	"github.com/jonboulle/clockwork"
 )
 
 // Role is the side of the connection a Conn speaks for. It fixes the ids
@@ -34,6 +37,12 @@ const (
 
 // maxCredit is the most credit a direction of a stream may hold.
 const maxCredit = 1<<31 - 1
+
+// AbortGrace is how long the writer has, once the connection failed for
+// any reason but Close, to write what it must (the frame it is writing,
+// then a RESET on stream 0 after a protocol error) before rwc is closed
+// under it: a peer that stopped reading gets no more, and Done closes.
+const AbortGrace = time.Second
 
 // poolMin is the payload from which a frame's buffer comes from bufPool.
 const poolMin = 4 << 10
@@ -64,6 +73,8 @@ type Config struct {
 	// no Conn or Stream call that can wait, since what it waits for may
 	// be the next frame. Nil drops them.
 	OnEvent func(payload []byte)
+	// Clock times AbortGrace; nil means the real clock.
+	Clock clockwork.Clock
 }
 
 // Conn is one end of a connection: streams multiplexed over an
@@ -107,6 +118,9 @@ type Conn struct {
 	// abort is the RESET on stream 0 the writer sends before closing,
 	// after a protocol error.
 	abort []byte
+	// grace closes rwc AbortGrace after a failure, unless the writer
+	// closed it first.
+	grace clockwork.Timer
 }
 
 // outFrame is a frame waiting for the writer.
@@ -145,6 +159,10 @@ func NewConn(rwc io.ReadWriteCloser, cfg Config) (*Conn, error) {
 
 	if cfg.MaxStreams < 1 {
 		return nil, fmt.Errorf("wire: MaxStreams %d out of range", cfg.MaxStreams)
+	}
+
+	if cfg.Clock == nil {
+		cfg.Clock = clockwork.NewRealClock()
 	}
 
 	c := &Conn{
@@ -324,8 +342,8 @@ func (c *Conn) Notify(ctx context.Context, payload []byte) error {
 // Close closes the connection: every stream fails with ErrConnClosed and
 // rwc is closed, which must unblock its Read and Write. After any other
 // failure the writer sends what it must (a RESET on stream 0 after a
-// protocol error) and closes rwc itself, but a peer that has stopped
-// reading holds that write, and Done, until Close.
+// protocol error) and closes rwc itself; when a peer that stopped reading
+// holds that write, rwc is closed under it AbortGrace after the failure.
 func (c *Conn) Close() error {
 	c.fail(ErrConnClosed, nil)
 
@@ -345,7 +363,8 @@ func (c *Conn) Err() error {
 }
 
 // Done is closed once the connection has failed and its goroutines have
-// returned (see Close).
+// returned: at once after Close, at most AbortGrace after any other
+// failure.
 func (c *Conn) Done() <-chan struct{} {
 	return c.done
 }
@@ -360,7 +379,8 @@ func (c *Conn) closeRWC() error {
 
 // fail ends the connection with err, wrapped in ErrConnClosed: every
 // stream fails, queued frames are dropped, and the writer sends abort (if
-// any) and closes rwc. Only the first failure counts.
+// any) and closes rwc, which closes anyway AbortGrace later. Only the
+// first failure counts.
 func (c *Conn) fail(err error, abort []byte) {
 	if !errors.Is(err, ErrConnClosed) {
 		err = fmt.Errorf("%w: %w", ErrConnClosed, err)
@@ -398,6 +418,10 @@ func (c *Conn) fail(err error, abort []byte) {
 
 	close(c.failed)
 	signal(c.wake)
+
+	c.grace = c.cfg.Clock.AfterFunc(AbortGrace, func() {
+		_ = c.closeRWC()
+	})
 }
 
 func (c *Conn) newStream(parent context.Context, id uint32, local bool) *Stream {
@@ -505,6 +529,10 @@ func (c *Conn) writeLoop() {
 			}
 
 			_ = c.closeRWC()
+
+			c.mu.Lock()
+			c.grace.Stop()
+			c.mu.Unlock()
 
 			return
 		}

@@ -98,6 +98,9 @@ type (`UNKNOWN_TYPE`), the flags (`UNKNOWN_FLAGS`), the length
 - RESET on stream 0 aborts the connection. An endpoint that finds a
   protocol error sends RESET 0 with its code, then closes the connection;
   one that receives RESET 0 fails with the peer's code and sends nothing.
+  A peer that stopped reading cannot hold a failed connection open: the
+  endpoint gives its last writes a bounded time (Go: one second), then
+  closes the connection unwritten.
   A stream whose credit was overrun is the one protocol error that resets
   only its stream.
 

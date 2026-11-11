@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jonboulle/clockwork"
 )
 
 // rawPeer is the other end of a Conn, speaking frames by hand over a
@@ -379,6 +381,38 @@ func TestNoStall(t *testing.T) {
 
 		if before > 2 {
 			t.Fatalf("%d DATA frames of stream 1 went before stream 3's REPLY, want at most 2", before)
+		}
+	})
+
+	// After a protocol error the writer owes the peer a RESET of the
+	// connection; a peer that never reads holds that write, so AbortGrace
+	// later rwc is closed under it and the connection ends without Close.
+	t.Run("failed connection, peer not reading", func(t *testing.T) {
+		clock := clockwork.NewFakeClock()
+		c, peer := newRawPeer(t, Config{
+			Role:  RoleSDK,
+			Clock: clock,
+		})
+
+		if _, err := peer.conn.Write(rawHeader(9, 7, 0, 0)); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := clock.BlockUntilContext(t.Context(), 1); err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-c.Done():
+			t.Fatal("the connection ended with its RESET unwritten")
+		default:
+		}
+
+		clock.Advance(AbortGrace)
+		within(t, "the connection ending", c.Done())
+
+		if !errors.Is(c.Err(), ErrUnknownType) {
+			t.Errorf("Err() = %v, want ErrUnknownType", c.Err())
 		}
 	})
 }

@@ -579,7 +579,11 @@ they are what they are.
   stream; a 1 MiB body goes out one 64 KiB frame at a time between other
   streams' frames (`TestNoStall`).
 - **No timer in the protocol.** Deadlines are the callers' contexts; an
-  ended context resets its stream.
+  ended context resets its stream. The one local timer bounds a failed
+  connection: its writer has `wire.AbortGrace` (1 s) to write what it
+  owes (the RESET on stream 0 after a protocol error) before the
+  connection is closed under it, so a peer that stopped reading cannot
+  keep it, and `Done`, from ending until the owner calls `Close`.
 - **Hello is a message**, the SDK's first CALL, built and checked in the
   second pull request; the wire carries it like any other call.
 
