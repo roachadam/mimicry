@@ -32,10 +32,13 @@ tasks:
       cache: false
       runFromWorkspaceRoot: true
       runInCI: false
-  # The core the tests start, built as the wheels ship it.
+  # The core the tests start, built as the wheels ship it. -o names a
+  # directory, so go names the binary (mimicry-core.exe on Windows).
   core:
-    script: 'CGO_ENABLED=0 go build -trimpath -o bindings/python/src/mimicry/_bin/mimicry-core ./cmd/mimicry-core'
+    command: 'go build -trimpath -o bindings/python/src/mimicry/_bin/ ./cmd/mimicry-core'
     toolchain: 'system'
+    env:
+      CGO_ENABLED: '0'
     inputs:
       - '/**/*.go'
       - '/go.mod'
@@ -44,7 +47,7 @@ tasks:
       - '!/internal/harness/**'
       - '!/internal/bench/**'
     outputs:
-      - 'src/mimicry/_bin/mimicry-core'
+      - 'src/mimicry/_bin/*'
     options:
       runFromWorkspaceRoot: true
       runInCI: false

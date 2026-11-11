@@ -82,10 +82,14 @@ class _Stderr:
     own so a core writing a lot there (a crash) never blocks on a full pipe;
     then reaps the process."""
 
-    def __init__(self, proc: subprocess.Popen[bytes]) -> None:
+    def __init__(self, proc: subprocess.Popen[bytes], loop: asyncio.AbstractEventLoop) -> None:
         self.proc = proc
         self.tail = bytearray()
-        self.done = threading.Event()
+        # exited is resolved on the loop once the process is reaped: waiting
+        # on it takes no worker thread, so a default executor full of the
+        # caller's work never holds up CoreExited or close().
+        self.exited: asyncio.Future[None] = loop.create_future()
+        self._loop = loop
         threading.Thread(target=self._run, name="mimicry-core stderr", daemon=True).start()
 
     def _run(self) -> None:
@@ -102,7 +106,22 @@ class _Stderr:
         try:
             self.proc.wait()
         finally:
-            self.done.set()
+            try:
+                self._loop.call_soon_threadsafe(self._exited)
+            except RuntimeError:
+                pass  # the loop is closed
+
+    def _exited(self) -> None:
+        if not self.exited.done():
+            self.exited.set_result(None)
+
+    async def wait(self, timeout: float) -> bool:
+        """Whether the process was reaped within ``timeout`` seconds."""
+        try:
+            await asyncio.wait_for(asyncio.shield(self.exited), timeout)
+        except TimeoutError:
+            return False
+        return True
 
     def text(self) -> str:
         return bytes(self.tail).decode(errors="replace")
@@ -392,6 +411,9 @@ class Call:
         if not self._s.ended and core._wc.error is None:
             core._wc.reset_stream(self._s)
             core._flush()
+        # Anything else waiting on the call (a reply, a read, credit) wakes
+        # and finds it canceled.
+        self._ev.set()
 
 
 def _abandon(ref: weakref.ref[AsyncCore], call: Call) -> None:
@@ -436,6 +458,8 @@ class AsyncCore:
         self._stream_errors: dict[int, pb.Error] = {}
         self._written: dict[tuple[int, int], asyncio.Future[pb.Error | None]] = {}
         self._written_early: dict[tuple[int, int], pb.Error | None] = {}
+        # The WebSockets open on this connection, by id.
+        self._sockets: set[int] = set()
         self._set_cookie: dict[int, Callable[[pb.SetCookie], None]] = {}
         self._verify: dict[int, Callable[[pb.VerifyConnection], Awaitable[None]]] = {}
         self._tasks: set[asyncio.Task[Any]] = set()
@@ -479,6 +503,9 @@ class AsyncCore:
             _PipeTransport(loop, io.FileIO(stdout_r, "rb"), io.FileIO(stdin_w, "wb"), _Protocol(core))
         else:
             parent, child = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+            # Recorded at once: a fork from another thread from here on
+            # drops it in the child.
+            core._fds.append(parent.fileno())
             try:
                 # Python makes both ends non-inheritable (PEP 446); only the
                 # child's end is passed, as its stdin and stdout.
@@ -498,9 +525,13 @@ class AsyncCore:
             finally:
                 child.close()
             core._attach_process(proc)
-            core._fds.append(parent.fileno())
-            await loop.create_unix_connection(lambda: _Protocol(core), sock=parent)
-        await core._hello()
+            try:
+                await loop.create_unix_connection(lambda: _Protocol(core), sock=parent)
+            except BaseException:
+                parent.close()
+                core._abort()
+                raise
+        await core._started()
         return core
 
     @classmethod
@@ -514,13 +545,31 @@ class AsyncCore:
             await loop.create_unix_connection(lambda: _Protocol(core), sock=sock)
         else:
             await loop.create_connection(lambda: _Protocol(core), sock=sock)
-        await core._hello()
+        await core._started()
         return core
+
+    async def _started(self) -> None:
+        """Say Hello; a start that fails or is canceled leaves nothing
+        behind (the connection closed, the process killed)."""
+        try:
+            await self._hello()
+        except BaseException:
+            self._abort()
+            raise
+
+    def _abort(self) -> None:
+        """Drop a core that never started: close its connection, kill it."""
+        self._closing = True
+        self._events(self._wc.close())
+        if self._transport is not None:
+            self._transport.close()
+        if self._proc is not None and self._proc.poll() is None:
+            self._proc.kill()
 
     def _attach_process(self, proc: subprocess.Popen[bytes]) -> None:
         self._proc = proc
         self.pid = proc.pid
-        self._stderr = _Stderr(proc)
+        self._stderr = _Stderr(proc, self._loop)
         if proc.stderr is not None:
             self._fds.append(proc.stderr.fileno())
 
@@ -567,7 +616,7 @@ class AsyncCore:
         if self._transport is not None:
             self._transport.close()
         if self._stderr is not None:
-            await asyncio.to_thread(self._stderr.done.wait, 5)
+            await self._stderr.wait(5)
 
     async def __aenter__(self) -> AsyncCore:
         return self
@@ -594,9 +643,14 @@ class AsyncCore:
             self._openers.append(f)
             try:
                 await f
-            finally:
-                if not f.done():
+            except BaseException:
+                if f.done() and not f.cancelled():
+                    # Woken, then canceled before it ran: the free stream
+                    # goes to the next opener.
+                    self._wake_openers()
+                else:
                     f.cancel()
+                raise
         try:
             s = self._wc.open_stream(head, end=not body and not big)
         except wire.WireError as e:
@@ -674,6 +728,15 @@ class AsyncCore:
             return f.result()
         raise self._failure.result()
 
+    def socket_opened(self, websocket: int) -> None:
+        self._sockets.add(websocket)
+
+    def socket_closed(self, websocket: int) -> None:
+        """Forget a WebSocket's write notices: nothing will wait for them."""
+        self._sockets.discard(websocket)
+        for key in [k for k in self._written_early if k[0] == websocket]:
+            del self._written_early[key]
+
     def on_set_cookie(self, jar: int, fn: Callable[[pb.SetCookie], None] | None) -> None:
         if fn is None:
             self._set_cookie.pop(jar, None)
@@ -729,10 +792,9 @@ class AsyncCore:
             exc = ProtocolError(f"lost the connection to mimicry-core: {err}")
         else:
             assert self._stderr is not None
-            done = await asyncio.to_thread(self._stderr.done.wait, 2.0)
-            if not done:
+            if not await self._stderr.wait(2.0):
                 self._proc.kill()
-                await asyncio.to_thread(self._stderr.done.wait, 5.0)
+                await self._stderr.wait(5.0)
                 exc = ProtocolError(f"lost the connection to mimicry-core: {err}")
             else:
                 exc = CoreExited(self._proc.returncode, self._stderr.text())
@@ -805,7 +867,9 @@ class AsyncCore:
             return
         kind = ev.WhichOneof("event")
         if kind == "stream_error":
-            self._stream_errors[ev.stream_error.stream] = ev.stream_error.error
+            # Kept for a call still open only: its RESET follows.
+            if ev.stream_error.stream in self._waits:
+                self._stream_errors[ev.stream_error.stream] = ev.stream_error.error
         elif kind == "websocket_written":
             w = ev.websocket_written
             err = w.error if w.HasField("error") else None
@@ -813,7 +877,7 @@ class AsyncCore:
             f = self._written.get(key)
             if f is not None and not f.done():
                 f.set_result(err)
-            else:
+            elif w.websocket in self._sockets:
                 self._written_early[key] = err
         elif kind == "set_cookie":
             fn = self._set_cookie.get(ev.set_cookie.jar)
@@ -829,7 +893,11 @@ class AsyncCore:
             reply = pb.EventReply()
             if ev.WhichOneof("event") == "verify_connection":
                 fn = self._verify.get(ev.verify_connection.transport)
-                if fn is not None:
+                if fn is None:
+                    # Fail closed: a connection nobody verified is refused.
+                    reply.error.code = pb.CODE_VERIFY
+                    reply.error.message = "no verify_connection callback for this transport"
+                else:
                     try:
                         await fn(ev.verify_connection)
                     except Exception as e:  # noqa: BLE001 - the callback's rejection

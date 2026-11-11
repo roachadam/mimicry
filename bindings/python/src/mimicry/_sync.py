@@ -505,5 +505,6 @@ def machines(platform: str, *, core: Core | None = None) -> list[bytes]:
 
 
 def fetch_pins(config: Config, url: str, *, timeout: Duration | None = None, core: Core | None = None) -> list[CertPin]:
-    """The certificate chain ``url``'s server presents (Go's ``mimicry.FetchPins``)."""
+    """The certificate chain ``url``'s server presents (Go's ``mimicry.FetchPins``);
+    ``config.pins`` and ``config.verify_connection`` are ignored, as in Go."""
     return _run(aio.fetch_pins(_sync_config(config), url, timeout=timeout, core=_core(core)))

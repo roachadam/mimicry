@@ -847,6 +847,20 @@ it is.
   read as UTF-8, else Latin-1; durations are seconds or `timedelta`.
   `MIMICRY_CORE` (an absolute path; relative is refused) runs another core,
   for development and tests, as in the Node SDK.
+- **Cancellation never cuts a WebSocket message**: a read canceled part
+  way keeps what it read for the next read, and a write runs as a task of
+  its own the caller's cancellation does not reach (shielded), so a
+  message's record is never left half sent. Rejected: closing the socket on
+  a canceled read or write, which turns a timeout into a lost socket.
+- **Fail closed**: a `VerifyConnection` reverse call for a transport with no
+  callback registered is refused (`CODE_VERIFY`), never accepted.
+  `fetch_pins` sends `verify_connection` false: Go's `FetchPins` ignores the
+  callback (and the pins).
+- **The SDK's own waits take no worker thread**: the thread reading the
+  core's stderr resolves a future on the loop when the process is reaped,
+  so `CoreExited` and `close()` arrive even when the loop's default
+  executor is full of the caller's work (a sync callback, a streamed body's
+  reads).
 - **Saved state** written to a path is created 0600 in the same directory,
   fsynced and renamed over the old file, so an existing file's wider mode
   never survives.

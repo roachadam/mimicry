@@ -25,7 +25,7 @@ from typing import IO, Any, TypeVar, Union
 
 from . import _types as t
 from ._core import AsyncCore, Call, abandon_on_collect, default_core, is_awaitable
-from ._errors import InvalidError, MimicryError, from_pb
+from ._errors import InvalidError, MimicryError, ProtocolError, from_pb
 from ._pb.mimicry.v1 import mimicry_pb2 as pb
 from ._types import (
     CertPin,
@@ -407,35 +407,59 @@ class AsyncWebSocket:
         self._seq = 0
         self._wlock = asyncio.Lock()
         self._rlock = asyncio.Lock()
+        # What has been read of the next record: a read canceled part way
+        # leaves it here, and the next read goes on from it.
+        self._rbuf = bytearray()
         self._end: MimicryError | None = None
-        self._finalizer = abandon_on_collect(self, call)
+        self._core.socket_opened(ws.id)
+        self._finalizer = weakref.finalize(self, _drop_socket, weakref.ref(self._core), call, ws.id)
+
+    async def _fill(self, n: int) -> None:
+        """Read until ``n`` bytes of the record are buffered."""
+        while len(self._rbuf) < n:
+            b = await self._call.read(n - len(self._rbuf))
+            if not b:
+                raise ProtocolError("mimicry-core ended a WebSocket's stream inside a message")
+            self._rbuf += b
 
     async def read_message(self) -> tuple[MessageType, bytes]:
         """The next message; once the socket closed, raises why (a
-        :class:`CloseError` after a close handshake)."""
+        :class:`CloseError` after a close handshake). Canceling a read
+        loses nothing: the next one returns the message."""
         async with self._rlock:
             if self._end is not None:
                 raise self._end
-            typ, n = _record.unpack(await self._call.read_exactly(_record.size))
-            payload = await self._call.read_exactly(n) if n else b""
+            await self._fill(_record.size)
+            typ, n = _record.unpack_from(self._rbuf)
+            await self._fill(_record.size + n)
+            payload = bytes(self._rbuf[_record.size : _record.size + n])
+            del self._rbuf[: _record.size + n]
             if typ == 0:
                 self._end = from_pb(pb.Error.FromString(payload))
                 raise self._end
             return MessageType(typ), payload
 
     async def write_message(self, typ: MessageType, data: bytes | str) -> None:
-        """Send a message, returning once mimicry-core has written it."""
+        """Send a message, returning once mimicry-core has written it.
+        Canceled, it still goes out whole (a message is never cut)."""
         b = data.encode() if isinstance(data, str) else bytes(data)
         if len(b) > _MAX_MESSAGE:
             raise ValueError(f"a {len(b)}-byte message: at most {_MAX_MESSAGE}")
+        send = asyncio.ensure_future(self._send(int(typ), b))
+        send.add_done_callback(_consume)
+        seq = await asyncio.shield(send)
+        err = await self._core.written(self._id, seq)
+        if err is not None:
+            raise from_pb(err)
+
+    async def _send(self, typ: int, b: bytes) -> int:
+        """Write one record, whole; its sequence number."""
         async with self._wlock:
-            await self._call.write(_record.pack(int(typ), len(b)))
+            await self._call.write(_record.pack(typ, len(b)))
             if b:
                 await self._call.write(b)
             self._seq += 1
-            err = await self._core.written(self._id, self._seq)
-        if err is not None:
-            raise from_pb(err)
+            return self._seq
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
         """Close the socket with ``code`` and ``reason``, returning once the
@@ -459,6 +483,29 @@ class AsyncWebSocket:
                 pass
         self._finalizer.detach()
         self._call.close()
+        self._core.socket_closed(self._id)
+
+
+def _consume(f: asyncio.Future[Any]) -> None:
+    """Retrieve a shielded task's exception: its caller may be gone."""
+    if not f.cancelled():
+        f.exception()
+
+
+def _drop_socket(ref: weakref.ref[AsyncCore], call: Call, websocket: int) -> None:
+    """A finalizer's: close a collected WebSocket's call on its loop."""
+    core = ref()
+    if core is None or core._forked or core._loop.is_closed():
+        return
+
+    def drop() -> None:
+        call.close()
+        core.socket_closed(websocket)
+
+    try:
+        core._loop.call_soon_threadsafe(drop)
+    except RuntimeError:
+        pass
 
 
 def _atomic_write(path: str | os.PathLike[str], data: bytes) -> None:
@@ -744,8 +791,11 @@ async def fetch_pins(
     config: Config, url: str, *, timeout: t.Duration | None = None, core: AsyncCore | None = None
 ) -> list[CertPin]:
     """The certificate chain ``url``'s server presents, for ``Config.pins``
-    (Go's ``mimicry.FetchPins``)."""
+    (Go's ``mimicry.FetchPins``). As in Go, ``config.pins`` and
+    ``config.verify_connection`` are ignored: the chain is fetched to be
+    pinned, so it is not checked against pins or the callback."""
     core, cfg = await _config(core, config)
+    cfg.verify_connection = False
     f = pb.FetchPins(config=cfg, url=url)
     t._duration(timeout, f.timeout)
     r = await core.call(pb.Call(fetch_pins=f))
