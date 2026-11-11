@@ -352,7 +352,10 @@ func (s *Stream) wait(ch chan struct{}) {
 
 // await waits until f is written or dropped, or the stream ends first; f
 // is the caller's copy, so returning early is safe. A stream that ended
-// normally still writes f, so its result is awaited.
+// normally still writes f, so its result is awaited even if the
+// connection fails meanwhile: f is then either dropped from the queue
+// (fail finishes it) or being written, which ends at most AbortGrace
+// after the failure.
 func (s *Stream) await(f *outFrame) error {
 	select {
 	case err := <-f.done:
@@ -371,12 +374,7 @@ func (s *Stream) await(f *outFrame) error {
 		return err
 	}
 
-	select {
-	case err := <-f.done:
-		return err
-	case <-c.failed:
-		return c.Err()
-	}
+	return <-f.done
 }
 
 // endLocked frees what waits on the stream once it ended or failed.

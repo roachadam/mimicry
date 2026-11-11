@@ -9,6 +9,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -708,6 +709,144 @@ func TestConnLoss(t *testing.T) {
 			})
 		})
 	}
+
+	// A stream that ended normally (its CALL with END out, the REPLY with
+	// END in) gets its frame's result even when the connection fails
+	// while the writer still holds that frame: Open succeeds, and the
+	// reply is there.
+	t.Run("a stream ended before the loss", func(t *testing.T) {
+		a, b := net.Pipe()
+		gated := &gatedConn{
+			Conn: a,
+			gate: make(chan struct{}),
+		}
+
+		c, err := NewConn(gated, Config{
+			Role: RoleSDK,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		t.Cleanup(func() {
+			_ = c.Close()
+			_ = b.Close()
+
+			<-c.Done()
+		})
+
+		if err := b.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+			t.Fatal(err)
+		}
+
+		peer := &rawPeer{
+			t:    t,
+			conn: b,
+		}
+
+		var s *Stream
+
+		opened := make(chan error, 1)
+
+		go func() {
+			var err error
+
+			s, err = c.Open(t.Context(), []byte("call"), true)
+			opened <- err
+		}()
+
+		peer.expect(1, typeCall, flagEnd, []byte("call"))
+		peer.send(1, typeReply, flagEnd, []byte("reply"))
+
+		_ = b.Close()
+
+		waitFor(t, "the connection failing", func() bool {
+			return c.Err() != nil
+		})
+		gated.open()
+
+		if err := within(t, "Open returning", opened); err != nil {
+			t.Fatalf("Open: %v", err)
+		}
+
+		if reply, err := s.Reply(); err != nil || string(reply) != "reply" {
+			t.Errorf("Reply() = %q, %v; want %q", reply, err, "reply")
+		}
+	})
+
+	// A frame still queued when the connection fails is dropped, and its
+	// caller gets the failure: here the END of a stream whose peer had
+	// ended its side, queued behind a CALL the peer never reads.
+	t.Run("a frame dropped by the loss", func(t *testing.T) {
+		c, peer := newRawPeer(t, Config{
+			Role: RoleSDK,
+		})
+
+		s := peer.open(t.Context(), c, "a")
+		peer.send(s.ID(), typeReply, flagEnd, []byte("head"))
+
+		if _, err := s.Reply(); err != nil {
+			t.Fatal(err)
+		}
+
+		go func() {
+			_, _ = c.Open(t.Context(), []byte("b"), true)
+		}()
+
+		waitFor(t, "the second CALL being written", func() bool {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+
+			return c.nextID == 5 && len(c.wq) == 0
+		})
+
+		ended := make(chan error, 1)
+
+		go func() {
+			ended <- s.CloseWrite()
+		}()
+
+		waitFor(t, "the END queued", func() bool {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+
+			return len(c.wq) == 1
+		})
+
+		_ = peer.conn.Close()
+
+		if err := within(t, "CloseWrite returning", ended); !errors.Is(err, ErrConnClosed) {
+			t.Errorf("CloseWrite() = %v, want ErrConnClosed", err)
+		}
+	})
+}
+
+// gatedConn holds each Write, once its bytes went out, until open or
+// Close.
+type gatedConn struct {
+	net.Conn
+
+	gate chan struct{}
+	once sync.Once
+}
+
+func (g *gatedConn) Write(p []byte) (int, error) {
+	n, err := g.Conn.Write(p)
+	<-g.gate
+
+	return n, err
+}
+
+func (g *gatedConn) open() {
+	g.once.Do(func() {
+		close(g.gate)
+	})
+}
+
+func (g *gatedConn) Close() error {
+	g.open()
+
+	return g.Conn.Close()
 }
 
 // Credit and the stream limit hold a sender back until the peer frees

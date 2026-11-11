@@ -378,9 +378,9 @@ func (c *Conn) closeRWC() error {
 }
 
 // fail ends the connection with err, wrapped in ErrConnClosed: every
-// stream fails, queued frames are dropped, and the writer sends abort (if
-// any) and closes rwc, which closes anyway AbortGrace later. Only the
-// first failure counts.
+// stream fails, queued frames are dropped (their callers get err), and
+// the writer sends abort (if any) and closes rwc, which closes anyway
+// AbortGrace later. Only the first failure counts.
 func (c *Conn) fail(err error, abort []byte) {
 	if !errors.Is(err, ErrConnClosed) {
 		err = fmt.Errorf("%w: %w", ErrConnClosed, err)
@@ -411,7 +411,7 @@ func (c *Conn) fail(err error, abort []byte) {
 	c.acceptQ = nil
 
 	for _, f := range c.wq {
-		f.release()
+		f.finish(err)
 	}
 
 	c.wq = nil
