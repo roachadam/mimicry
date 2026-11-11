@@ -1,4 +1,4 @@
-// Builds mimicry-core for the tests (npm test runs it first): the command
+// Builds mimicry-core for the tests (bun run test runs it first): the command
 // at the repository's root, as released (CGO_ENABLED=0), into .core/. The
 // tests use it through MIMICRY_CORE unless that is already set.
 

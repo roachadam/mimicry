@@ -22,6 +22,7 @@
   "engines": {
     "node": "^22.12.0 || >=24"
   },
+  "packageManager": "bun@1.4.4",
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').cpSync('src/gen', 'dist/gen', { recursive: true })\"",
     "check": "tsc -p tsconfig.json && eslint . && node scripts/gen.ts --check",

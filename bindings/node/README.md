@@ -137,12 +137,17 @@ the platform package is used, never one found in `PATH`.
 
 ## Development
 
+Bun (the version in `package.json`'s `packageManager`) installs the
+dependencies and runs the scripts; the SDK and its tests run under Node,
+which is what users run. Dependencies' install scripts stay off (Bun's
+default; none needs one).
+
 ```sh
-npm ci
-npm run check    # tsc (strict), eslint, the generated code's drift check
-npm test         # builds .core/mimicry-core with Go, then node:test
-npm run gen      # regenerate src/gen from proto/ (buf, protoc-gen-es)
-npm run pack:all # build/packages/: the main package and one per platform
+bun install --frozen-lockfile
+bun run check    # tsc (strict), eslint, the generated code's drift check
+bun run test     # builds .core/mimicry-core with Go, then node --test
+bun run gen      # regenerate src/gen from proto/ (buf, protoc-gen-es)
+bun run pack:all # build/packages/: the main package and one per platform
 ```
 
 The tests run `src/` as it is (Node strips the types), so the sources use
