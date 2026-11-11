@@ -1,6 +1,6 @@
 module github.com/roachadam/mimicry
 
-go 1.27.3
+go 1.27.4
 
 require (
 	github.com/jonboulle/clockwork v0.5.0
