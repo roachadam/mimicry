@@ -82,6 +82,12 @@
 # Each socket waits out the browser's close (Chrome 2 s, about 31 s a
 # profile).
 50         core      ./e2e            TestWebSocketsMatchBrowser             parallel=16
+# Each socket waits out the browser's close (Chrome's 2 s) twice, once per
+# way (about 12 s a subtest); the kinds pages are about 1 s each, twice.
+# Estimated from a local run (36 s for both at -parallel 12), not yet from
+# a runner's log.
+30         core      ./e2e            TestCoreMatchesGoWebSockets            parallel=16
+10         core      ./e2e            TestCoreMatchesGoKinds
 # The client-hints page's script pauses (about 15 s, its subtests in
 # parallel).
 20         core      ./e2e            TestClientHintsMatchesBrowser          parallel=16

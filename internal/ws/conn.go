@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -241,6 +242,11 @@ func (c *Conn) WriteMessage(ctx context.Context, opcode byte, p []byte) error {
 func (c *Conn) writeFrame(ctx context.Context, opcode, rsv byte, payload []byte, reply, end bool) error {
 	if c.failed != nil {
 		return c.failed
+	}
+
+	// The header takes at most 14 bytes (2, a 64-bit length, the mask).
+	if len(payload) > math.MaxInt-14 {
+		return fmt.Errorf("ws: a payload of %d bytes overflows its frame's size", len(payload))
 	}
 
 	h := Header{

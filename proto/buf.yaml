@@ -1,0 +1,13 @@
+# The schema of mimicry-core's messages (decision 0069), one buf module.
+# Lint and generate from the repository root: moon run mimicry:proto.
+version: v2
+lint:
+  use:
+    - STANDARD
+  except:
+    # An enum's zero value is Go's zero value of its type (KIND_NAVIGATE,
+    # PRIORITY_AUTO), not an UNSPECIFIED placeholder: the SDKs mirror Go.
+    - ENUM_ZERO_VALUE_SUFFIX
+breaking:
+  use:
+    - WIRE_JSON

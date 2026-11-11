@@ -1,6 +1,6 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126)
+- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127)
 - Date: 2026-11-10
 - Commits: `2f9c670` (the record; no code yet)
 
@@ -592,3 +592,165 @@ DATA frames end with END, but END ends a direction of the stream, which a
 WebSocket keeps open across messages. Message boundaries need to live
 inside the DATA bytes (a length or a flag leading each message), decided
 with the schema.
+
+## Amendment 2026-11-10: the schema and the core
+
+The second pull request ([#127](https://github.com/roachadam/mimicry/issues/127))
+added the schema (`proto/mimicry/v1/mimicry.proto`, Go code in
+`internal/rpc/pb`), the core (`internal/rpc/server`, `internal/rpc/convert`),
+`cmd/mimicry-core`, and `internal/rpc/client`, a Go client of the protocol
+for tests. The rules for the SDKs are in [`proto/README.md`](../../proto/README.md);
+this is why they are what they are.
+
+- **One `Call`, `Reply` and `Event` message, each a `oneof`**, not a buf
+  service: there is no RPC framework underneath, the stream is the call,
+  and a `oneof` is one switch in every language. Messages are named after
+  Go's (`Config`, `Options` for `mimicry.Request`, `Kind`, `CORSError`),
+  calls after Go's methods (`Do`, `Plan`, `DialWebSocket`, `JarSetString`
+  for `Jar.SetString`), so an SDK maps names mechanically.
+- **Enums keep Go's zero values** (`KIND_NAVIGATE = 0`, `KIND_PREFLIGHT =
+  -1`, `PRIORITY_AUTO`), not buf's `_UNSPECIFIED` placeholder: an unset
+  field then means what Go's zero value means, and a conversion is a cast.
+  buf's `ENUM_ZERO_VALUE_SUFFIX` rule is off for it.
+- **Values that cross byte for byte are `bytes`**: header values, cookie
+  names, values and raw lines, Set-Cookie lines. Protobuf strings must be
+  UTF-8 (Go's and Python's runtimes refuse others), while HTTP allows other
+  bytes and Safari's jar keeps Latin-1; a string would make such a response
+  fail to encode, or force a lossy repair. Human text (messages, statuses)
+  is a string the core makes valid UTF-8.
+- **A message too large for a frame goes as DATA** (`continued`): a
+  payload is at most 64 KiB, and a root bundle, a jar's cookies or a
+  certificate chain can be more. Rejected: a size limit per call, which
+  would fail real users' bundles; DATA-only calls, which would cost every
+  small call a second frame.
+- **A response body, a request body and saved state are the call's DATA,
+  not objects.** The record listed the response body among the objects;
+  its stream already names it, a RESET already frees it, and an id would
+  add a call per body. A request body goes whole in `Request.body` (the
+  core can send it again for a redirect that keeps it, as Go's `GetBody`)
+  or streamed as DATA (`stream_body`), which cannot be sent again.
+- **A streamed body is read full, not as it arrives.** mimicry sends one
+  HTTP/2 DATA frame per read of a request body, so handing it the call's
+  stream let the protocol's own DATA and credit boundaries cut the upload:
+  a 100 kB upload went out with an extra 1-byte DATA frame, a difference
+  on the wire Go never shows (found by the harness's
+  `TestCoreMatchesGoKinds`, which compares the core's requests with Go's).
+  The core wraps the stream in a reader that fills each read until it is
+  full or the SDK ends the body, holding nothing beyond the read's buffer
+  and ending with a RESET as the stream does; the end comes on the next
+  read, so END_STREAM goes as for a `bytes.Reader`. The cost: the SDK's
+  chunk boundaries are not kept, and a slow producer's partial chunk waits
+  until mimicry's buffer fills or the body ends. Rejected: sending each
+  SDK chunk as it comes, which ties the fingerprint to the SDK's write
+  sizes and the protocol's framing. Removing the wrapper fails
+  `TestCoreMatchesGoKinds`' streamed upload.
+- **A response body is closed before its stream ends.** Ending the stream
+  ends the request's context, and a body still open then cost its
+  HTTP/1.1 connection: every request through the core opened a new one
+  (found by the same test; the core now closes the body once read to its
+  end, then ends the stream).
+- **A continued call that takes no body waits for the SDK's END** before
+  it is carried out. Its END could arrive after the core had answered, and
+  ending the stream then found its receiving side open and reset it,
+  failing a reply already sent (an inline upload over 64 KiB, now and
+  then under load; found by the same test).
+- **A failure after the REPLY is a `StreamError` notice, then a RESET**: a
+  RESET carries a code, not an error, and a body cut short must still
+  raise the network error that cut it.
+- **WebSocket messages are records inside DATA**: a type byte, a u32
+  length, the payload, both ways, ignoring DATA frame boundaries (the open
+  question of the first amendment). Rejected: a flag per DATA frame, which
+  ties messages to frames and to their 64 KiB limit; END per message, which
+  ends the direction. The core's last record (`end`, type 0) carries the
+  `Error` reading returns from then on, `CODE_CLOSE` with the code and
+  reason after a close handshake.
+- **A record's payload is at most 64 MiB** (`ws.MaxMessage`, mimicry's own
+  bound on a message the server sends), checked before anything is
+  allocated: the length is the SDK's, and a u32 trusted as given let one
+  bad record make the core allocate 4 GiB. A longer record from the SDK
+  closes the socket. Rejected: no bound (that allocation), or a smaller
+  one, which would refuse messages the server may send.
+- **A RESET of a socket's stream closes the socket at any time.** Once
+  the SDK has ended its side, the core no longer reads the stream, only
+  the socket, so a RESET there went unseen and left the socket open until
+  the server closed it or the connection ended; the core now watches the
+  stream's context, which ends with an error for a RESET or a lost
+  connection and canceled when both sides ended normally (the socket
+  already closed). Found in review; `TestWebSocketReset` fails without it.
+- **A write's result is a notice** (`WebSocketWritten`, by the n-th message
+  the SDK sent), not a record on the socket's stream: a record would wait
+  behind messages the SDK has not read, so a script that writes without
+  reading would deadlock where Go's `WriteMessage` does not. Rejected also:
+  a call per message, which the record's "one stream" rules out and which
+  costs a stream per message.
+- **`VerifyConnection` waits at most the handshake's `DialTimeout`, and
+  only while a request of the transport still waits.** Go's callback gets
+  no context, so the core cannot see which request a handshake is for; it
+  counts the transport's live requests (and WebSocket dials) and gives the
+  reverse call up (a RESET) once none is left, so each request is bounded
+  by its own deadline. The handshake then fails with why the last request
+  left (its deadline: `CODE_DEADLINE`), so the request's error is the
+  same whichever of it and the handshake notices first. The SDK's error
+  fails the handshake as `CODE_VERIFY` with its message.
+- **Two codes beyond the record's list**: `CODE_INVALID`, a call the core
+  cannot carry out as given (an unknown or wrong object, a malformed
+  argument, no Hello first, another major version), and `CODE_VERIFY`.
+  `CODE_INTERNAL` is any other error. A `*url.Error` (every error
+  `http.Client` returns) does not make an error `CODE_NET`, though it is a
+  `net.Error`; its cause decides.
+- **A URL that fails to parse is refused with the cause alone.**
+  `url.Parse`'s error quotes the whole URL, and a proxy's (or a page's)
+  may hold a password, which the SDK would then show in an exception and
+  its users' logs. Go's `http.Client` redacts the URL in its own errors
+  for the same reason. `TestURLErrorsHideCredentials` covers every URL
+  field the core parses.
+- **A panic fails its call alone**: `CODE_INTERNAL` with the fixed message
+  `mimicry-core: internal error` (in the REPLY, or a `StreamError` and a
+  RESET once that is sent), and the connection's other calls go on. Every
+  goroutine the core runs its own code on is covered: a call's, a
+  WebSocket's reader and writer (the socket closes), VerifyConnection
+  (the handshake fails with that error), closing a socket or freeing an
+  object on a goroutine of its own (dropped), and Hello (refused, so the
+  connection ends as after any refused Hello). Nothing of it is written
+  anywhere: the panic's value may hold the call's data, and stderr
+  carries at most the connection's failure. `TestPanicContained` panics
+  at each through a test hook. Rejected: letting it kill the core, which
+  takes every other call and object of the SDK's process with it.
+- **Hello**: protocol 1.0 (`pb.ProtocolMajor`, `ProtocolMinor`), the core's
+  version (`-ldflags -X main.version=…`, else the module's), no feature bits
+  yet; `Feature` f will be bit `1 << f`, values from 1, `FEATURE_NONE`
+  (0) no feature rather than a bit. Another major version is refused with
+  both versions named, and the connection ends.
+- **Callbacks as data, as the record's table**, with these choices: client
+  certificates are PEM bytes per host (`""` for every other host; the SDK
+  reads the files); the key log is a path the core opens 0600 for append
+  and closes when the transport is freed; the DNS server is a
+  `net.Resolver` dialing it over the lookup's network; `ConnectUDPProxy`
+  is a map matched by the proxy URL as it parses; redirects are
+  `follow` (unset: true) and `max` (0: the browser's limit).
+- **Profiles** are named (`profiles.ByName`), or edited through their
+  data: `ProfileSpec` returns a profile's JSON (`profile.Encode`) and
+  `ParseProfile` reads an edited one (`profile.Parse`) into an object.
+  Machines (`Config.client_hints`) are `profile.Machine` as JSON.
+- **The core imports the public API.** `internal/` never imports the root
+  package otherwise; the core is a user of the API, as the SDKs are, so
+  `internal/rpc/server` and `convert` are the exception (AGENTS.md, and
+  their depguard rules). Only `internal/rpc` imports protobuf's runtime.
+- **`cmd/mimicry-core`** serves the socket stdin is (`net.FileConn`, 4 MiB
+  socket buffers, the record's macOS finding), else stdin and stdout as
+  pipes (Windows), exits on EOF, and writes nothing but the protocol to
+  stdout and at most the connection's failure to stderr (wire errors, never
+  a request's data).
+
+What v1 leaves out, each until a user asks:
+
+- Response trailers, `Request.Host`, `Request.Close`: not in `Request` or
+  `Response`.
+- `Jar.Delete` (a callback; the SDK can read `JarAll` and `JarSet` instead),
+  `Jar.SetHTTPCookies` (`JarSetCookies` takes the raw lines), `Jar.Clone`'s
+  hook (a clone notifies as its source's jar id), a custom
+  `ClientHintStore`, `DialContext`, a client-certificate signer (as the
+  record's table).
+- An abort of a WebSocket: dropping one closes it as `Close(1000, "")`
+  does, which waits for the close handshake (10 s at most).
+- `profiles.RandomMachine`: `Machines` lists them and the SDK picks.

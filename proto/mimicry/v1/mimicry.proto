@@ -1,0 +1,909 @@
+// The messages between mimicry-core and the language SDKs (decision 0069):
+// the payloads of CALL, REPLY and EVENT frames of the wire protocol
+// (proto/testdata/wire/README.md). proto/README.md says how a call goes,
+// which calls carry DATA and how a WebSocket's messages are framed.
+//
+// Names mirror Go's public API (github.com/roachadam/mimicry): Config's
+// fields, the Kind values, Request's options (Go's From is page), the
+// error types. An enum's zero value is Go's zero value of that type.
+syntax = "proto3";
+
+package mimicry.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/roachadam/mimicry/internal/rpc/pb";
+
+// Call is a CALL frame's payload: one method and its arguments. Every
+// connection starts with Hello.
+message Call {
+  // Continued is set, alone, when the call is too large for one frame
+  // (64 KiB): the call is then the first continued bytes of the stream's
+  // DATA, and any body follows them.
+  uint32 continued = 1;
+  oneof method {
+    Hello hello = 2;
+    // Close frees an object of this connection.
+    Close close = 3;
+
+    ListProfiles list_profiles = 10;
+    ProfileSpec profile_spec = 11;
+    ParseProfile parse_profile = 12;
+    Machines machines = 13;
+
+    NewClient new_client = 20;
+    NewTransport new_transport = 21;
+    NewJar new_jar = 22;
+    NewTicketCache new_ticket_cache = 23;
+    NewAltSvcCache new_alt_svc_cache = 24;
+    NewClientHintStore new_client_hint_store = 25;
+    CloseIdleConnections close_idle_connections = 26;
+
+    Do do = 30;
+    Plan plan = 31;
+    DialWebSocket dial_websocket = 32;
+    CloseWebSocket close_websocket = 33;
+    FetchPins fetch_pins = 34;
+
+    WriteJSON write_json = 40;
+    ReadJSON read_json = 41;
+    WriteNetscape write_netscape = 42;
+    ReadNetscape read_netscape = 43;
+    Clear clear = 44;
+    JarAll jar_all = 45;
+    JarCookies jar_cookies = 46;
+    JarPeek jar_peek = 47;
+    JarSet jar_set = 48;
+    JarSetString jar_set_string = 49;
+    JarSetHostString jar_set_host_string = 50;
+    JarSetCookies jar_set_cookies = 51;
+    JarClearExpired jar_clear_expired = 52;
+    JarClearSession jar_clear_session = 53;
+    JarString jar_string = 54;
+    JarClone jar_clone = 55;
+    ClientHints client_hints = 56;
+    SetClientHints set_client_hints = 57;
+  }
+}
+
+// Reply is a REPLY frame's payload: the call's error, its result, or
+// both (a failed WebSocket handshake has its response). A call with
+// neither succeeded with nothing to return.
+message Reply {
+  // Continued is as Call's: the reply is the first continued bytes of
+  // the stream's DATA, and any body follows them.
+  uint32 continued = 1;
+  Error error = 2;
+  oneof result {
+    HelloReply hello = 3;
+    // Object is a new object's id: NewTransport, NewJar, NewTicketCache,
+    // NewAltSvcCache, NewClientHintStore, JarClone.
+    Object object = 4;
+    NewClientReply new_client = 5;
+    ProfileList profiles = 6;
+    ProfileInfo profile = 7;
+    MachineList machines = 8;
+    Response response = 9;
+    PlanReply plan = 10;
+    WebSocket websocket = 11;
+    CertPins pins = 12;
+    Cookies cookies = 13;
+    // Count is how many: JarClearExpired, JarClearSession.
+    int64 count = 14;
+    // Value is a bytes result: JarString's Cookie header string.
+    bytes value = 15;
+    // Strings is a list of strings: ClientHints.
+    Strings strings = 16;
+  }
+}
+
+// Event is an EVENT frame's payload: a notice on stream 0 that nothing
+// answers (set_cookie, stream_error, websocket_written), or a reverse
+// call on a stream of the core's that the SDK answers with a REPLY
+// holding an EventReply (verify_connection).
+message Event {
+  // Continued is as Call's.
+  uint32 continued = 1;
+  oneof event {
+    VerifyConnection verify_connection = 2;
+    SetCookie set_cookie = 3;
+    StreamError stream_error = 4;
+    WebSocketWritten websocket_written = 5;
+  }
+}
+
+// EventReply answers a reverse call: no error accepts.
+message EventReply {
+  Error error = 1;
+}
+
+// Hello is the first call of every connection. The core refuses another
+// major version, naming both.
+message Hello {
+  uint32 protocol_major = 1;
+  uint32 protocol_minor = 2;
+  string sdk_version = 3;
+  // Features are the optional features the SDK uses: bit 1 << f set for
+  // each Feature f it uses.
+  uint64 features = 4;
+}
+
+// HelloReply is the core's side of Hello.
+message HelloReply {
+  uint32 protocol_major = 1;
+  uint32 protocol_minor = 2;
+  // Core_version is mimicry-core's version (its module version, or
+  // "devel").
+  string core_version = 3;
+  // Features are the optional features the core has: bit 1 << f set for
+  // each Feature f it has.
+  uint64 features = 4;
+}
+
+// Feature names the bits of Hello's features: optional capabilities a
+// core or an SDK may lack within one major version. Feature f is bit
+// 1 << f, so values start at 1 (bit 0 is never used); FEATURE_NONE (0)
+// means no feature and is not a bit. Protocol 1.0 defines none; a later
+// minor version adds them.
+enum Feature {
+  FEATURE_NONE = 0;
+}
+
+// Close frees an object: a client, transport, jar, cache, store,
+// profile or WebSocket. A transport's (or client's) idle connections
+// close; a WebSocket is closed as WebSocket.Close(1000, "") does.
+// Disconnecting frees every object the connection owned.
+message Close {
+  uint64 id = 1;
+}
+
+// Object is the id of an object the call created.
+message Object {
+  uint64 id = 1;
+}
+
+// Strings is a list of strings.
+message Strings {
+  repeated string values = 1;
+}
+
+// ListProfiles lists the built-in profiles (profiles.Names,
+// profiles.Supported).
+message ListProfiles {}
+
+// ProfileList is ListProfiles' result.
+message ProfileList {
+  // Names are every built-in profile's, deprecated ones included.
+  repeated string names = 1;
+  // Supported are the names not deprecated.
+  repeated string supported = 2;
+}
+
+// ProfileRef names a profile: a built-in one by name (profiles.ByName),
+// or one ParseProfile made.
+message ProfileRef {
+  oneof profile {
+    string name = 1;
+    uint64 id = 2;
+  }
+}
+
+// ProfileSpec returns a profile's data: ProfileInfo, then the profile as
+// JSON (profile.Encode) as DATA, the form ParseProfile reads. Edit the
+// JSON and parse it to use an edited profile.
+message ProfileSpec {
+  ProfileRef profile = 1;
+}
+
+// ParseProfile reads a profile's JSON, sent as DATA after the call
+// (profile.Parse), and returns it as an object (ProfileInfo.id). An
+// invalid profile is a VALIDATION error listing the problems.
+message ParseProfile {}
+
+// ProfileInfo describes a profile.
+message ProfileInfo {
+  // Id is the profile's object id; zero for a built-in one.
+  uint64 id = 1;
+  string name = 2;
+  string user_agent = 3;
+}
+
+// Machines lists the captured machines of a platform ("macos",
+// "windows", ...; profiles.Machines), each as profile.Machine's JSON:
+// values for Config.client_hints.
+message Machines {
+  string platform = 1;
+}
+
+// MachineList is Machines' result.
+message MachineList {
+  repeated bytes machines = 1;
+}
+
+// Config is mimicry.Config, with its callbacks as data (decision 0069).
+// Object fields hold ids this connection created; zero is none.
+message Config {
+  ProfileRef profile = 1;
+  // Root_cas are PEM certificates that verify servers instead of the
+  // system's roots (RootCAs); empty uses the system's.
+  bytes root_cas = 2;
+  google.protobuf.Duration dial_timeout = 3;
+  // Timeout is the client's (NewClient); NewTransport ignores it.
+  google.protobuf.Duration timeout = 4;
+  // Local_addrs are IP addresses (LocalAddrs).
+  repeated string local_addrs = 5;
+  // Dns_server is the address ("host:port") of the DNS server that looks
+  // up host names, over UDP and TCP (a Resolver dialing it); empty uses
+  // the system's resolver.
+  string dns_server = 6;
+  // Proxy is the proxy URL for every request (Proxy); empty connects
+  // directly. Request.proxy overrides it per request.
+  string proxy = 7;
+  repeated HeaderValues header = 8;
+  repeated Place header_placement = 9;
+  // Cookies is a jar's id. Unset, NewClient creates one (its id is
+  // NewClientReply.cookies) and NewTransport sends no cookies.
+  uint64 cookies = 10;
+  // Client_hint_store is a store's id (NewClientHintStore); unset keeps
+  // one per transport.
+  uint64 client_hint_store = 11;
+  // Client_hints is a profile.Machine as JSON (Machines); empty is the
+  // profile's own machine.
+  bytes client_hints = 12;
+  bool disable_decompression = 13;
+  bool disable_http3 = 14;
+  // Alt_svc is an AltSvcCache's id.
+  uint64 alt_svc = 15;
+  // Tickets is a TicketCache's id.
+  uint64 tickets = 16;
+  bool browser_quic_fallback = 17;
+  bool browser_dial_delay = 18;
+  bool browser_proxy_auth = 19;
+  bool disable_coalescing = 20;
+  int32 max_conns_per_host = 21;
+  google.protobuf.Duration idle_conn_timeout = 22;
+  int32 max_idle_proxies = 23;
+  bool http3_over_socks5 = 24;
+  // Connect_udp_proxy maps a proxy URL to its CONNECT-UDP proxy URL
+  // (ConnectUDPProxy); a proxy not in it keeps its requests on TCP.
+  map<string, string> connect_udp_proxy = 25;
+  int32 http3_read_buffer_size = 26;
+  int32 http3_ack_every = 27;
+  repeated Pin pins = 28;
+  // Verify_connection sends each verified connection's state to the SDK
+  // (Event.verify_connection), whose answer accepts or fails it
+  // (VerifyConnection).
+  bool verify_connection = 29;
+  // Client_certificates answer servers asking for a client certificate
+  // (GetClientCertificate): the entry for the connection's host, else
+  // the one with no host, else none.
+  repeated ClientCertificate client_certificates = 30;
+  // Key_log_file is a file the core appends TLS secrets to, created 0600
+  // (KeyLogWriter).
+  string key_log_file = 31;
+}
+
+// HeaderValues is one name of an http.Header with its values. A name with
+// no values removes a default where Go's does. Names are canonical as
+// Header.Add makes them. Values are bytes, as they go on the wire: HTTP
+// allows bytes that are not UTF-8, which a protobuf string refuses.
+// Other text (messages, statuses, reasons) is made valid UTF-8.
+message HeaderValues {
+  string name = 1;
+  repeated bytes values = 2;
+}
+
+// Header is one header line (mimicry.Header); its value as
+// HeaderValues'.
+message Header {
+  string name = 1;
+  bytes value = 2;
+}
+
+// Place is mimicry.Place.
+message Place {
+  string header = 1;
+  string after = 2;
+  string before = 3;
+}
+
+// Pin is mimicry.Pin.
+message Pin {
+  string host = 1;
+  bool include_subdomains = 2;
+  repeated string spki = 3;
+}
+
+// ClientCertificate is a certificate chain and its private key, both PEM,
+// for host ("" for every host without an entry of its own).
+message ClientCertificate {
+  string host = 1;
+  bytes certificate = 2;
+  bytes key = 3;
+}
+
+// NewClient is mimicry.NewClient: a client that follows redirects.
+message NewClient {
+  Config config = 1;
+  Redirects redirects = 2;
+}
+
+// Redirects is how a client follows redirects (http.Client's
+// CheckRedirect, as data).
+message Redirects {
+  // Follow, unset or true, follows them; false returns the redirect
+  // response itself.
+  optional bool follow = 1;
+  // Max stops a chain after this many redirects; zero is the browser's
+  // limit.
+  uint32 max = 2;
+}
+
+// NewClientReply is NewClient's result.
+message NewClientReply {
+  uint64 client = 1;
+  // Cookies is the client's jar: Config.cookies, or the one it created.
+  uint64 cookies = 2;
+}
+
+// NewTransport is mimicry.NewTransport: one hop per request, redirects
+// returned.
+message NewTransport {
+  Config config = 1;
+}
+
+// NewJar is cookies.New with a profile's cookie rules.
+message NewJar {
+  // Rules is the profile whose cookie rules the jar keeps; unset is
+  // RFC 6265bis (profile.DefaultCookies).
+  ProfileRef rules = 1;
+  // On_set_cookie sends an Event.set_cookie notice for each Set-Cookie
+  // line the jar receives (cookies.Config.OnSetCookie).
+  bool on_set_cookie = 2;
+}
+
+// NewTicketCache is mimicry.NewTicketCache.
+message NewTicketCache {}
+
+// NewAltSvcCache is mimicry.NewAltSvcCache.
+message NewAltSvcCache {}
+
+// NewClientHintStore is mimicry.NewClientHintStore.
+message NewClientHintStore {}
+
+// CloseIdleConnections is Transport.CloseIdleConnections, of a client's
+// or a transport's.
+message CloseIdleConnections {
+  uint64 transport = 1;
+}
+
+// Kind is mimicry.Kind.
+enum Kind {
+  KIND_NAVIGATE = 0;
+  KIND_FRAME = 1;
+  KIND_SCRIPT = 2;
+  KIND_ASYNC_SCRIPT = 3;
+  KIND_DEFER_SCRIPT = 4;
+  KIND_INJECTED_SCRIPT = 5;
+  KIND_PRELOAD_SCRIPT = 6;
+  KIND_STYLE = 7;
+  KIND_IMAGE = 8;
+  KIND_INJECTED_IMAGE = 9;
+  KIND_FONT = 10;
+  KIND_PRELOAD_FONT = 11;
+  KIND_FETCH = 12;
+  KIND_XHR = 13;
+  KIND_BEACON = 14;
+  // KIND_PREFLIGHT appears only in plans.
+  KIND_PREFLIGHT = -1;
+}
+
+// Priority is mimicry.Priority.
+enum Priority {
+  PRIORITY_AUTO = 0;
+  PRIORITY_HIGH = 1;
+  PRIORITY_LOW = 2;
+}
+
+// CrossOrigin is mimicry.CrossOrigin.
+enum CrossOrigin {
+  CROSS_ORIGIN_NONE = 0;
+  CROSS_ORIGIN_ANONYMOUS = 1;
+  CROSS_ORIGIN_USE_CREDENTIALS = 2;
+}
+
+// Credentials is mimicry.Credentials.
+enum Credentials {
+  CREDENTIALS_SAME_ORIGIN = 0;
+  CREDENTIALS_INCLUDE = 1;
+  CREDENTIALS_OMIT = 2;
+}
+
+// HintDelegation is mimicry.HintDelegation.
+enum HintDelegation {
+  HINT_DELEGATION_DEFAULT = 0;
+  HINT_DELEGATION_DELEGATED = 1;
+  HINT_DELEGATION_WITHHELD = 2;
+}
+
+// Options is mimicry.Request, what With takes: how a page makes the
+// request. Go's From is page.
+message Options {
+  Kind kind = 1;
+  string page = 2;
+  Priority priority = 3;
+  CrossOrigin cross_origin = 4;
+  Credentials credentials = 5;
+  bool no_cors = 6;
+  string stylesheet = 7;
+  bool ignore_cors = 8;
+  repeated Place header_placement = 9;
+  HintDelegation client_hints = 10;
+}
+
+// Request is an http.Request and how it is made.
+message Request {
+  string method = 1;
+  string url = 2;
+  repeated HeaderValues header = 3;
+  // Body is the whole body, sent with the call: it can be sent again
+  // (GetBody), as a redirect that keeps the method needs.
+  bytes body = 4;
+  // Stream_body says the body follows the call as DATA, ended by END. It
+  // cannot be sent again: a redirect that keeps it fails.
+  bool stream_body = 5;
+  // Content_length is a streamed body's length; unset is unknown.
+  optional int64 content_length = 6;
+  // Options are With's; unset is a navigation.
+  Options options = 7;
+  // Exact is mimicry.Exact.
+  bool exact = 8;
+  // Header_order is HeaderOrderKey's values.
+  repeated string header_order = 9;
+  // Proxy, when set, is this request's proxy URL instead of the
+  // client's; "" connects directly.
+  optional string proxy = 10;
+  // Timeout bounds the call, from its arrival, response body included;
+  // unset is none beyond the client's Timeout. RESET cancels it too.
+  google.protobuf.Duration timeout = 11;
+}
+
+// Do sends a request: http.Client.Do through a client (redirects
+// followed), Transport.RoundTrip through a transport. The reply holds
+// Response; its body follows as DATA unless the REPLY has END.
+message Do {
+  uint64 client = 1;
+  Request request = 2;
+}
+
+// Response is an http.Response.
+message Response {
+  int32 status_code = 1;
+  string status = 2;
+  string proto = 3;
+  repeated HeaderValues header = 4;
+  // Content_length is -1 when unknown.
+  int64 content_length = 5;
+  bool uncompressed = 6;
+  // Url is the final request's URL, after redirects.
+  string url = 7;
+  // Tls is the connection's state; unset over plain HTTP.
+  ConnectionState tls = 8;
+}
+
+// ConnectionState is tls.ConnectionState.
+message ConnectionState {
+  uint32 version = 1;
+  bool handshake_complete = 2;
+  bool did_resume = 3;
+  uint32 cipher_suite = 4;
+  string negotiated_protocol = 5;
+  string server_name = 6;
+  // Peer_certificates are DER, leaf first.
+  repeated bytes peer_certificates = 7;
+  repeated CertificateChain verified_chains = 8;
+  repeated bytes signed_certificate_timestamps = 9;
+  bytes ocsp_response = 10;
+  bool ech_accepted = 11;
+}
+
+// CertificateChain is DER certificates, leaf first.
+message CertificateChain {
+  repeated bytes certificates = 1;
+}
+
+// Plan is Transport.Plan, of a client's or a transport's.
+message Plan {
+  uint64 transport = 1;
+  Request request = 2;
+}
+
+// PlanReply is mimicry.Plan.
+message PlanReply {
+  string method = 1;
+  string url = 2;
+  Kind kind = 3;
+  string variant = 4;
+  repeated string condition = 5;
+  string protocol = 6;
+  Lines http2 = 7;
+  Lines http1 = 8;
+  // Http3 is unset when the transport speaks no HTTP/3.
+  Lines http3 = 9;
+  PlanReply preflight = 10;
+  repeated Override overrides = 11;
+  repeated string dropped = 12;
+  // Text is Plan.String().
+  string text = 13;
+}
+
+// Lines is mimicry.Lines.
+message Lines {
+  string request_line = 1;
+  repeated Header headers = 2;
+  Error error = 3;
+}
+
+// Override is mimicry.Override.
+message Override {
+  string name = 1;
+  bytes mimicry = 2;
+  repeated bytes caller = 3;
+}
+
+// DialWebSocket is Transport.DialWebSocket, of a client's or a
+// transport's. On success the reply's WebSocket names the socket and the
+// stream stays open: its DATA carries the messages both ways
+// (proto/README.md). On a failed handshake the reply holds the error and
+// the response, whose body (its start) follows as DATA.
+message DialWebSocket {
+  uint64 transport = 1;
+  string url = 2;
+  WebSocketOptions options = 3;
+  // Timeout bounds the handshake; unset is none.
+  google.protobuf.Duration timeout = 4;
+}
+
+// WebSocketOptions is mimicry.WebSocketOptions; Go's From is page.
+message WebSocketOptions {
+  string page = 1;
+  repeated string protocols = 2;
+  repeated HeaderValues header = 3;
+}
+
+// WebSocket is an open socket.
+message WebSocket {
+  uint64 id = 1;
+  string protocol = 2;
+  string extensions = 3;
+  Response response = 4;
+}
+
+// MessageType is mimicry.MessageType. It is also a message record's type
+// byte on a WebSocket's stream (proto/README.md, WebSockets): 1 text, 2
+// binary. 0 is no message: the type of the core's end record.
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TEXT = 1;
+  MESSAGE_TYPE_BINARY = 2;
+}
+
+// CloseWebSocket is WebSocket.Close: it returns once the close handshake
+// is done.
+message CloseWebSocket {
+  uint64 websocket = 1;
+  int32 code = 2;
+  string reason = 3;
+}
+
+// WebSocketWritten is a notice for each message the SDK wrote on a
+// WebSocket's stream, once WriteMessage returned: the seq-th message
+// (from 1), and its error if it was not sent.
+message WebSocketWritten {
+  uint64 websocket = 1;
+  uint64 seq = 2;
+  Error error = 3;
+}
+
+// FetchPins is mimicry.FetchPins.
+message FetchPins {
+  Config config = 1;
+  string url = 2;
+  google.protobuf.Duration timeout = 3;
+}
+
+// CertRole is mimicry.CertRole.
+enum CertRole {
+  CERT_ROLE_LEAF = 0;
+  CERT_ROLE_INTERMEDIATE = 1;
+  CERT_ROLE_ROOT = 2;
+}
+
+// CertPin is mimicry.CertPin.
+message CertPin {
+  CertRole role = 1;
+  string subject = 2;
+  string issuer = 3;
+  google.protobuf.Timestamp not_after = 4;
+  string spki = 5;
+  string spki_hex = 6;
+  string fingerprint = 7;
+}
+
+// CertPins is FetchPins' result.
+message CertPins {
+  repeated CertPin pins = 1;
+}
+
+// WriteJSON is WriteJSON of a jar, ticket cache, Alt-Svc cache or client
+// hint store: the reply, then the JSON as DATA.
+message WriteJSON {
+  uint64 id = 1;
+}
+
+// ReadJSON is ReadJSON of a jar, ticket cache, Alt-Svc cache or client
+// hint store, the JSON sent as DATA after the call.
+message ReadJSON {
+  uint64 id = 1;
+}
+
+// WriteNetscape is Jar.WriteNetscape: the reply, then the file as DATA.
+message WriteNetscape {
+  uint64 jar = 1;
+}
+
+// ReadNetscape is Jar.ReadNetscape, the file sent as DATA after the call.
+message ReadNetscape {
+  uint64 jar = 1;
+}
+
+// Clear is Clear of a jar, ticket cache or Alt-Svc cache.
+message Clear {
+  uint64 id = 1;
+}
+
+// SameSite is cookies.SameSite.
+enum SameSite {
+  SAME_SITE_UNSET = 0;
+  SAME_SITE_LAX = 1;
+  SAME_SITE_STRICT = 2;
+  SAME_SITE_NONE = 3;
+}
+
+// Cookie is cookies.Cookie.
+message Cookie {
+  // Name, value and raw are bytes, as HeaderValues' values.
+  bytes name = 1;
+  bytes value = 2;
+  string domain = 3;
+  bool host_only = 4;
+  string path = 5;
+  google.protobuf.Timestamp expires = 6;
+  bool secure = 7;
+  bool http_only = 8;
+  SameSite same_site = 9;
+  bool partitioned = 10;
+  string partition = 11;
+  google.protobuf.Timestamp created = 12;
+  google.protobuf.Timestamp last_access = 13;
+  bytes raw = 14;
+}
+
+// Cookies is a list of cookies.
+message Cookies {
+  repeated Cookie cookies = 1;
+}
+
+// CookieRequest is cookies.Request.
+message CookieRequest {
+  string url = 1;
+  string method = 2;
+  bool navigation = 3;
+  string page = 4;
+  repeated string redirects = 5;
+  bool websocket = 6;
+}
+
+// JarAll is Jar.All.
+message JarAll {
+  uint64 jar = 1;
+}
+
+// JarCookies is Jar.Cookies.
+message JarCookies {
+  uint64 jar = 1;
+  CookieRequest request = 2;
+}
+
+// JarPeek is Jar.Peek.
+message JarPeek {
+  uint64 jar = 1;
+  CookieRequest request = 2;
+}
+
+// JarSet is Jar.Set.
+message JarSet {
+  uint64 jar = 1;
+  Cookie cookie = 2;
+}
+
+// JarSetString is Jar.SetString.
+message JarSetString {
+  uint64 jar = 1;
+  string domain = 2;
+  bytes cookies = 3;
+}
+
+// JarSetHostString is Jar.SetHostString.
+message JarSetHostString {
+  uint64 jar = 1;
+  string host = 2;
+  bytes cookies = 3;
+}
+
+// JarSetCookies is Jar.SetCookies: a response's raw Set-Cookie lines.
+message JarSetCookies {
+  uint64 jar = 1;
+  CookieRequest request = 2;
+  repeated bytes lines = 3;
+}
+
+// JarClearExpired is Jar.ClearExpired; the reply's count is how many.
+message JarClearExpired {
+  uint64 jar = 1;
+}
+
+// JarClearSession is Jar.ClearSession; the reply's count is how many.
+message JarClearSession {
+  uint64 jar = 1;
+}
+
+// JarString is Jar.String; the reply's value is the result.
+message JarString {
+  uint64 jar = 1;
+  string name = 2;
+}
+
+// JarClone is Jar.Clone; the reply's object is the new jar.
+message JarClone {
+  uint64 jar = 1;
+}
+
+// SetCookie is a notice of one Set-Cookie line a jar made with
+// on_set_cookie received (cookies.Event).
+message SetCookie {
+  uint64 jar = 1;
+  string url = 2;
+  bytes line = 3;
+  // Cookie is the cookie stored; unset when rejected says why not, or
+  // the line deleted one.
+  Cookie cookie = 4;
+  string rejected = 5;
+  bool deleted = 6;
+}
+
+// ClientHints is ClientHintStore.ClientHints; the reply's strings are
+// the hints.
+message ClientHints {
+  uint64 store = 1;
+  string origin = 2;
+}
+
+// SetClientHints is ClientHintStore.SetClientHints.
+message SetClientHints {
+  uint64 store = 1;
+  string origin = 2;
+  repeated string hints = 3;
+}
+
+// VerifyConnection is a reverse call for a transport made with
+// Config.verify_connection: a verified connection's state, which the
+// SDK accepts or fails with its EventReply. The handshake waits for the
+// answer, at most the handshake's DialTimeout and only while a request
+// of the transport still waits; a RESET or a disconnect fails it.
+message VerifyConnection {
+  // Transport is the client's or transport's id.
+  uint64 transport = 1;
+  ConnectionState state = 2;
+}
+
+// StreamError is a notice sent just before the core resets a stream
+// whose reply it has already sent, saying why: a response body that
+// failed part way.
+message StreamError {
+  uint32 stream = 1;
+  Error error = 2;
+}
+
+// Code is an error's kind: one per sentinel and error type of Go's API.
+enum Code {
+  // CODE_INTERNAL is any other error.
+  CODE_INTERNAL = 0;
+  // CODE_NOT_MEASURED is mimicry.ErrNotMeasured.
+  CODE_NOT_MEASURED = 1;
+  // CODE_CORS is a *mimicry.CORSError (Error.cors).
+  CODE_CORS = 2;
+  // CODE_PROXY is a *mimicry.ProxyError (Error.proxy).
+  CODE_PROXY = 3;
+  // CODE_PIN is a *mimicry.PinError (Error.pin).
+  CODE_PIN = 4;
+  // CODE_BLOCKED is mimicry.ErrBlocked.
+  CODE_BLOCKED = 5;
+  // CODE_PLACEMENT is mimicry.ErrPlacement.
+  CODE_PLACEMENT = 6;
+  // CODE_CLOSE is a *mimicry.CloseError (Error.close).
+  CODE_CLOSE = 7;
+  // CODE_VALIDATION is a *profile.ValidationError (Error.validation).
+  CODE_VALIDATION = 8;
+  // CODE_CANCELED is context.Canceled: the call's stream was reset.
+  CODE_CANCELED = 9;
+  // CODE_DEADLINE is a deadline passing: context.DeadlineExceeded, a
+  // timeout.
+  CODE_DEADLINE = 10;
+  // CODE_NET is a network failure: a connection refused or reset, a
+  // failed lookup, a TLS failure.
+  CODE_NET = 11;
+  // CODE_INVALID is a call the core cannot carry out as given: an
+  // unknown object or one of another type, a malformed argument, a call
+  // before Hello, another major version.
+  CODE_INVALID = 12;
+  // CODE_VERIFY is the SDK's answer to a verify_connection reverse call
+  // failing the connection (Error.message is the SDK's).
+  CODE_VERIFY = 13;
+}
+
+// Error is a Go error: its code (the most specific), its message, every
+// code errors.Is or errors.As matches in its chain (matches, which holds
+// code too), and the typed fields of its type.
+message Error {
+  Code code = 1;
+  string message = 2;
+  repeated Code matches = 3;
+  CORSError cors = 4;
+  ProxyError proxy = 5;
+  PinError pin = 6;
+  CloseError close = 7;
+  ValidationError validation = 8;
+}
+
+// CORSError is mimicry.CORSError.
+message CORSError {
+  string url = 1;
+  bool redirect = 2;
+  string reason = 3;
+  int32 status = 4;
+  repeated HeaderValues header = 5;
+}
+
+// ProxyError is mimicry.ProxyError; its cause is the Error's other codes
+// and message.
+message ProxyError {
+  // Proxy is the proxy's URL, its password removed.
+  string proxy = 1;
+  int32 status_code = 2;
+  repeated HeaderValues header = 3;
+}
+
+// PinError is mimicry.PinError.
+message PinError {
+  string host = 1;
+  repeated string presented = 2;
+}
+
+// CloseError is mimicry.CloseError.
+message CloseError {
+  int32 code = 1;
+  string reason = 2;
+}
+
+// ValidationError is profile.ValidationError.
+message ValidationError {
+  repeated Problem problems = 1;
+}
+
+// Problem is profile.Problem.
+message Problem {
+  string path = 1;
+  string message = 2;
+}

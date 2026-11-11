@@ -19,6 +19,7 @@ require (
 	go.uber.org/mock v0.6.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
 )
 
 // The harness is never imported by others, so this replace only affects it.

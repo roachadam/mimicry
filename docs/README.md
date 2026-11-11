@@ -45,7 +45,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
 | [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
 | [0046](decisions/0046-response-decompression.md) | Responses are decoded whoever set `Accept-Encoding` | Accepted |
-| [0069](decisions/0069-language-bindings.md) | Python and Node bindings through a per-process `mimicry-core` child: framed, multiplexed protocol with protobuf messages over a socketpair (anonymous pipes on Windows); Go's names in each SDK; callbacks as data plus `VerifyConnection`; no in-process cgo, daemon or local proxy | Accepted |
+| [0069](decisions/0069-language-bindings.md) | Python and Node bindings through a per-process `mimicry-core` child: framed, multiplexed protocol with protobuf messages over a socketpair (anonymous pipes on Windows); Go's names in each SDK; callbacks as data plus `VerifyConnection`; no in-process cgo, daemon or local proxy | Accepted; amended (the wire protocol's details; the schema, the core and WebSocket framing) |
 
 ### Profiles and evidence
 

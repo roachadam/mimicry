@@ -14,6 +14,19 @@ fileGroups:
     - '!internal/bench/**'
   testdata:
     - 'profiles/data/**'
+    # TestGenerated (internal/rpc/pb) compiles the schema.
+    - 'proto/**'
     - '**/testdata/**'
     - '!internal/harness/**'
     - '!internal/bench/**'
+
+tasks:
+  # Lints the protocol's schema (proto/) and generates its Go code into
+  # internal/rpc/pb, with buf pinned here and protoc-gen-go at go.mod's
+  # version (proto/buf.gen.yaml). TestGenerated fails while the checked-in
+  # code differs, so CI needs no buf.
+  proto:
+    script: 'go run github.com/bufbuild/buf/cmd/buf@v1.75.0 lint proto && go run github.com/bufbuild/buf/cmd/buf@v1.75.0 generate --template proto/buf.gen.yaml'
+    toolchain: 'system'
+    options:
+      cache: false

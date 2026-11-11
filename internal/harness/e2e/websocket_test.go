@@ -241,6 +241,7 @@ func startProxiedPage(t *testing.T, p *profile.Spec, sc *server.Scenario, user *
 		scheme:   "https",
 		port:     "8443",
 		captures: make(chan *capture.Capture, 64),
+		ca:       ca,
 	}
 	px := &proxy.Proxy{
 		Allow: func(host string) bool {
@@ -299,15 +300,17 @@ func startProxiedPage(t *testing.T, p *profile.Spec, sc *server.Scenario, user *
 	pool := x509.NewCertPool()
 	pool.AddCert(ca.Cert)
 
+	s.proxy = &url.URL{
+		Scheme: sc.Proxy,
+		Host:   pln.Addr().String(),
+		User:   user,
+	}
+
 	tr, err := mimicry.NewTransport(mimicry.Config{
-		Profile: checked(p),
-		RootCAs: pool,
-		Cookies: newJar(t, p),
-		Proxy: http.ProxyURL(&url.URL{
-			Scheme: sc.Proxy,
-			Host:   pln.Addr().String(),
-			User:   user,
-		}),
+		Profile:          checked(p),
+		RootCAs:          pool,
+		Cookies:          newJar(t, p),
+		Proxy:            http.ProxyURL(s.proxy),
 		BrowserProxyAuth: browserAuth,
 	})
 	if err != nil {

@@ -543,6 +543,11 @@ type pageSession struct {
 	// (Scenario.ClientCert), issued by the CA its server names and given
 	// to the client as the browser held it; nil for other scenarios.
 	identity *clientcert.Identity
+	// ca is the CA the server's certificates chain to, and proxy the
+	// capture proxy's URL (nil for a page reached directly): what
+	// mimicry-core is given to reach the page as the client does.
+	ca    *server.CA
+	proxy *url.URL
 }
 
 func startPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *pageSession {
@@ -556,16 +561,26 @@ func startPage(t *testing.T, p *profile.Spec, sc *server.Scenario) *pageSession 
 func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config func(*mimicry.Config)) *pageSession {
 	t.Helper()
 
+	ln, pc := listenTwin(t, sc.HTTP3())
+
+	return startPageOn(t, p, sc, config, ln, pc)
+}
+
+// startPageOn is startPageWith serving on ln and, for a scenario with
+// HTTP/3, its UDP twin pc.
+func startPageOn(t *testing.T, p *profile.Spec, sc *server.Scenario, config func(*mimicry.Config), ln net.Listener, pc net.PacketConn) *pageSession {
+	t.Helper()
+
 	ca, err := server.LoadOrCreateCA(t.TempDir(), server.CADomains, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ln, pc := listenTwin(t, sc.HTTP3())
 	s := &pageSession{
 		t:        t,
 		scheme:   "https",
 		captures: make(chan *capture.Capture, 64),
+		ca:       ca,
 	}
 
 	if sc.Plain {
@@ -580,7 +595,13 @@ func startPageWith(t *testing.T, p *profile.Spec, sc *server.Scenario, config fu
 			return ca.Issue(hosts, time.Now())
 		},
 		OnCapture: func(c *capture.Capture) {
-			s.captures <- c
+			// Given up once the test ends, so a client that opened more
+			// connections than the buffer holds fails the test instead of
+			// hanging its server's shutdown.
+			select {
+			case s.captures <- c:
+			case <-ctx.Done():
+			}
 		},
 		OnRequest: s.arrived,
 		Logf:      t.Logf,
@@ -798,6 +819,14 @@ func (s *pageSession) finish(done string) *capture.Page {
 func (s *pageSession) finishCapture(done string) *capture.Capture {
 	s.t.Helper()
 	s.send(http.MethodGet, done, mimicry.Request{}, nil, "")
+
+	return s.awaitPage()
+}
+
+// awaitPage returns the page capture the server hands over once a client
+// asked for /done, having checked its plans where s plans them.
+func (s *pageSession) awaitPage() *capture.Capture {
+	s.t.Helper()
 
 	for {
 		select {

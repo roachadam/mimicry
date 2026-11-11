@@ -214,7 +214,10 @@ func TestMain(m *testing.M) {
 		os.Exit(runChildBackend(dir))
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+
+	removeCore()
+	os.Exit(code)
 }
 
 func scenario(t *testing.T, name string) *server.Scenario {

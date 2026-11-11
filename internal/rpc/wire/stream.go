@@ -74,8 +74,9 @@ func (s *Stream) Payload() []byte {
 	return s.payload
 }
 
-// Context ends when the stream does: reset by either side (its cause the
-// stream's error), failed with the connection, or both directions ended.
+// Context ends when the stream does: reset by either side or failed with
+// the connection, its cause then the stream's error; or both directions
+// ended, its cause context.Canceled.
 func (s *Stream) Context() context.Context {
 	return s.ctx
 }

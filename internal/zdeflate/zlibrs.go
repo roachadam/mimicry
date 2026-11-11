@@ -97,7 +97,7 @@ func (w *rsWriter) reset() {
 // buffer filled since its last sync flush, which this loop never does
 // with a non-empty p.
 func (w *rsWriter) message(p []byte) []byte {
-	w.out.buf = make([]byte, 0, len(p)/2+16)
+	w.out.buf = outBuffer(p)
 	w.sent = 0
 	w.in = p
 
