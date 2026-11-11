@@ -16,6 +16,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"syscall"
 
 	"google.golang.org/protobuf/proto"
 
@@ -122,6 +123,11 @@ func (s *session) serve() error {
 	}
 
 	if err := s.hello(st); err != nil {
+		// Hello's reply failing with the connection ends like any call.
+		if errors.Is(err, wire.ErrConnClosed) {
+			return s.ended(err)
+		}
+
 		return err
 	}
 
@@ -138,19 +144,39 @@ func (s *session) serve() error {
 }
 
 // ended is Serve's result for the connection's end err: nil for the SDK
-// closing it between frames.
+// disconnecting, which the wire sees as the connection ending between
+// frames when it was reading (ErrConnClosed itself) and as the peer gone
+// when it was writing: io.ErrClosedPipe on a net.Pipe, EPIPE or
+// ECONNRESET on the socket, a broken pipe on Windows' pipes. Which of the
+// two sees the close first is a race, so both are the SDK leaving. A
+// truncated frame, a protocol error, the SDK's RESET of the connection
+// and any other I/O error stay errors.
 func (s *session) ended(err error) error {
 	if s.ctx.Err() != nil {
 		return context.Cause(s.ctx)
 	}
 
-	// The wire fails a connection that ended between frames with
-	// ErrConnClosed itself; any other failure wraps it with its cause.
-	if err == wire.ErrConnClosed { //nolint:errorlint // the sentinel itself, not one wrapping it
+	if err == wire.ErrConnClosed || peerGone(err) { //nolint:errorlint // the sentinel itself, not one wrapping it
 		return nil
 	}
 
 	return err
+}
+
+// peerGone reports an I/O error that means the other end closed.
+// net.ErrClosed is not one: only this side's own Close causes it.
+func peerGone(err error) bool {
+	if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) {
+		return true
+	}
+
+	for _, e := range pipeGone {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // hello answers the first call, which must be Hello with this protocol's
