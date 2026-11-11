@@ -1,0 +1,13 @@
+# Go code for the schema, checked in at internal/rpc/pb. Run from the
+# repository root (moon run mimicry:proto): protoc-gen-go is go run at the
+# version go.mod pins, and TestGenerated in internal/rpc/pb fails while
+# the checked-in code differs from what it generates. The SDKs generate
+# their own languages' code in their pull requests.
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  - local: ["go", "run", "google.golang.org/protobuf/cmd/protoc-gen-go"]
+    out: internal/rpc/pb
+    opt:
+      - module=github.com/roachadam/mimicry/internal/rpc/pb

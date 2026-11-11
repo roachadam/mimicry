@@ -16,6 +16,7 @@ bin/
 **/cmd/*/*
 !**/cmd/*/*.*
 !**/cmd/*/*/
+/mimicry-core
 /pins
 /profilegen
 /internal/harness/capture

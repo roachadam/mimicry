@@ -2,10 +2,12 @@
 # Runs gopls's analyzers (the diagnostics an editor shows, hints included)
 # over the current module's Go files and fails if any are reported.
 # internal/quic is upstream's copy (decision 0027) and is skipped, as in
-# .golangci.yml. gopls is pinned and built with the pinned Go.
+# .golangci.yml, and so is protoc-gen-go's output (*.pb.go, never edited
+# by hand), which golangci-lint skips as generated. gopls is pinned and
+# built with the pinned Go.
 set -euo pipefail
 
-files=$(go list -f '{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}} {{end}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}' ./... | tr ' ' '\n' | grep -v '/internal/quic/' | grep . || true)
+files=$(go list -f '{{$d := .Dir}}{{range .GoFiles}}{{$d}}/{{.}} {{end}}{{range .TestGoFiles}}{{$d}}/{{.}} {{end}}{{range .XTestGoFiles}}{{$d}}/{{.}} {{end}}' ./... | tr ' ' '\n' | grep -v '/internal/quic/' | grep -v '\.pb\.go$' | grep . || true)
 [ -z "$files" ] && exit 0
 
 gopls=golang.org/x/tools/gopls@v0.24.0

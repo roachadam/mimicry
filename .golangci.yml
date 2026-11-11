@@ -311,6 +311,56 @@ linters:
             - github.com/roachadam/mimicry/profile$
             - github.com/roachadam/utls
             - golang.org/x/crypto
+        # internal/rpc (decision 0069): mimicry-core serves the public API
+        # to the SDKs, so server and convert import the root package, the
+        # one exception to internal/ never importing it; protobuf's runtime
+        # is for these packages only.
+        internal/rpc/client:
+          files:
+            - ${config-path}/internal/rpc/client/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry/internal/rpc/convert$
+            - github.com/roachadam/mimicry/internal/rpc/pb$
+            - github.com/roachadam/mimicry/internal/rpc/wire$
+            - google.golang.org/protobuf
+        internal/rpc/convert:
+          files:
+            - ${config-path}/internal/rpc/convert/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry$
+            - github.com/roachadam/mimicry/cookies$
+            - github.com/roachadam/mimicry/internal/rpc/pb$
+            - github.com/roachadam/mimicry/profile$
+            - google.golang.org/protobuf
+        internal/rpc/pb:
+          files:
+            - ${config-path}/internal/rpc/pb/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - google.golang.org/protobuf
+        internal/rpc/server:
+          files:
+            - ${config-path}/internal/rpc/server/*.go
+            - "!$test"
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/roachadam/mimicry$
+            - github.com/roachadam/mimicry/cookies$
+            - github.com/roachadam/mimicry/internal/rpc/convert$
+            - github.com/roachadam/mimicry/internal/rpc/pb$
+            - github.com/roachadam/mimicry/internal/rpc/wire$
+            - github.com/roachadam/mimicry/profile$
+            - github.com/roachadam/mimicry/profiles$
+            - google.golang.org/protobuf
         internal/rpc/wire:
           files:
             - ${config-path}/internal/rpc/wire/*.go
