@@ -124,7 +124,8 @@ message Hello {
   uint32 protocol_major = 1;
   uint32 protocol_minor = 2;
   string sdk_version = 3;
-  // Features are the optional features the SDK uses, as bits of Feature.
+  // Features are the optional features the SDK uses: bit 1 << f set for
+  // each Feature f it uses.
   uint64 features = 4;
 }
 
@@ -135,13 +136,16 @@ message HelloReply {
   // Core_version is mimicry-core's version (its module version, or
   // "devel").
   string core_version = 3;
-  // Features are the optional features the core has, as bits of Feature.
+  // Features are the optional features the core has: bit 1 << f set for
+  // each Feature f it has.
   uint64 features = 4;
 }
 
 // Feature names the bits of Hello's features: optional capabilities a
-// core or an SDK may lack within one major version. Protocol 1.0 defines
-// none; a later minor version adds them.
+// core or an SDK may lack within one major version. Feature f is bit
+// 1 << f, so values start at 1 (bit 0 is never used); FEATURE_NONE (0)
+// means no feature and is not a bit. Protocol 1.0 defines none; a later
+// minor version adds them.
 enum Feature {
   FEATURE_NONE = 0;
 }
@@ -576,7 +580,9 @@ message WebSocket {
   Response response = 4;
 }
 
-// MessageType is mimicry.MessageType.
+// MessageType is mimicry.MessageType. It is also a message record's type
+// byte on a WebSocket's stream (proto/README.md, WebSockets): 1 text, 2
+// binary. 0 is no message: the type of the core's end record.
 enum MessageType {
   MESSAGE_TYPE_UNSPECIFIED = 0;
   MESSAGE_TYPE_TEXT = 1;

@@ -446,6 +446,97 @@ func TestDisconnectFreesEverything(t *testing.T) {
 	}
 }
 
+// A RESET of a WebSocket's stream closes the socket, before the SDK has
+// ended its side (its messages) and after: the server gets the socket's
+// close frame at once, though nothing else would end the socket.
+func TestWebSocketReset(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		end  bool
+	}{
+		{
+			name: "before the SDK's END",
+		},
+		{
+			name: "after the SDK's END",
+			end:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			socket := make(chan struct{}, 1)
+			closed := make(chan struct{})
+
+			srv, roots := tlsServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				conn, brw, err := http.NewResponseController(w).Hijack()
+				if err != nil {
+					return
+				}
+
+				_, _ = fmt.Fprintf(brw, "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n", ws.AcceptKey(r.Header.Get("Sec-WebSocket-Key")))
+				_ = brw.Flush()
+
+				socket <- struct{}{}
+
+				// The socket's close frame, answered with the server's.
+				_, _ = brw.Read(make([]byte, 512))
+				_, _ = conn.Write([]byte{0x88, 0x02, 0x03, 0xe8})
+				_ = conn.Close()
+
+				close(closed)
+			}), nil)
+
+			c := connect(t, client.Config{})
+
+			sock, _, err := c.DialWebSocket(t.Context(), &pb.DialWebSocket{
+				Transport: newClient(t, c, roots, nil).GetClient(),
+				Url:       "wss" + strings.TrimPrefix(srv.URL, "https") + "/",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			<-socket
+
+			if tc.end {
+				if err := sock.CloseWrite(); err != nil {
+					t.Fatal(err)
+				}
+
+				// Until the core has read the END, the RESET would
+				// fail its read of the SDK's messages instead.
+				deadline := time.Now().Add(5 * time.Second)
+				for !endRead() {
+					if time.Now().After(deadline) {
+						t.Fatal("the core did not read the SDK's END")
+					}
+
+					time.Sleep(time.Millisecond)
+				}
+			}
+
+			sock.Abort()
+
+			select {
+			case <-closed:
+			case <-time.After(5 * time.Second):
+				t.Error("the WebSocket stayed open after its stream's RESET")
+			}
+		})
+	}
+}
+
+// endRead reports the core's WebSocket call having read the SDK's END: it
+// waits only for its reading of the socket.
+func endRead() bool {
+	for _, g := range goroutines() {
+		if strings.Contains(g, "server.(*session).dialWebSocket") && strings.Contains(g, "sync.(*WaitGroup).Wait") {
+			return true
+		}
+	}
+
+	return false
+}
+
 // goroutines returns the stacks of the goroutines running mimicry's code
 // (the core's, the client's, the library's) by goroutine id, each test's
 // own and the test server's left out.

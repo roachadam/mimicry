@@ -33,6 +33,11 @@ type Config struct {
 // than any call needs, little enough that a bad length fails at once.
 const maxContinued = 64 << 20
 
+// errInternal is the error of a call that panicked: a bug of the core's,
+// told without anything of the call's (the panic's value may hold its
+// data) and never written to stderr.
+var errInternal = errors.New("mimicry-core: internal error")
+
 // session is one connection and the objects it owns.
 type session struct {
 	cfg Config
@@ -173,6 +178,7 @@ func closeStream(st *wire.Stream) {
 // handle answers one call and ends its stream.
 func (s *session) handle(st *wire.Stream) {
 	defer closeStream(st)
+	defer s.recovered(st)
 
 	c, err := readCall(st)
 	if err != nil {
@@ -213,6 +219,19 @@ func (s *session) handle(st *wire.Stream) {
 		}
 
 		_ = s.reply(st, r, true)
+	}
+}
+
+// recovered answers a call that panicked with errInternal (CODE_INTERNAL):
+// its REPLY or, once that is sent, a StreamError notice and a RESET. The
+// connection and its other calls go on.
+func (s *session) recovered(st *wire.Stream) {
+	if recover() == nil {
+		return
+	}
+
+	if s.replyErr(st, errInternal) != nil {
+		s.failStream(st, errInternal)
 	}
 }
 

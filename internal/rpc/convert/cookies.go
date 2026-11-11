@@ -66,7 +66,7 @@ func FromCookie(c *pb.Cookie) cookies.Cookie {
 func CookieRequest(r *pb.CookieRequest) (cookies.Request, error) {
 	u, err := url.Parse(r.GetUrl())
 	if err != nil {
-		return cookies.Request{}, Invalid("request.url: %v", err)
+		return cookies.Request{}, Invalid("request.url: %v", urlCause(err))
 	}
 
 	page, err := optionalURL("request.page", r.GetPage())
@@ -85,7 +85,7 @@ func CookieRequest(r *pb.CookieRequest) (cookies.Request, error) {
 	for _, raw := range r.GetRedirects() {
 		u, err := url.Parse(raw)
 		if err != nil {
-			return cookies.Request{}, Invalid("request.redirects: %v", err)
+			return cookies.Request{}, Invalid("request.redirects: %v", urlCause(err))
 		}
 
 		out.Redirects = append(out.Redirects, u)

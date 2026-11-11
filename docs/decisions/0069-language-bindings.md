@@ -664,6 +664,19 @@ this is why they are what they are.
   ends the direction. The core's last record (`end`, type 0) carries the
   `Error` reading returns from then on, `CODE_CLOSE` with the code and
   reason after a close handshake.
+- **A record's payload is at most 64 MiB** (`ws.MaxMessage`, mimicry's own
+  bound on a message the server sends), checked before anything is
+  allocated: the length is the SDK's, and a u32 trusted as given let one
+  bad record make the core allocate 4 GiB. A longer record from the SDK
+  closes the socket. Rejected: no bound (that allocation), or a smaller
+  one, which would refuse messages the server may send.
+- **A RESET of a socket's stream closes the socket at any time.** Once
+  the SDK has ended its side, the core no longer reads the stream, only
+  the socket, so a RESET there went unseen and left the socket open until
+  the server closed it or the connection ended; the core now watches the
+  stream's context, which ends with an error for a RESET or a lost
+  connection and canceled when both sides ended normally (the socket
+  already closed). Found in review; `TestWebSocketReset` fails without it.
 - **A write's result is a notice** (`WebSocketWritten`, by the n-th message
   the SDK sent), not a record on the socket's stream: a record would wait
   behind messages the SDK has not read, so a script that writes without
@@ -683,10 +696,24 @@ this is why they are what they are.
   `CODE_INTERNAL` is any other error. A `*url.Error` (every error
   `http.Client` returns) does not make an error `CODE_NET`, though it is a
   `net.Error`; its cause decides.
+- **A URL that fails to parse is refused with the cause alone.**
+  `url.Parse`'s error quotes the whole URL, and a proxy's (or a page's)
+  may hold a password, which the SDK would then show in an exception and
+  its users' logs. Go's `http.Client` redacts the URL in its own errors
+  for the same reason. `TestURLErrorsHideCredentials` covers every URL
+  field the core parses.
+- **A panic fails its call alone**: `CODE_INTERNAL` with the fixed message
+  `mimicry-core: internal error` (in the REPLY, or a `StreamError` and a
+  RESET once that is sent), and the connection's other calls go on.
+  Nothing of it is written anywhere: the panic's value may hold the
+  call's data, and stderr carries at most the connection's failure.
+  Rejected: letting it kill the core, which takes every other call and
+  object of the SDK's process with it.
 - **Hello**: protocol 1.0 (`pb.ProtocolMajor`, `ProtocolMinor`), the core's
   version (`-ldflags -X main.version=…`, else the module's), no feature bits
-  yet. Another major version is refused with both versions named, and the
-  connection ends.
+  yet; `Feature` f will be bit `1 << f`, values from 1, `FEATURE_NONE`
+  (0) no feature rather than a bit. Another major version is refused with
+  both versions named, and the connection ends.
 - **Callbacks as data, as the record's table**, with these choices: client
   certificates are PEM bytes per host (`""` for every other host; the SDK
   reads the files); the key log is a path the core opens 0600 for append

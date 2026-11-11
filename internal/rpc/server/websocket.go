@@ -35,7 +35,9 @@ func newWebSocket(ws *mimicry.WebSocket) *webSocket {
 
 // dialWebSocket answers DialWebSocket. On success its stream carries the
 // socket's messages both ways (convert.WriteRecord) until the socket
-// closes and the SDK ends its side.
+// closes and the SDK ends its side. A RESET of the stream, or the
+// connection's loss, closes the socket at any time: readMessages waits on
+// the socket, not on the stream, once the SDK has ended its side.
 func (s *session) dialWebSocket(st *wire.Stream, c *pb.DialWebSocket) {
 	tr, err := lookup[*transport](&s.objects, c.GetTransport(), "client or transport")
 	if err != nil {
@@ -89,6 +91,16 @@ func (s *session) dialWebSocket(st *wire.Stream, c *pb.DialWebSocket) {
 		return
 	}
 
+	// The stream's context ends canceled when both sides ended it (the
+	// socket closed and the SDK wrote its last), with the stream's error
+	// when it was reset or the connection failed.
+	stop := context.AfterFunc(st.Context(), func() {
+		if !errors.Is(context.Cause(st.Context()), context.Canceled) {
+			w.close()
+		}
+	})
+	defer stop()
+
 	var reading sync.WaitGroup
 
 	reading.Go(func() {
@@ -119,8 +131,7 @@ func (s *session) dial(st *wire.Stream, tr *transport, c *pb.DialWebSocket, opts
 }
 
 // readMessages sends the server's messages to the SDK until the socket
-// closes, then a RecordEnd with why and END. A stream the SDK reset or a
-// lost connection closes the socket.
+// closes, then a RecordEnd with why and END.
 func (s *session) readMessages(st *wire.Stream, w *webSocket) {
 	for {
 		typ, data, err := w.ws.ReadMessage(s.ctx)
@@ -142,8 +153,8 @@ func (s *session) readMessages(st *wire.Stream, w *webSocket) {
 }
 
 // writeMessages sends the SDK's messages until it ends its side, telling
-// it how each went (a WebSocketWritten notice). A stream the SDK reset or
-// a lost connection closes the socket.
+// it how each went (a WebSocketWritten notice). A malformed record closes
+// the socket.
 func (s *session) writeMessages(st *wire.Stream, id uint64, w *webSocket) {
 	var seq uint64
 

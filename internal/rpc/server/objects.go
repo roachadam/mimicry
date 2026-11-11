@@ -38,6 +38,13 @@ type parsedProfile struct {
 
 // add stores v and returns its id.
 func (o *objects) add(v any) uint64 {
+	return o.addNamed(v, nil)
+}
+
+// addNamed stores v and returns its id, first telling named (when not
+// nil) the id, under the lock: v knows its id before any call can look it
+// up.
+func (o *objects) addNamed(v any, named func(id uint64)) uint64 {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
@@ -46,6 +53,10 @@ func (o *objects) add(v any) uint64 {
 	}
 
 	o.last++
+
+	if named != nil {
+		named(o.last)
+	}
 
 	o.byID[o.last] = v
 

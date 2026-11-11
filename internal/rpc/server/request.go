@@ -126,6 +126,8 @@ func (s *session) newClient(c *pb.NewClient) (*pb.Reply, error) {
 
 	t, ok := client.Transport.(*mimicry.Transport)
 	if !ok {
+		free(tr)
+
 		return nil, fmt.Errorf("mimicry-core: NewClient's transport is a %T", client.Transport)
 	}
 
@@ -167,14 +169,14 @@ func (s *session) newTransport(c *pb.NewTransport) (*pb.Reply, error) {
 	return object(s.add(tr)), nil
 }
 
-// add stores the transport tr and gives its verifier the id.
+// add stores the transport tr, its verifier given the id before any call
+// can look tr up.
 func (s *session) add(tr *transport) uint64 {
-	id := s.objects.add(tr)
-	if tr.verify != nil {
-		tr.verify.transport = id
-	}
-
-	return id
+	return s.objects.addNamed(tr, func(id uint64) {
+		if tr.verify != nil {
+			tr.verify.transport = id
+		}
+	})
 }
 
 // object is a reply naming a new object.

@@ -4,7 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
+
+	"github.com/roachadam/mimicry/internal/rpc/pb"
 )
 
 // A WebSocket's stream carries its messages as records inside DATA, both
@@ -17,19 +18,25 @@ const (
 	// ReadMessage returns from then on (CODE_CLOSE after a close
 	// handshake). The SDK never sends it.
 	RecordEnd byte = 0
-	// RecordText and RecordBinary are a message, typed as
-	// mimicry.MessageType (TextMessage, BinaryMessage).
-	RecordText   byte = 1
-	RecordBinary byte = 2
+	// RecordText and RecordBinary are a message, typed by its
+	// pb.MessageType, which is mimicry.MessageType (TextMessage,
+	// BinaryMessage).
+	RecordText   = byte(pb.MessageType_MESSAGE_TYPE_TEXT)
+	RecordBinary = byte(pb.MessageType_MESSAGE_TYPE_BINARY)
 )
 
 // recordHeader is a record's type and length.
 const recordHeader = 5
 
+// maxRecord bounds a record's payload, both ways: mimicry's own bound on
+// a message the server sends (internal/ws.MaxMessage), so a length the
+// SDK sends fails before anything is allocated for it.
+const maxRecord = 64 << 20
+
 // WriteRecord writes one record to w in a single Write.
 func WriteRecord(w io.Writer, typ byte, payload []byte) error {
-	if len(payload) > math.MaxUint32 {
-		return Invalid("a %d-byte WebSocket message", len(payload))
+	if len(payload) > maxRecord {
+		return Invalid("a %d-byte WebSocket message, over %d", len(payload), maxRecord)
 	}
 
 	buf := make([]byte, recordHeader+len(payload))
@@ -44,14 +51,20 @@ func WriteRecord(w io.Writer, typ byte, payload []byte) error {
 }
 
 // ReadRecord reads one record from r: io.EOF when r ends between
-// records, io.ErrUnexpectedEOF inside one.
+// records, io.ErrUnexpectedEOF inside one, an *InvalidError for a length
+// over the bound.
 func ReadRecord(r io.Reader) (typ byte, payload []byte, err error) {
 	var h [recordHeader]byte
 	if _, err := io.ReadFull(r, h[:]); err != nil {
 		return 0, nil, err
 	}
 
-	payload = make([]byte, binary.BigEndian.Uint32(h[1:]))
+	n := binary.BigEndian.Uint32(h[1:])
+	if n > maxRecord {
+		return 0, nil, Invalid("a %d-byte WebSocket message, over %d", n, maxRecord)
+	}
+
+	payload = make([]byte, n)
 	if _, err := io.ReadFull(r, payload); err != nil {
 		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF

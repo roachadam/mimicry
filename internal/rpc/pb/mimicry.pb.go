@@ -33,8 +33,10 @@ const (
 )
 
 // Feature names the bits of Hello's features: optional capabilities a
-// core or an SDK may lack within one major version. Protocol 1.0 defines
-// none; a later minor version adds them.
+// core or an SDK may lack within one major version. Feature f is bit
+// 1 << f, so values start at 1 (bit 0 is never used); FEATURE_NONE (0)
+// means no feature and is not a bit. Protocol 1.0 defines none; a later
+// minor version adds them.
 type Feature int32
 
 const (
@@ -368,7 +370,9 @@ func (HintDelegation) EnumDescriptor() ([]byte, []int) {
 	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{5}
 }
 
-// MessageType is mimicry.MessageType.
+// MessageType is mimicry.MessageType. It is also a message record's type
+// byte on a WebSocket's stream (proto/README.md, WebSockets): 1 text, 2
+// binary. 0 is no message: the type of the core's end record.
 type MessageType int32
 
 const (
@@ -1742,7 +1746,8 @@ type Hello struct {
 	ProtocolMajor uint32                 `protobuf:"varint,1,opt,name=protocol_major,json=protocolMajor,proto3" json:"protocol_major,omitempty"`
 	ProtocolMinor uint32                 `protobuf:"varint,2,opt,name=protocol_minor,json=protocolMinor,proto3" json:"protocol_minor,omitempty"`
 	SdkVersion    string                 `protobuf:"bytes,3,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`
-	// Features are the optional features the SDK uses, as bits of Feature.
+	// Features are the optional features the SDK uses: bit 1 << f set for
+	// each Feature f it uses.
 	Features      uint64 `protobuf:"varint,4,opt,name=features,proto3" json:"features,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1814,7 +1819,8 @@ type HelloReply struct {
 	// Core_version is mimicry-core's version (its module version, or
 	// "devel").
 	CoreVersion string `protobuf:"bytes,3,opt,name=core_version,json=coreVersion,proto3" json:"core_version,omitempty"`
-	// Features are the optional features the core has, as bits of Feature.
+	// Features are the optional features the core has: bit 1 << f set for
+	// each Feature f it has.
 	Features      uint64 `protobuf:"varint,4,opt,name=features,proto3" json:"features,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

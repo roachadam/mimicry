@@ -135,7 +135,7 @@ func proxyFunc(raw string) (func(*http.Request) (*url.URL, error), error) {
 	if raw != "" {
 		u, err := url.Parse(raw)
 		if err != nil {
-			return nil, Invalid("config.proxy: %v", err)
+			return nil, Invalid("config.proxy: %v", urlCause(err))
 		}
 
 		def = u
@@ -167,12 +167,12 @@ func connectUDPProxy(m map[string]string) (func(*url.URL) (*url.URL, error), err
 	for k, v := range m {
 		p, err := url.Parse(k)
 		if err != nil {
-			return nil, Invalid("config.connect_udp_proxy key: %v", err)
+			return nil, Invalid("config.connect_udp_proxy key: %v", urlCause(err))
 		}
 
 		u, err := url.Parse(v)
 		if err != nil {
-			return nil, Invalid("config.connect_udp_proxy[%s]: %v", p.Redacted(), err)
+			return nil, Invalid("config.connect_udp_proxy[%s]: %v", p.Redacted(), urlCause(err))
 		}
 
 		byProxy[p.String()] = u
@@ -309,7 +309,7 @@ func Request(ctx context.Context, r *pb.Request, body io.Reader) (*http.Request,
 		if r.GetProxy() != "" {
 			p, err := url.Parse(r.GetProxy())
 			if err != nil {
-				return nil, Invalid("request.proxy: %v", err)
+				return nil, Invalid("request.proxy: %v", urlCause(err))
 			}
 
 			u = p
@@ -337,7 +337,7 @@ func Request(ctx context.Context, r *pb.Request, body io.Reader) (*http.Request,
 
 	req, err := http.NewRequestWithContext(ctx, method, r.GetUrl(), rd)
 	if err != nil {
-		return nil, Invalid("request: %v", err)
+		return nil, Invalid("request: %v", urlCause(err))
 	}
 
 	if r.GetStreamBody() {
@@ -446,10 +446,20 @@ func optionalURL(field, raw string) (*url.URL, error) {
 
 	u, err := url.Parse(raw)
 	if err != nil {
-		return nil, Invalid("%s: %v", field, err)
+		return nil, Invalid("%s: %v", field, urlCause(err))
 	}
 
 	return u, nil
+}
+
+// urlCause is err without the URL a *url.Error quotes, which may hold
+// credentials (http://user:password@...): what url.Parse found wrong.
+func urlCause(err error) error {
+	if e, ok := errors.AsType[*url.Error](err); ok {
+		return e.Err
+	}
+
+	return err
 }
 
 // Response returns resp's head.
