@@ -14,3 +14,5 @@ projects:
   harness: 'internal/harness'
   # Benchmarks against other clients; never part of :test (README there).
   bench: 'internal/bench'
+  # The Python SDK (decision 0069): uv's tools, the core built from here.
+  python: 'bindings/python'

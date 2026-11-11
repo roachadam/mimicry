@@ -1,0 +1,71 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+# The Python SDK (decision 0069). Its tools come from uv (pyproject.toml's
+# dev group, pinned in uv.lock), its core from this repository's Go: `core`
+# builds cmd/mimicry-core into the package (src/mimicry/_bin, ignored by
+# git), which the tests start. Not part of the CI jobs that run every
+# project's lint (they have no uv): .github/workflows/python.yml runs these
+# on Linux, macOS and Windows.
+layer: 'library'
+language: 'python'
+dependsOn:
+  - 'mimicry'
+
+fileGroups:
+  sources:
+    - 'src/**/*'
+    - 'hatch_build.py'
+    - 'pyproject.toml'
+    - 'uv.lock'
+  tests:
+    - 'tests/**/*'
+    - '/proto/testdata/wire/**'
+    - '/internal/rpc/pb/mimicry.pb.go'
+
+tasks:
+  # Generates the schema's Python code into src/mimicry/_pb with buf pinned
+  # as mimicry:proto pins it and the plugins pinned in buf.gen.yaml.
+  # tests/test_generated.py fails while the checked-in code is stale.
+  proto:
+    script: 'go run github.com/bufbuild/buf/cmd/buf@v1.75.0 generate --template bindings/python/buf.gen.yaml'
+    toolchain: 'system'
+    options:
+      cache: false
+      runFromWorkspaceRoot: true
+      runInCI: false
+  # The core the tests start, built as the wheels ship it. -o names a
+  # directory, so go names the binary (mimicry-core.exe on Windows).
+  core:
+    command: 'go build -trimpath -o bindings/python/src/mimicry/_bin/ ./cmd/mimicry-core'
+    toolchain: 'system'
+    env:
+      CGO_ENABLED: '0'
+    inputs:
+      - '/**/*.go'
+      - '/go.mod'
+      - '/go.sum'
+      - '/profiles/data/**'
+      - '!/internal/harness/**'
+      - '!/internal/bench/**'
+    outputs:
+      - 'src/mimicry/_bin/*'
+    options:
+      runFromWorkspaceRoot: true
+      runInCI: false
+  test:
+    command: 'uv run --locked pytest'
+    toolchain: 'system'
+    deps:
+      - 'core'
+    inputs:
+      - '@group(sources)'
+      - '@group(tests)'
+    options:
+      runInCI: false
+  lint:
+    script: 'uv run --locked ruff check . && uv run --locked ruff format --check . && uv run --locked mypy'
+    toolchain: 'system'
+    inputs:
+      - '@group(sources)'
+      - '@group(tests)'
+    options:
+      runInCI: false
