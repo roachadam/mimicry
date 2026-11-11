@@ -520,6 +520,27 @@ async function send(core: Core, id: bigint, req: Request): Promise<Response> {
   }
 }
 
+// The clients and transports with a request or a WebSocket dial in
+// flight, by count: the call's promise does not refer to its round
+// tripper, which garbage collection would otherwise free mid-call (its
+// verifier dropped, the core's transport closed) when nothing else holds
+// it. Held until the reply (the handshake's answer) has arrived.
+const inFlight = new Map<RoundTripper, number>();
+
+async function holding<T>(rt: RoundTripper, p: () => Promise<T>): Promise<T> {
+  inFlight.set(rt, (inFlight.get(rt) ?? 0) + 1);
+  try {
+    return await p();
+  } finally {
+    const n = (inFlight.get(rt) ?? 1) - 1;
+    if (n === 0) {
+      inFlight.delete(rt);
+    } else {
+      inFlight.set(rt, n);
+    }
+  }
+}
+
 /** What a client and a transport share: plans, WebSockets, idle connections. */
 class RoundTripper extends CoreObject {
   constructor(core: Core, id: bigint) {
@@ -544,7 +565,7 @@ class RoundTripper extends CoreObject {
    * throws its error with the server's response (`error.response`).
    */
   dialWebSocket(url: string | URL, options: WebSocketOptions = {}): Promise<WebSocket> {
-    return openWebSocket(this.core, this.id, String(url), options);
+    return holding(this, () => openWebSocket(this.core, this.id, String(url), options));
   }
 
   /** Closes connections with no requests in flight. */
@@ -566,7 +587,7 @@ export class Client extends RoundTripper {
 
   /** Go's Client.Do. */
   do(req: Request): Promise<Response> {
-    return send(this.core, this.id, req);
+    return holding(this, () => send(this.core, this.id, req));
   }
 }
 
@@ -574,7 +595,7 @@ export class Client extends RoundTripper {
 export class Transport extends RoundTripper {
   /** Go's Transport.RoundTrip. */
   roundTrip(req: Request): Promise<Response> {
-    return send(this.core, this.id, req);
+    return holding(this, () => send(this.core, this.id, req));
   }
 }
 
