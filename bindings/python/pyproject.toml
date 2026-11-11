@@ -1,0 +1,103 @@
+# The Python SDK of mimicry (decision 0069). Each wheel carries the
+# mimicry-core binary of its platform (src/mimicry/_bin/, built from this
+# repository with `go build`, never downloaded); hatch_build.py tags the
+# wheel py3-none-<platform>. The distribution name is provisional (0069's
+# open question): it is set here and in no other file.
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mimicry-http"
+dynamic = ["version"]
+description = "HTTP requests the way Chrome, Firefox and Safari send them: TLS, HTTP/2, HTTP/3, headers and their order."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+# The generated code (src/mimicry/_pb) is protobuf 6.30's; newer runtimes
+# read it.
+dependencies = ["protobuf>=6.30.0"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/roachadam/mimicry"
+Source = "https://github.com/roachadam/mimicry/tree/main/bindings/python"
+Issues = "https://github.com/roachadam/mimicry/issues"
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "pytest-timeout==2.4.0",
+    "ruff==0.17.4",
+    "types-protobuf==7.35.1.20260906",
+]
+
+[tool.hatch.version]
+path = "src/mimicry/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/mimicry", "tests", "hatch_build.py", "README.md", "LICENSE"]
+exclude = ["src/mimicry/_bin"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mimicry"]
+# The core is built output, ignored by git; the hook checks it is there.
+artifacts = ["src/mimicry/_bin/*"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 300
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["src/mimicry/_pb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "BLE", "RUF", "SIM", "PT", "ASYNC"]
+ignore = [
+    # Tests assert, start subprocesses and use fixed local ports.
+    "S101",
+    "S603",
+    "S607",
+    # Compound assertions read as one claim in these tests.
+    "PT018",
+    # contextlib.suppress is no clearer than try/except/pass.
+    "SIM105",
+    # timeout= is the core's deadline for a call (Go's context), not an
+    # asyncio timeout.
+    "ASYNC109",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ASYNC110", "ASYNC240", "S301"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mimicry"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/mimicry", "tests"]
+exclude = ["src/mimicry/_pb/"]
+
+[[tool.mypy.overrides]]
+module = ["mimicry._pb.*"]
+ignore_errors = true

@@ -1,6 +1,6 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127)
+- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127); amended 2026-11-10 (the Python SDK, #128)
 - Date: 2026-11-10
 - Commits: `2f9c670` (the record; no code yet)
 
@@ -754,3 +754,155 @@ What v1 leaves out, each until a user asks:
 - An abort of a WebSocket: dropping one closes it as `Close(1000, "")`
   does, which waits for the close handshake (10 s at most).
 - `profiles.RandomMachine`: `Machines` lists them and the SDK picks.
+
+## Amendment 2026-11-10: the Python SDK
+
+The third pull request ([#128](https://github.com/roachadam/mimicry/issues/128))
+added `bindings/python`: the SDK, its tests, its wheels and the Python CI
+(`.github/workflows/python.yml`, `test-python` in `ci.yml`). How to use it
+is in [its README](../../bindings/python/README.md); this is why it is what
+it is.
+
+- **Python 3.11 and later.** 3.10 reached its end of life on 2026-10-01
+  (python.org's release cycle); 3.11 has security fixes until 2027-10. CI
+  tests the oldest and the newest supported (3.11, 3.15) on Linux, macOS
+  and Windows.
+- **The generated messages are protobuf 6.30's**, from buf's remote
+  `protocolbuffers/python` and `pyi` plugins pinned at v30.0
+  (`bindings/python/buf.gen.yaml`, `moon run python:proto`), so the
+  dependency is `protobuf>=6.30.0`: the 7.x runtime's version check accepts
+  older generated code (read in its `runtime_version.py`), and CI runs the
+  tests on 6.30.0 too. Newer generated code would refuse the 6.x runtimes
+  other libraries still pin. The drift check needs no buf or protoc in
+  CI: `tests/test_generated.py` compares the Python code's descriptor with
+  the one in `internal/rpc/pb`'s generated Go, which `TestGenerated` ties to
+  the schema.
+- **The wire protocol is sans-IO** (`_wire.py`, a port of
+  `internal/rpc/wire`): it never reads or writes, so one implementation
+  serves the asyncio driver, the tests, and both roles. Both roles, so every
+  vector in `proto/testdata/wire` (56, the core's side's too) replays
+  against it. As in Go, a WINDOW is built when it is written, from the
+  stream's pending credit, and a stream holds its place until its RESET is
+  written.
+- **The async driver** reads through an asyncio `BufferedProtocol` into one
+  1 MiB buffer, copies each frame's payload out once, and hands a body's
+  chunks to the caller as they came (no second copy unless the caller asks
+  for the whole body). Each stream wakes its waiters with an
+  `asyncio.Event`; notices are recorded or handed to `call_soon`, never
+  awaited, as the core's reader requires. The socketpair has 4 MiB buffers
+  both ways, both ends non-inheritable (PEP 446) and `subprocess` closes
+  every other descriptor in the child; a test reads `/proc` to check that
+  the core holds its own end only.
+- **The sync API drives the async one from one background thread** running
+  an event loop (`run_coroutine_threadsafe`). It is not faster at 64
+  threads than the thread-per-call design the record measured: on WSL2,
+  8.1 k calls/s at 155 µs per call (that design: 7.7 k at 193 µs), on macOS
+  14.7 k at 53 µs (57.6 k at 30 µs there). With 64 threads the cost is the
+  threads and the GIL, and the hop through the loop adds a Task per call;
+  concurrency belongs in the async API (53–114 k calls/s at 9–19 µs, below).
+  Kept for one code path: the sync API is the async one, so the two cannot
+  disagree on the protocol. Callbacks (`verify_connection`,
+  `on_set_cookie`) run on worker threads, never the loop's, so they may
+  block and call the sync API.
+- **Windows: anonymous pipes from `_winapi.CreatePipe` with 1 MiB buffers,
+  read and written by two threads.** Not `asyncio.create_subprocess_exec`:
+  its pipes are named pipes and need the Proactor loop, and the threads
+  work under any loop with nothing to prove about who else can connect.
+  `subprocess.PIPE`'s pipes have the system's default buffer; with them
+  1 MiB bodies ran at 467 MB/s for one caller and 748 MB/s for eight; with
+  1 MiB buffers, the reader waking the loop once for what piled up, and a
+  body's chunks handed over without joining them, 559 and 1,514 MB/s. Writing from the loop thread directly (the pipe is
+  rarely full) was tried: no gain at one caller (109 against 119 µs per
+  call), a loss at 64 (28 against 20 µs), so the writer thread stays.
+- **One exception class per code, and `matches` as multiple
+  inheritance**: the exception raised is an instance of the class of every
+  code it matches (a class per set, made once and cached, named after the
+  most specific), so `except DeadlineError` catches a proxy failure at its
+  deadline as Go's `errors.Is` does. `DeadlineError` is also Python's
+  `TimeoutError`, `NetError` a `ConnectionError`, `InvalidError` a
+  `ValueError`. Rejected: an `is_(code)` helper, which makes callers catch
+  the base class and test inside the handler. The classes pickle (to cross
+  a process pool) through their public class. Two errors are the SDK's own:
+  `CoreExited` (the exit status, negative for a signal as `subprocess`
+  reports it, and the last 4 KiB of stderr, which a thread reads all along
+  so that a long crash dump never blocks the core) and `ProtocolError` (the
+  connection broke the protocol, or was lost with the core still running;
+  the core is killed).
+- **A forked child refuses its parent's objects**: `os.register_at_fork`
+  points the inherited socket and stderr descriptors at `/dev/null` with
+  `dup2` (closing them could close a descriptor the child reuses that
+  number for), keeps every inherited object referenced so that no
+  finalizer of the parent's runs, and the child's first new object starts
+  its core. An object made before the fork raises in the child. Rejected:
+  remaking it in the child's core from its configuration, which would
+  silently empty its jar and caches, a different browser identity than the
+  one the parent built. The fork test: four threads busy on the parent's
+  core, ten children (five sync, five async), each makes a client and 100
+  calls; 10 of 10 on macOS and Linux, and the parent's core answers after.
+- **Go's names**, as the table says, plus: `Transport.round_trip` (Go's
+  `RoundTrip`) beside `Client.do`, both with `plan`, `dial_websocket` and
+  `close_idle_connections`; the profile accessors (`profiles.chrome_macos()`)
+  name the newest supported profile of the core in use, resolved when a
+  client is made; header values cross as bytes, `str` sent as UTF-8 and
+  read as UTF-8, else Latin-1; durations are seconds or `timedelta`.
+  `MIMICRY_CORE` (an absolute path; relative is refused) runs another core,
+  for development and tests, as in the Node SDK.
+- **Saved state** written to a path is created 0600 in the same directory,
+  fsynced and renamed over the old file, so an existing file's wider mode
+  never survives.
+- **Wheels** are `py3-none-<platform>`, built on one Linux runner with the
+  core cross-compiled for each (`bindings/python/build-wheels.sh`):
+  `manylinux_2_17` and `musllinux_1_1` (x86-64, arm64; the same static
+  binary), `macosx_13_0` (the minimum the pinned Go's linker writes into
+  the binary, `LC_BUILD_VERSION`), `win_amd64`, `win_arm64`. CI installs the
+  manylinux wheel in a clean venv and the musllinux one in Alpine's Python
+  and runs them; nothing is published (the release pipeline is the fifth
+  pull request).
+- **Byte for byte**: `TestPythonSDKMatchesGoKinds` and
+  `TestPythonSDKMatchesGoWebSockets` (`internal/harness/e2e/python_test.go`)
+  send `TestCoreMatchesGo*`'s pages through the SDK's async API (a driver
+  process, `bindings/python/tests/e2e_driver.py`) and compare them with the
+  Go client's as the server and the proxy record them; they run in
+  `test-python`, where `MIMICRY_PYTHON` is set. Dropping `exact` in the
+  driver fails them (26 of 814 lines differ).
+- **The package name stays open**: `mimicry-http`, provisional, written in
+  `pyproject.toml` only; the import name is `mimicry`.
+
+### Evidence: the SDK's costs, Windows included
+
+The SDK itself (not the record's throwaway framing), a throwaway script:
+a tiny call (`Jar.String`, ~20 B each way) and HTTP/1.1 GETs from a local
+server in another process, through a Chrome profile; host CPU is the
+Python process's (every thread), as the record's tables. 2 s runs.
+macOS: the record's M3 Pro, Python 3.11. Linux: the record's WSL2 machine,
+Python 3.12. Windows: Windows 10 Pro 22H2 (build 19045) on that machine, Python 3.12.3.
+
+| | macOS | Linux (WSL2) | Windows (pipes) |
+|---|---|---|---|
+| first call (spawn, Hello, a call) | 7–10 ms | 3.7 ms | 9.2 ms |
+| async tiny call, 1 caller: calls/s · CPU µs | 22.8 k · 21.9 | 5.1 k · 102 | 6.6 k · 119 |
+| async tiny call, 64 callers | 114 k · 8.7 | 53.2 k · 18.8 | 52.3 k · 20.2 |
+| sync tiny call, 1 thread | 10.0 k · 49.5 | 3.1 k · 228 | 4.3 k · 223 |
+| sync tiny call, 64 threads | 14.7 k · 53.2 | 8.1 k · 155 | 16.8 k · 64.8 |
+| async GET 200 B, 64 callers | 31.9 k · 27.8 | 13.4 k · 74.3 | 16.5 k · 63.2 |
+| async GET 1 MiB, 1 caller: MB/s · CPU µs per MB | 2,958 · 248 | 768 · 962 | 559 · 1,770 |
+| async GET 1 MiB, 8 callers | 5,079 · 195 | 2,288 · 436 | 1,514 · 781 |
+
+What they say:
+
+- **Windows pipes cost about what Linux's do under WSL2 for small calls,
+  and two to four times macOS's socketpair for bulk.** At 64 callers a
+  small call costs 20 µs of host CPU on Windows, 19 µs on Linux; a 1 MiB
+  body costs 0.8–1.8 ms of host CPU per MB on Windows against 0.2–0.25 ms
+  on macOS. The record's "revisit when Windows numbers show the pipes cost
+  more" stands as a known cost, not a trigger yet: a 1 MiB download at
+  1.5 GB/s is far from what a network delivers [INFERENCE].
+- The single-caller rows on WSL2 and Windows (the same machine) are the
+  thread wake-ups the record saw in Go too (its p50 of 123 µs).
+
+Open, each until a user asks or the numbers above show in one's profile:
+
+- The sync API's per-call cost (a Task and two thread hops per call); a
+  call path that starts a call on the loop without a Task would cut it.
+- A `docs/concepts/` page for the SDK: the README has the translation table
+  and the Python-only notes; the guides apply as they are.
