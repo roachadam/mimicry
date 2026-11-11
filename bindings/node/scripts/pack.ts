@@ -30,6 +30,7 @@ interface Manifest {
   repository: { type: string; url: string; directory: string };
   engines: Record<string, string>;
   scripts?: Record<string, string>;
+  packageManager?: string;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
   [k: string]: unknown;
@@ -60,7 +61,7 @@ const out = join(build, "packages");
 mkdirSync(out, { recursive: true });
 
 function pack(dir: string): void {
-  execFileSync("npm", ["pack", "--pack-destination", out], { cwd: dir, stdio: "inherit", shell: process.platform === "win32" });
+  execFileSync("bun", ["pm", "pack", "--destination", out], { cwd: dir, stdio: "inherit" });
 }
 
 const optional: Record<string, string> = {};
@@ -106,7 +107,7 @@ for (const t of targets) {
 
 // The main package: the build, its README and LICENSE, and package.json
 // without what only development needs.
-execFileSync("npm", ["run", "build"], { cwd: root, stdio: "inherit", shell: process.platform === "win32" });
+execFileSync("bun", ["run", "build"], { cwd: root, stdio: "inherit" });
 const main = join(staged, pkg.name);
 mkdirSync(main, { recursive: true });
 cpSync(join(root, "dist"), join(main, "dist"), { recursive: true });
@@ -116,6 +117,7 @@ copyFileSync(join(repo, "LICENSE"), join(main, "LICENSE"));
 const manifest: Manifest = { ...pkg, version, optionalDependencies: optional };
 delete manifest.scripts;
 delete manifest.devDependencies;
+delete manifest.packageManager;
 writeFileSync(join(main, "package.json"), JSON.stringify(manifest, null, 2) + "\n");
 pack(main);
 

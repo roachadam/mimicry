@@ -1,12 +1,15 @@
 # The Node SDK (bindings/node, decision 0069), called by ci.yml's test-node
-# job (so ci-ok counts it) whenever a change touches code. test runs the
-# SDK's tests (npm test: the wire vectors, the SDK against a local server
-# through the real core, the lifecycle tests, and on Windows the stdio
-# pipe checks) on Linux with each supported Node LTS line and on macOS and
-# Windows with one; its Linux Node 24 leg also type-checks, lints and
-# checks the generated code. harness proves requests through the SDK are
-# the Go client's on the wire (TestNodeMatchesGo*). pack builds every npm
-# package (not published) and installs the host's from the tarballs.
+# job (so ci-ok counts it) whenever a change touches code. Bun installs the
+# dependencies (bun.lock) and runs the scripts; the SDK and its tests run
+# under Node, which is what users run. test runs the SDK's tests (bun run
+# test, which is node --test: the wire vectors, the SDK against a local
+# server through the real core, the lifecycle tests, and on Windows the
+# stdio pipe checks) on Linux with each supported Node LTS line and on
+# macOS and Windows with one; its Linux Node 24 leg also type-checks,
+# lints and checks the generated code. harness proves requests through the
+# SDK are the Go client's on the wire (TestNodeMatchesGo*). pack builds
+# every npm package (not published) and installs the host's from the
+# tarballs with npm, as users do.
 name: Node SDK
 
 on:
@@ -57,14 +60,27 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-          cache-dependency-path: bindings/node/package-lock.json
-      - run: npm ci
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
+      # Pushes to main save it, from one leg per runner OS.
+      - if: github.ref == 'refs/heads/main' && matrix.save == true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
       - name: tsc, eslint, generated code
         if: matrix.check
-        run: npm run check
-      - name: npm test
-        run: npm test
+        run: bun run check
+      # node --test under the matrix's Node.
+      - name: bun run test
+        run: bun run test
 
   harness:
     name: node (harness, byte-identical)
@@ -80,9 +96,15 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: bindings/node/package-lock.json
-      - run: npm ci
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
         working-directory: bindings/node
       # Fails rather than skips if Node or the SDK's dependencies are missing.
       - name: TestNodeMatchesGo*
@@ -108,13 +130,19 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: bindings/node/package-lock.json
-      - run: npm ci
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
       - name: the main package and one per platform
-        run: node scripts/pack.ts
-      # From the tarballs alone: the host's core comes from its platform
-      # package, not MIMICRY_CORE or PATH.
+        run: bun run pack:all
+      # From the tarballs alone, with npm as a user's project would: the
+      # host's core comes from its platform package, not MIMICRY_CORE or PATH.
       - name: install and use the host's packages
         run: |
           name=$(node -p 'require("./package.json").name')

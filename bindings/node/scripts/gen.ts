@@ -40,7 +40,7 @@ try {
     const stale = wantFiles.join("\n") !== files(got).join("\n") ||
       wantFiles.some((f) => !readFileSync(join(want, f)).equals(readFileSync(join(got, f))));
     if (stale) {
-      console.error("src/gen differs from what proto/ generates: run npm run gen");
+      console.error("src/gen differs from what proto/ generates: run bun run gen");
       process.exitCode = 1;
     }
   }

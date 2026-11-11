@@ -777,7 +777,7 @@ is the user's side. This is why it is what it is.
   `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`.
 - **protobuf-es** (`@bufbuild/protobuf`, the one runtime dependency,
   pinned exactly; `protoc-gen-es` pinned in devDependencies), generated
-  as JavaScript with `.d.ts` into `src/gen` and checked in; `npm run
+  as JavaScript with `.d.ts` into `src/gen` and checked in; `bun run
   gen:check` regenerates with the buf moon.yml pins and fails while they
   differ (CI's Linux leg). JavaScript rather than TypeScript because
   protobuf-es writes TypeScript `enum`s, which type stripping refuses.
@@ -871,7 +871,7 @@ is the user's side. This is why it is what it is.
   `PATH`. The provisional name `mimicry-http` is written in
   `package.json` only; `scripts/pack.ts` derives the platform packages'
   names from it.
-- **Packages** (`npm run pack:all`, CI's `node (pack)`, not published):
+- **Packages** (`bun run pack:all`, CI's `node (pack)`, not published):
   the main package with the six platform packages as
   `optionalDependencies`, each with `os` and `cpu`. No `libc` field: the
   core is static, so one Linux package per architecture serves glibc and
@@ -887,10 +887,15 @@ is the user's side. This is why it is what it is.
   proxies (102 subtests, 3 skipped as the core test skips them).
 - **CI**: `.github/workflows/node.yml`, called by `ci.yml`'s `test-node`
   (so `ci-ok` counts it): the tests on Linux with Node 22, 24 and 26 and
-  on macOS and Windows with 24, `npm run check` on one leg, the harness
+  on macOS and Windows with 24, `bun run check` on one leg, the harness
   test, and the packages. The root `go.mod` ignores `node_modules`
-  (`ignore`, Go 1.25): `npm ci` brings flatted, which ships a Go package
-  that `./...` would build, vet and lint.
+  (`ignore`, Go 1.25): installing the dependencies brings flatted, which
+  ships a Go package that `./...` would build, vet and lint.
+- **Bun for the tooling, Node for the tests and the runtime** (the
+  maintainer's call): `bun install --frozen-lockfile` from a committed
+  `bun.lock`, the scripts through `bun run`, Bun pinned by `packageManager`
+  (`oven-sh/setup-bun` reads it in CI); `test` is `node --test` under the
+  Node matrix, and users install with npm (CI's pack job does).
 
 ### Evidence: 1 MB bodies through the Node SDK
 
