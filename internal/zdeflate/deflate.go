@@ -228,15 +228,15 @@ func (w *Writer) Reset() {
 	w.c.reset()
 }
 
-// outBuffer is a message's output buffer for in bytes of input: room for
-// half of them and a little, which append grows past. Input too long for
-// that size to fit an int (more than memory holds) starts it empty.
-func outBuffer(in int) []byte {
-	if in > math.MaxInt-16 {
+// outBuffer is the output buffer for message p: room for half of p and a
+// little, which append grows past. A p too long for that size to fit an
+// int (more than memory holds) starts it empty.
+func outBuffer(p []byte) []byte {
+	if len(p) > math.MaxInt-16 {
 		return nil
 	}
 
-	return make([]byte, 0, in/2+16)
+	return make([]byte, 0, len(p)/2+16)
 }
 
 // zlibWriter is zlib 1.3.1's deflate stream, or Chromium's: one call per
@@ -326,7 +326,7 @@ func (w *zlibWriter) lmInit() {
 }
 
 func (w *zlibWriter) message(p []byte) []byte {
-	w.out.buf = outBuffer(len(p))
+	w.out.buf = outBuffer(p)
 	w.in = p
 
 	if w.cfg.lazy {
