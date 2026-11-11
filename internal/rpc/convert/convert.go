@@ -326,7 +326,9 @@ func Request(ctx context.Context, r *pb.Request, body io.Reader) (*http.Request,
 
 	switch {
 	case r.GetStreamBody():
-		rd = body
+		// Reader only: the transport closes a request body once sent, and
+		// closing the call's stream would reset it before its reply.
+		rd = struct{ io.Reader }{body}
 	case len(r.GetBody()) > 0:
 		rd = bytes.NewReader(r.GetBody())
 	}
