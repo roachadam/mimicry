@@ -79,3 +79,9 @@ test("a core killed while a call waits rejects it with CoreExited, nothing else 
     await server.close();
   }
 });
+
+test("a client nothing references stays alive while its request runs", async () => {
+  const { stdout } = await run(process.execPath, ["--expose-gc", join(fixtures, "gc-in-flight.ts")], { timeout: 30_000 });
+  const got = JSON.parse(stdout) as { result: string; verified: string[] };
+  assert.deepEqual(got, { result: "ok landed", verified: ["127.0.0.1", "localhost"], collected: false });
+});
