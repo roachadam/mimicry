@@ -376,6 +376,21 @@ func stubResolver(t *testing.T) *net.Resolver {
 func stubResolverFor(t *testing.T, srv *server.Server) *net.Resolver {
 	t.Helper()
 
+	addr := stubDNSFor(t, srv)
+
+	return &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "udp", addr)
+		},
+	}
+}
+
+// stubDNSFor serves stubResolverFor's answers until the test ends and
+// returns the stub's UDP address (mimicry-core's Config.dns_server).
+func stubDNSFor(t *testing.T, srv *server.Server) string {
+	t.Helper()
+
 	pc, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -402,12 +417,5 @@ func stubResolverFor(t *testing.T, srv *server.Server) *net.Resolver {
 		}
 	})
 
-	addr := pc.LocalAddr().String()
-
-	return &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return (&net.Dialer{}).DialContext(ctx, "udp", addr)
-		},
-	}
+	return pc.LocalAddr().String()
 }
