@@ -275,6 +275,11 @@ func (s *session) respond(st *wire.Stream, err error, resp *http.Response) {
 
 		switch {
 		case errors.Is(err, io.EOF):
+			// Closed before the stream ends: ending it cancels the
+			// request's context, and a body still open then costs the
+			// connection (HTTP/1.1 closes it, so the next request
+			// opens another).
+			_ = resp.Body.Close()
 			_ = st.CloseWrite()
 
 			return

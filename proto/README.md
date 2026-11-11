@@ -39,7 +39,9 @@ A payload is at most 64 KiB. A `Call`, `Reply` or `Event` that is larger is
 sent as one with only `continued` set to its length; the message itself is
 then the first `continued` bytes of the stream's DATA, and any body follows
 it in the same DATA. (Large root certificate bundles, many cookies, long
-certificate chains.)
+certificate chains.) A continued call that takes no body (Bodies, below)
+must end its DATA right after the message: the core waits for that END
+before carrying the call out.
 
 ### Bodies
 
@@ -57,6 +59,14 @@ send again for a redirect that keeps it (`GetBody`); a streamed body
 cannot: such a redirect goes as it goes in Go for a request without
 `GetBody` (mimicry refuses a 301 or 302 that keeps the body; `http.Client`
 returns a 307 or 308 instead of following it).
+
+A streamed body's chunk boundaries are not kept: the SDK's writes and the
+protocol's DATA frames are not the upload's. The core reads it as Go
+reads a reader whose bytes are all there, each read filled until mimicry's
+buffer is full or the body ends, so the upload is cut on the wire (HTTP/2
+DATA frames, TLS records) as Go cuts a `bytes.Reader` of the same bytes.
+A slow producer's partial chunk therefore waits until that buffer fills
+or the SDK ends the body.
 
 A RESET of a call's stream cancels it: a request's context ends. When a
 response body fails after its REPLY was sent, the core first sends a

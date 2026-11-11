@@ -11,6 +11,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -246,7 +247,36 @@ func readCall(st *wire.Stream) (*pb.Call, error) {
 		return nil, convert.Invalid("a continued call continued again")
 	}
 
+	if carriesBody(c) {
+		return c, nil
+	}
+
+	// Nothing follows the call but the SDK's END, which may arrive after
+	// the call is answered: wait for it, or ending the stream then would
+	// find its receiving side open and reset it, failing the reply.
+	var one [1]byte
+
+	switch n, err := st.Read(one[:]); {
+	case n > 0:
+		return nil, convert.Invalid("DATA after a call that takes none")
+	case !errors.Is(err, io.EOF):
+		return nil, fmt.Errorf("mimicry-core: reading a continued call's end: %w", err)
+	}
+
 	return c, nil
+}
+
+// carriesBody reports a call whose stream carries DATA after it from the
+// SDK (proto/README.md, Bodies).
+func carriesBody(c *pb.Call) bool {
+	switch m := c.GetMethod().(type) {
+	case *pb.Call_Do:
+		return m.Do.GetRequest().GetStreamBody()
+	case *pb.Call_DialWebsocket, *pb.Call_ParseProfile, *pb.Call_ReadJson, *pb.Call_ReadNetscape:
+		return true
+	}
+
+	return false
 }
 
 // reply sends r, as DATA after a continued REPLY when it is too large for

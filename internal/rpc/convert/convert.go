@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"io"
 	"maps"
 	"net"
@@ -326,9 +327,10 @@ func Request(ctx context.Context, r *pb.Request, body io.Reader) (*http.Request,
 
 	switch {
 	case r.GetStreamBody():
-		// Reader only: the transport closes a request body once sent, and
-		// closing the call's stream would reset it before its reply.
-		rd = struct{ io.Reader }{body}
+		rd = fullReader{
+			r: body,
+		}
+
 	case len(r.GetBody()) > 0:
 		rd = bytes.NewReader(r.GetBody())
 	}
@@ -371,6 +373,29 @@ func Request(ctx context.Context, r *pb.Request, body io.Reader) (*http.Request,
 	}
 
 	return req, nil
+}
+
+// fullReader is a streamed body as the transport reads it: each Read is
+// filled until p is full or the SDK ends the body, and the end comes on
+// the next Read, as from a reader whose bytes are all there. So the wire
+// protocol's DATA and credit boundaries never cut the upload (mimicry
+// sends one HTTP/2 DATA frame per Read, and END_STREAM on its own after
+// the last): it goes out as Go sends a bytes.Reader. It holds nothing
+// beyond p, and a RESET still ends a Read waiting for more. It has no
+// Close: the transport closes a request body once sent, and closing the
+// call's stream would reset it before its reply.
+type fullReader struct {
+	r io.Reader
+}
+
+func (f fullReader) Read(p []byte) (int, error) {
+	n, err := io.ReadFull(f.r, p)
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		// The SDK's END: io.EOF again on the next Read.
+		err = nil
+	}
+
+	return n, err
 }
 
 // Options returns o as a mimicry.Request.

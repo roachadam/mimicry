@@ -629,6 +629,31 @@ this is why they are what they are.
   add a call per body. A request body goes whole in `Request.body` (the
   core can send it again for a redirect that keeps it, as Go's `GetBody`)
   or streamed as DATA (`stream_body`), which cannot be sent again.
+- **A streamed body is read full, not as it arrives.** mimicry sends one
+  HTTP/2 DATA frame per read of a request body, so handing it the call's
+  stream let the protocol's own DATA and credit boundaries cut the upload:
+  a 100 kB upload went out with an extra 1-byte DATA frame, a difference
+  on the wire Go never shows (found by the harness's
+  `TestCoreMatchesGoKinds`, which compares the core's requests with Go's).
+  The core wraps the stream in a reader that fills each read until it is
+  full or the SDK ends the body, holding nothing beyond the read's buffer
+  and ending with a RESET as the stream does; the end comes on the next
+  read, so END_STREAM goes as for a `bytes.Reader`. The cost: the SDK's
+  chunk boundaries are not kept, and a slow producer's partial chunk waits
+  until mimicry's buffer fills or the body ends. Rejected: sending each
+  SDK chunk as it comes, which ties the fingerprint to the SDK's write
+  sizes and the protocol's framing. Removing the wrapper fails
+  `TestCoreMatchesGoKinds`' streamed upload.
+- **A response body is closed before its stream ends.** Ending the stream
+  ends the request's context, and a body still open then cost its
+  HTTP/1.1 connection: every request through the core opened a new one
+  (found by the same test; the core now closes the body once read to its
+  end, then ends the stream).
+- **A continued call that takes no body waits for the SDK's END** before
+  it is carried out. Its END could arrive after the core had answered, and
+  ending the stream then found its receiving side open and reset it,
+  failing a reply already sent (an inline upload over 64 KiB, now and
+  then under load; found by the same test).
 - **A failure after the REPLY is a `StreamError` notice, then a RESET**: a
   RESET carries a code, not an error, and a body cut short must still
   raise the network error that cut it.
