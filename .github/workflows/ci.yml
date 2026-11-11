@@ -8,7 +8,8 @@
 # check to require: it passes when every job passed, or when a pull request
 # touches only docs and the jobs were skipped. Each job stays under 15
 # minutes; the harness tests are split into shards
-# (.github/scripts/harness-shard.sh). CodeQL is codeql.yml.
+# (.github/scripts/harness-shard.sh). test-node runs the Node SDK's jobs
+# (node.yml). CodeQL is codeql.yml.
 name: CI
 
 on:
@@ -220,11 +221,19 @@ jobs:
           TIERS: ${{ needs.changes.outputs.tiers }}
         run: bash .github/scripts/harness-shard.sh "$TIERS" ${{ matrix.shard }} ${{ strategy.job-total }}
 
+  # The Node SDK (bindings/node): its tests on Linux, macOS and Windows,
+  # the byte-identical harness test, and its npm packages (node.yml).
+  test-node:
+    name: test-node
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    uses: ./.github/workflows/node.yml
+
   # The check branch protection requires. A tier a pull request leaves out
   # is no job, only fewer shards, so a skipped job is a docs-only change.
   ci-ok:
     name: ci-ok
-    needs: [changes, lint, test-root, vuln, test-harness]
+    needs: [changes, lint, test-root, vuln, test-harness, test-node]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15

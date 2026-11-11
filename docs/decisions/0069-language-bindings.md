@@ -1,6 +1,6 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127)
+- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127); amended 2026-11-10 (the Node SDK, #129)
 - Date: 2026-11-10
 - Commits: `2f9c670` (the record; no code yet)
 
@@ -754,3 +754,167 @@ What v1 leaves out, each until a user asks:
 - An abort of a WebSocket: dropping one closes it as `Close(1000, "")`
   does, which waits for the close handshake (10 s at most).
 - `profiles.RandomMachine`: `Machines` lists them and the SDK picks.
+
+## Amendment 2026-11-10: the Node SDK
+
+The fourth pull request ([#129](https://github.com/roachadam/mimicry/issues/129))
+added `bindings/node`, the Node SDK; [its README](../../bindings/node/README.md)
+is the user's side. This is why it is what it is.
+
+- **TypeScript, ES modules with types, Node 22.12 and later**
+  (`engines: ^22.12.0 || >=24`): the LTS lines current on 2026-11-10 are
+  22 (maintenance until 2027-04), 24 and 26; 20 ended in 2026-04. No
+  CommonJS build: since 22.12 Node loads an ES module with `require()`
+  when it has no top-level await, which this one has not, so CommonJS
+  callers `require("mimicry-http")` it (checked on 22 and 26). Rejected: a
+  dual build, which doubles the package and gives each error class two
+  identities (`instanceof` fails across them).
+- **The sources run as they are.** Only erasable TypeScript (no enums,
+  namespaces or parameter properties), so the tests and the harness run
+  `src/` with Node's type stripping (22.18 and later) and need no build;
+  `tsc` builds the published `dist/`. The tests use `node:test`; lint is
+  typescript-eslint's strict type-checked set, tsc is `strict` with
+  `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`.
+- **protobuf-es** (`@bufbuild/protobuf`, the one runtime dependency,
+  pinned exactly; `protoc-gen-es` pinned in devDependencies), generated
+  as JavaScript with `.d.ts` into `src/gen` and checked in; `bun run
+  gen:check` regenerates with the buf moon.yml pins and fails while they
+  differ (CI's Linux leg). JavaScript rather than TypeScript because
+  protobuf-es writes TypeScript `enum`s, which type stripping refuses.
+  Rejected: ts-proto, which has no runtime of its own (it needs Long or a
+  bigint option for 64-bit ids, and its JSON and well-known types differ
+  per option) where protobuf-es is buf's own, has bigint ids and the
+  well-known types built in.
+- **The core reads stdin and writes stdout** (`aef48a0`). The record
+  assumed Node "needs nothing special"; it does: `'pipe'` stdio is one
+  socketpair per descriptor (`/proc` and `fstat` show two sockets), and
+  libuv opens the parent's end of the child's stdin write-only, so a core
+  writing to the socket its stdin is never reached Node. One socket
+  passed as both (the Python SDK, Go's test client) behaves as before;
+  each end is a socket with 4 MiB buffers when it is one, else a pipe.
+- **macOS socket buffers: nothing to raise on Node's side.** Node's
+  `net.Socket` cannot set `SO_SNDBUF`/`SO_RCVBUF` (libuv's
+  `uv_send_buffer_size` is not exposed for pipes), but libuv's stdio
+  socketpairs already have 64 KiB buffers on macOS (`getsockopt` in the
+  child; a plain `socket.socketpair()` has the 8 KiB default)
+  [INFERENCE: libuv sets them; not traced]. The core raises its own ends
+  to 4 MiB; measured below, that changes little, and 1 MB bodies run at
+  about 4 GB/s either way, so the SDK does nothing more.
+- **Windows: libuv's pipes take no other client, and a spawn another
+  client reaches first fails.** `test/windows-pipe.test.ts`, on Windows 10
+  with Node 24.22.2: every pipe of a running core's stdio
+  (`\\.\pipe\uv\<pointer>-<pid>`, found by listing `\\.\pipe\` before and
+  after the spawn) refuses an open for reading, writing or both (`EBUSY`,
+  `ERROR_PIPE_BUSY`: one instance, already connected); and a second
+  process opening every `uv\*-<parent pid>` pipe it sees in a loop during
+  30 spawns opened none, and all 30 cores answered. The SDK adds no check
+  of its own: libuv opens the client end right after creating the pipe
+  with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so a process that connects in
+  between makes that open fail and the spawn emit an error, which the
+  SDK throws (fails closed); one that creates the name first only makes
+  libuv take the next one (`uv__pipe_server` retries on
+  `ERROR_ACCESS_DENIED` and `ERROR_PIPE_BUSY`). Not tested: a process of
+  another user [INFERENCE: refused the same way, the single instance
+  being taken; the default descriptor gives other users read access only].
+- **A request is a plain object** (`{method, url, header, body,
+  contentLength, signal, proxy}`); `asKind`, `withOptions` and `exact`
+  return a copy with `options` or `exact` set, as Go's return a shallow
+  copy, and Go's `HeaderOrderKey` is `headerOrder`. `Header` is Go's
+  `http.Header` (canonical names, every value, a name with no values
+  kept); values are ByteStrings, one byte per character, as WHATWG's
+  `Headers` takes them, so the `bytes` the schema carries survive both
+  ways. Rejected: WHATWG `Headers`, which joins values and sorts names.
+  `client.do` is Go's `Client.Do`, `transport.roundTrip` its
+  `RoundTrip`; both have `plan`, `dialWebSocket` and
+  `closeIdleConnections`, since the core takes either id. Durations are
+  milliseconds.
+- **Bodies are WHATWG `ReadableStream`s with a high-water mark of 0**:
+  each read takes one DATA frame's bytes from the stream, so the core is
+  never more than the protocol's 256 KiB of credit ahead of the reader.
+  A 100 MB body left unread for 0.5 s held the server under 48 MiB sent
+  (`test/sdk.test.ts`). A body that is garbage collected resets its
+  call, so an abandoned response frees its stream. Request bodies: bytes
+  go whole in `Request.body` (resendable), streams and async iterables
+  as DATA.
+- **`AbortSignal` resets the call** at any point, its body included, and
+  the call rejects with the signal's reason (`AbortError`, `TimeoutError`
+  for `AbortSignal.timeout`), as `fetch` does. No `timeout` field: the
+  signal covers it. A WebSocket's signal bounds its handshake only.
+- **Errors**: one class per code, as the Python SDK's names; `instanceof`
+  follows `matches` (each class's `Symbol.hasInstance`), Node's form of
+  the Python SDK's multiple inheritance. The base's `code` is the error's
+  code, so Go's `CloseError.Code` is `closeCode`. A failed WebSocket
+  handshake's error carries the response (`error.response`).
+  `CoreExited` (Python's name too) has the exit code or signal and the
+  end of stderr; `ProtocolError` is a broken connection, after which the
+  core is stopped.
+- **One core per process, unref'd while idle.** The core starts at the
+  first call and again after one dies (the dead one's objects keep
+  throwing `CoreExited`). Its process and stdio handles are ref'd only
+  while some promise waits on the core (a reply, a body or message read,
+  a write's confirmation), so neither an idle core nor a body nobody
+  reads keeps Node alive, and it exits on EOF when Node does (a child
+  Node process with everything left open exits, and so does its core).
+  `close()`, `Symbol.asyncDispose` and a `FinalizationRegistry` free
+  objects (20 of 20 transports dropped and collected were freed); a
+  WebSocket's finalizer also resets its stream.
+- **`VerifyConnection`** is an async function given Go's connection
+  state (certificates as `X509Certificate`); throwing fails the
+  connection with a `VerifyError` carrying its message.
+- **Saved state**: a path given to `writeJSON` or `writeNetscape` is
+  written to a new file beside it, `chmod` 0600 (the umask masks
+  `open`'s mode), then renamed over it; a stream is written as is. On
+  Windows the mode does not apply.
+- **The binary**: `MIMICRY_CORE` (an absolute path, for development; the
+  Python SDK honours the same) or `bin/mimicry-core` of the package
+  `<name>-<platform>-<arch>`, resolved from the main package; never
+  `PATH`. The provisional name `mimicry-http` is written in
+  `package.json` only; `scripts/pack.ts` derives the platform packages'
+  names from it.
+- **Packages** (`bun run pack:all`, CI's `node (pack)`, not published):
+  the main package with the six platform packages as
+  `optionalDependencies`, each with `os` and `cpu`. No `libc` field: the
+  core is static, so one Linux package per architecture serves glibc and
+  musl. No install scripts. CI installs the host's two tarballs into an
+  empty project and uses them.
+- **Byte-identical**: `TestNodeMatchesGoKinds` and
+  `TestNodeMatchesGoWebSockets` (`internal/harness/e2e/node_test.go`)
+  run `TestCoreMatchesGo*`'s pages through the SDK (a Node program,
+  `test/fixtures/harness-driver.ts`) and compare the server's and the
+  proxy's records with the Go client's: navigations, every kind,
+  preflights, redirects, uploads inline and streamed, `Exact`, a header
+  order and a placement, and WebSockets directly, over HTTP/2 and through
+  proxies (102 subtests, 3 skipped as the core test skips them).
+- **CI**: `.github/workflows/node.yml`, called by `ci.yml`'s `test-node`
+  (so `ci-ok` counts it): the tests on Linux with Node 22, 24 and 26 and
+  on macOS and Windows with 24, `bun run check` on one leg, the harness
+  test, and the packages. The root `go.mod` ignores `node_modules`
+  (`ignore`, Go 1.25): installing the dependencies brings flatted, which
+  ships a Go package that `./...` would build, vet and lint.
+- **Bun for the tooling, Node for the tests and the runtime** (the
+  maintainer's call): `bun install --frozen-lockfile` from a committed
+  `bun.lock`, the scripts through `bun run`, Bun pinned by `packageManager`
+  (`oven-sh/setup-bun` reads it in CI); `test` is `node --test` under the
+  Node matrix, and users install with npm (CI's pack job does).
+
+### Evidence: 1 MB bodies through the Node SDK
+
+`src/wire.ts` to a throwaway Go server of the same protocol
+(`internal/rpc/wire`) started with `'pipe'` stdio, as the core is: 1 MiB
+response bodies ("down") or uploads ("up"), 1 or 64 callers, 2 s after a
+0.3 s warm-up, MB/s and Node's CPU (user + system) per call. "4 MiB" is
+the server raising its own ends' buffers, as the core does; Node's ends
+stay as libuv makes them. One run each.
+
+| Machine | Server's buffers | down, 1 | down, 64 | up, 1 | up, 64 |
+|---|---|---|---|---|---|
+| macOS 27.0.1, M3 Pro, Node 26.12.1 | default | 3,834 MB/s · 334 µs | 4,004 · 342 | 4,610 · 202 | 3,985 · 291 |
+| | 4 MiB | 4,113 · 321 | 4,207 · 332 | 4,733 · 194 | 4,013 · 291 |
+| Linux, WSL2 Ubuntu 24.04, Ryzen 7 5800X3D, Node 24.22.2 | default | 1,204 · 810 | 1,551 · 784 | 999 · 811 | 1,572 · 592 |
+| | 4 MiB | 1,124 · 879 | 2,050 · 638 | 916 · 1,007 | 1,570 · 590 |
+| Windows 10 22H2 (19045), same machine, Node 24.22.2 (named pipes) | | 1,040 · 1,009 | 1,290 · 959 | 1,725 · 608 | 1,576 · 725 |
+
+The macOS rows are near the record's raw `'pipe'` stdio figure (3,580
+MB/s), the protocol's credit and framing included; Windows' named pipes
+are about as fast as WSL2's socketpairs. Nothing here argues for another
+carrier.
