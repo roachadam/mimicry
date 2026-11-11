@@ -888,7 +888,9 @@ is the user's side. This is why it is what it is.
 - **CI**: `.github/workflows/node.yml`, called by `ci.yml`'s `test-node`
   (so `ci-ok` counts it): the tests on Linux with Node 22, 24 and 26 and
   on macOS and Windows with 24, `npm run check` on one leg, the harness
-  test, and the packages.
+  test, and the packages. The root `go.mod` ignores `node_modules`
+  (`ignore`, Go 1.25): `npm ci` brings flatted, which ships a Go package
+  that `./...` would build, vet and lint.
 
 ### Evidence: 1 MB bodies through the Node SDK
 

@@ -27,7 +27,7 @@
     "check": "tsc -p tsconfig.json && eslint . && node scripts/gen.ts --check",
     "gen": "node scripts/gen.ts",
     "gen:check": "node scripts/gen.ts --check",
-    "test": "node --test --test-timeout=300000 'test/**/*.test.ts'",
+    "test": "node --test --test-timeout=300000 \"test/**/*.test.ts\"",
     "pack:all": "node scripts/pack.ts",
     "pretest": "node scripts/build-core.ts"
   },
