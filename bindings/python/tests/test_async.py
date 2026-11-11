@@ -4,13 +4,17 @@ show, through mimicry-core."""
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import gc
 import hashlib
 import io
 import json
 import os
 import stat
+import struct
+import subprocess
 import sys
+import threading
 import tracemalloc
 from collections.abc import AsyncIterator, Awaitable, Callable
 from pathlib import Path
@@ -20,6 +24,7 @@ import pytest
 
 import mimicry
 from mimicry import Kind, MessageType, Options, Request, aio
+from mimicry._pb.mimicry.v1 import mimicry_pb2 as pb
 
 from .conftest import config
 from .server import Server
@@ -484,5 +489,229 @@ def test_only_the_childs_end_is_inherited() -> None:
             assert links[0] == links[1] and links[0].startswith("socket:")
             parent = os.readlink(f"/proc/self/fd/{core._fds[0]}")
             assert parent != links[0] and parent not in sockets
+
+    run(main)
+
+
+def test_a_failing_streamed_body_fails_the_call(server: Server) -> None:
+    """A streamed body that raises before the reply cancels the call: the
+    request raises the body's error rather than waiting for a reply."""
+
+    async def body() -> AsyncIterator[bytes]:
+        yield b"x" * 1000
+        raise ValueError("the body broke")
+
+    async def main() -> None:
+        async with await aio.new_client(config()) as c:
+            req = mimicry.as_kind(Request("POST", server.url("/echo"), body=body()), Kind.FETCH)
+            # Promptly: not after a timeout, which raises the body's error
+            # too (the call is reset when its caller gives up).
+            with pytest.raises(ValueError, match="the body broke"):
+                await asyncio.wait_for(asyncio.shield(c.do(req)), 5)
+            await echo(await c.do(Request("GET", server.url("/echo"))))
+
+    run(main)
+
+
+def test_a_canceled_opener_passes_its_stream_on() -> None:
+    """An opener woken for a free stream and canceled before it ran hands
+    the stream to the next one waiting."""
+
+    async def main() -> None:
+        async with await aio.AsyncCore.spawn() as core:
+            core._wc.max_streams = 1
+            held = await core.open(pb.Call(parse_profile=pb.ParseProfile()), body=True)
+            listing = pb.Call(list_profiles=pb.ListProfiles())
+            a = asyncio.ensure_future(core.call(listing))
+            b = asyncio.ensure_future(core.call(listing))
+            while len(core._openers) < 2:
+                await asyncio.sleep(0)
+            # A stream frees up and A is woken for it, but canceled before
+            # it runs.
+            core._wc.max_streams = 2
+            core._wake_openers()
+            a.cancel()
+            r = await asyncio.wait_for(b, 5)
+            assert r.profiles.names
+            assert a.cancelled()
+            held.close()
+
+    run(main)
+
+
+class _FakeCore:
+    """What AsyncWebSocket needs of a core, for driving it by hand."""
+
+    def __init__(self) -> None:
+        self._forked = False
+        self._loop = asyncio.get_running_loop()
+
+    def socket_opened(self, ws: int) -> None:
+        pass
+
+    def socket_closed(self, ws: int) -> None:
+        pass
+
+    async def written(self, ws: int, seq: int) -> None:
+        return None
+
+
+class _FakeCall:
+    """A WebSocket's stream: reads from a queue, writes recorded, each
+    write waiting for ``gate``."""
+
+    def __init__(self) -> None:
+        self._core = _FakeCore()
+        self.inbox: asyncio.Queue[bytes] = asyncio.Queue()
+        self.pending = b""
+        self.sent = bytearray()
+        self.gate = asyncio.Event()
+        self.gate.set()
+        self.ended = False
+
+    async def read(self, n: int) -> bytes:
+        if not self.pending:
+            self.pending = await self.inbox.get()
+        out, self.pending = self.pending[:n], self.pending[n:]
+        return out
+
+    async def write(self, b: bytes) -> None:
+        await self.gate.wait()
+        self.sent += b
+
+    def close(self) -> None:
+        pass
+
+
+def _socket(call: _FakeCall) -> aio.AsyncWebSocket:
+    return aio.AsyncWebSocket(call, pb.WebSocket(id=7))  # type: ignore[arg-type]
+
+
+def test_websocket_read_canceled_part_way() -> None:
+    """A read canceled inside a message loses nothing: the next read
+    returns that message, and the one after it."""
+
+    async def main() -> None:
+        call = _FakeCall()
+        ws = _socket(call)
+        record = struct.pack(">BI", 2, 6) + b"abcdef"
+        call.inbox.put_nowait(record[:8])
+        task = asyncio.ensure_future(ws.read_message())
+        while call.inbox.qsize():
+            await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        call.inbox.put_nowait(record[8:] + struct.pack(">BI", 1, 2) + b"hi")
+        assert await ws.read_message() == (MessageType.BINARY, b"abcdef")
+        assert await ws.read_message() == (MessageType.TEXT, b"hi")
+
+    run(main)
+
+
+def test_websocket_write_canceled_part_way() -> None:
+    """A write canceled while its message goes out still sends it whole,
+    before the next message."""
+
+    async def main() -> None:
+        call = _FakeCall()
+        ws = _socket(call)
+        call.gate.clear()
+        task = asyncio.ensure_future(ws.write_message(MessageType.BINARY, b"abcdef"))
+        await asyncio.sleep(0.01)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        call.gate.set()
+        await ws.write_message(MessageType.TEXT, "hi")
+        assert bytes(call.sent) == struct.pack(">BI", 2, 6) + b"abcdef" + struct.pack(">BI", 1, 2) + b"hi"
+
+    run(main)
+
+
+def test_a_core_that_never_says_hello_is_stopped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A start that fails or is canceled (no Hello in time) leaves no core
+    running."""
+    if POSIX:
+        fake = tmp_path / "silent-core"
+        fake.write_text("#!/bin/sh\nexec sleep 60\n")
+        fake.chmod(0o755)
+    else:
+        fake = tmp_path / "silent-core.bat"
+        fake.write_text("@ping -n 60 127.0.0.1 > nul\r\n")
+    monkeypatch.setenv("MIMICRY_CORE", str(fake))
+
+    procs: list[subprocess.Popen[bytes]] = []
+    popen = subprocess.Popen
+
+    def record(*args: Any, **kw: Any) -> subprocess.Popen[bytes]:
+        p: subprocess.Popen[bytes] = popen(*args, **kw)
+        procs.append(p)
+        return p
+
+    monkeypatch.setattr(subprocess, "Popen", record)
+
+    async def main() -> None:
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(aio.AsyncCore.spawn(), 1)
+
+    run(main)
+    assert len(procs) == 1
+    assert procs[0].wait(5) is not None
+
+
+def test_fetch_pins_ignores_verify_connection(server: Server) -> None:
+    """FetchPins ignores verify_connection, as Go's does."""
+    called: list[str] = []
+
+    def verify(state: mimicry.ConnectionState) -> None:
+        called.append(state.server_name)
+        raise ValueError("no")
+
+    async def main() -> None:
+        pins = await aio.fetch_pins(config(verify_connection=verify), server.url("/echo"))
+        assert pins
+        assert pins[0].role is mimicry.CertRole.LEAF
+
+    run(main)
+    assert called == []
+
+
+def test_verify_connection_fails_closed(server: Server) -> None:
+    """A reverse call for a transport with no callback registered is
+    refused, never accepted by default."""
+
+    async def main() -> None:
+        async with await aio.new_client(config(verify_connection=lambda state: None)) as c:
+            c.core.on_verify(c._id, None)
+            with pytest.raises(mimicry.VerifyError, match="no verify_connection callback"):
+                await c.do(Request("GET", server.url("/echo")))
+
+    run(main)
+
+
+def test_core_exited_with_a_busy_executor(server: Server) -> None:
+    """CoreExited arrives even when every worker thread of the loop's
+    default executor is busy with the caller's work."""
+
+    async def main() -> None:
+        loop = asyncio.get_running_loop()
+        loop.set_default_executor(concurrent.futures.ThreadPoolExecutor(1))
+        release = threading.Event()
+        blocker = loop.run_in_executor(None, release.wait)
+        try:
+            async with await aio.AsyncCore.spawn() as core:
+                c = await aio.new_client(config(), core=core)
+                seen = server.reset("/hang")
+                task = asyncio.ensure_future(c.do(Request("GET", server.url("/hang"))))
+                while seen.requests == 0:
+                    await asyncio.sleep(0.01)
+                core.kill()
+                with pytest.raises(mimicry.CoreExited):
+                    await asyncio.wait_for(task, 10)
+        finally:
+            release.set()
+            await blocker
 
     run(main)

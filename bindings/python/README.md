@@ -69,7 +69,7 @@ A `Request` is `Request(method, url, headers=, body=, ...)`; `headers` is a mapp
 
 Callbacks are data, as decision 0069 lists: `proxy=` (a URL, per client or per `Request`), `connect_udp_proxy=`, `client_certificates=` (PEM bytes per host), `key_log_file=`, `dns_server=`, `follow_redirects=`/`max_redirects=` on `new_client`. Two are callables:
 
-- `Config(verify_connection=fn)`: `fn(state: ConnectionState)` sees each verified TLS connection; raising rejects it (the request fails with `VerifyError`). In the async API it may be a coroutine function.
+- `Config(verify_connection=fn)`: `fn(state: ConnectionState)` sees each verified TLS connection; raising rejects it (the request fails with `VerifyError`). In the async API it may be a coroutine function. `fetch_pins` ignores it (and `pins`), as Go's `FetchPins` does.
 - `new_jar(on_set_cookie=fn)`: `fn(event: SetCookieEvent)` for each Set-Cookie line the jar receives.
 
 In the sync API both run on worker threads (never the SDK's own), so they may block and call the SDK.
@@ -85,6 +85,7 @@ If `mimicry-core` dies, every call on it raises `CoreExited`, with its exit stat
 - **One core per process.** The sync API's objects share one core, started on first use and driven by one background thread running an event loop; any number of threads may call them. The async API's objects use their event loop's core. A `mimicry.Core` / `aio.AsyncCore` you start yourself can be passed as `core=`.
 - **fork.** A forked child never touches its parent's core: the SDK drops the inherited connection in the child (`os.register_at_fork`), and the child's first new object starts the child's own core. Objects made before the fork (a client made at import in a gunicorn `--preload` app, say) raise `MimicryError` in the child: their state (cookies, tickets) lives in the parent's core. Make clients after the fork, or save state in the parent and load it in each child. In the child, use the async API from a new event loop (`asyncio.run`), as asyncio requires after a fork anyway.
 - **Event loops.** An async object belongs to the loop it was made on.
+- **Cancellation.** Canceling a call (`task.cancel()`, a timeout) resets it in the core. A WebSocket read canceled part way loses nothing (the next read returns the message), and a write canceled part way still sends its message whole.
 - **Windows.** The core's stdin and stdout are anonymous pipes driven by two threads, not `socket.socketpair()` (loopback TCP on Windows; decision 0069). Any event loop works.
 - **Closing.** `close()` (or `with` / `async with`) frees an object in the core; one collected unclosed is freed in the background, and a response collected unread cancels its request. Closing the core, or the process exiting, ends the core.
 
@@ -113,4 +114,4 @@ moon run python:proto              # after editing proto/: regenerates src/mimic
 bash bindings/python/build-wheels.sh dist   # every platform's wheel, its core cross-compiled
 ```
 
-Without moon: `CGO_ENABLED=0 go build -o bindings/python/src/mimicry/_bin/mimicry-core ./cmd/mimicry-core`, then `uv run pytest` in `bindings/python`. `MIMICRY_CORE` (an absolute path) runs another core build. The tests replay the wire protocol's vectors (`proto/testdata/wire`), check the generated code against the schema, and run the SDK against a local TLS and WebSocket server; `internal/harness/e2e/python_test.go` checks that requests through the SDK are the Go client's on the wire (`MIMICRY_PYTHON=bindings/python/.venv/bin/python go test -run TestPythonSDK ./e2e` in `internal/harness`).
+Without moon: `CGO_ENABLED=0 go build -o bindings/python/src/mimicry/_bin/ ./cmd/mimicry-core` (PowerShell: `$env:CGO_ENABLED=0` first; with a directory for `-o`, Go names the binary, `mimicry-core.exe` on Windows), then `uv run pytest` in `bindings/python`. `MIMICRY_CORE` (an absolute path) runs another core build. The tests replay the wire protocol's vectors (`proto/testdata/wire`), check the generated code against the schema, and run the SDK against a local TLS and WebSocket server; `internal/harness/e2e/python_test.go` checks that requests through the SDK are the Go client's on the wire (`MIMICRY_PYTHON=bindings/python/.venv/bin/python go test -run TestPythonSDK ./e2e` in `internal/harness`; a relative path there is the repository root's).

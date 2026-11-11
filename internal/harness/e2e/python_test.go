@@ -11,12 +11,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
 	"github.com/roachadam/mimicry"
 	"github.com/roachadam/mimicry/profile"
 )
+
+// repoRoot is the repository's root, from this package's directory.
+var repoRoot = filepath.Join("..", "..", "..")
 
 // pythonEnv names a Python interpreter that imports the Python SDK
 // (bindings/python); TestPythonSDKMatchesGo is skipped without it.
@@ -43,13 +47,24 @@ func TestPythonSDKMatchesGoWebSockets(t *testing.T) {
 }
 
 // pythonStarter is startPython for the Python MIMICRY_PYTHON names, or
-// skips the test without one.
+// skips the test without one. A relative path in it is the repository
+// root's (bindings/python/.venv/bin/python), as the driver's is; a bare
+// name is looked up in PATH.
 func pythonStarter(t *testing.T) startVia {
 	t.Helper()
 
 	python := os.Getenv(pythonEnv)
 	if python == "" {
 		t.Skipf("%s is not set: no Python SDK to drive", pythonEnv)
+	}
+
+	if !filepath.IsAbs(python) && strings.ContainsAny(python, `/\`) {
+		abs, err := filepath.Abs(filepath.Join(repoRoot, filepath.FromSlash(python)))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		python = abs
 	}
 
 	return func(t *testing.T, p *profile.Spec, s *pageSession, dns string, browserAuth bool) via {
@@ -92,12 +107,12 @@ type pythonAnswer struct {
 func startPython(t *testing.T, python string, p *profile.Spec, s *pageSession, dns string, browserAuth bool) *pythonVia {
 	t.Helper()
 
-	driver, err := filepath.Abs(filepath.Join("..", "..", "..", "bindings", "python", "tests", "e2e_driver.py"))
+	driver, err := filepath.Abs(filepath.Join(repoRoot, "bindings", "python", "tests", "e2e_driver.py"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var stderr bytes.Buffer
+	var stderr lockedBuffer
 
 	cmd := exec.Command(python, driver) //nolint:gosec,noctx // the test's own driver; closing its stdin ends it
 
@@ -163,6 +178,27 @@ func startPython(t *testing.T, python string, p *profile.Spec, s *pageSession, d
 	}
 
 	return pv
+}
+
+// lockedBuffer is a bytes.Buffer safe to read while exec's goroutine
+// copies a child's output into it.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
 }
 
 // answers hands the driver's answers to their callers until it ends.
