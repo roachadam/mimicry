@@ -741,6 +741,15 @@ this is why they are what they are.
   pipes (Windows), exits on EOF, and writes nothing but the protocol to
   stdout and at most the connection's failure to stderr (wire errors, never
   a request's data).
+- **The SDK closing its end is a clean exit, whichever side notices.** A
+  disconnect reaches the core's reader as EOF between frames and its
+  writer as the peer gone (EPIPE or ECONNRESET on the socket, a broken
+  pipe on Windows' pipes, `io.ErrClosedPipe` on the tests' `net.Pipe`),
+  and which comes first is a race; `Serve` returns nil for both, so the
+  core exits 0 with nothing on stderr. A truncated frame, a protocol error,
+  the SDK's RESET of the connection and any other I/O error stay
+  failures. `net.ErrClosed` is not the peer: only the core's own close
+  causes it.
 
 What v1 leaves out, each until a user asks:
 
