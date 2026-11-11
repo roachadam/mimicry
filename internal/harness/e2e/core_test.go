@@ -43,27 +43,7 @@ import (
 // (coreView: every connection's ClientHello, every HTTP/2 frame and
 // header block, every HTTP/1.1 request's lines).
 func TestCoreMatchesGoKinds(t *testing.T) {
-	for _, name := range testProfiles(t) {
-		for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
-			t.Run(name+"/"+sc.Name, func(t *testing.T) {
-				t.Parallel()
-
-				p, err := loadProfile(name)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-				routes := directRoutes(t, p, sc)
-
-				var pages [2]*capture.Page
-				for i, r := range routes {
-					pages[i] = runCoreKinds(t, p, sc, r)
-				}
-
-				compareCorePages(t, p, pages)
-			})
-		}
-	}
+	matchKinds(t, startCore)
 }
 
 // mimicry-core's WebSockets are mimicry's on the wire: the websocket
@@ -78,6 +58,45 @@ func TestCoreMatchesGoKinds(t *testing.T) {
 // payload), and so do the proxy's (each CONNECT's lines, each SOCKS5
 // greeting and request).
 func TestCoreMatchesGoWebSockets(t *testing.T) {
+	matchWebSockets(t, startCore)
+}
+
+// matchKinds runs the kinds pages (Kinds, KindsHTTP1, KindsPlain) through
+// mimicry's Go client and the way start starts, and compares what the
+// server recorded.
+func matchKinds(t *testing.T, start startVia) {
+	t.Helper()
+
+	for _, name := range testProfiles(t) {
+		for _, sc := range []*server.Scenario{server.Kinds, server.KindsHTTP1, server.KindsPlain} {
+			t.Run(name+"/"+sc.Name, func(t *testing.T) {
+				t.Parallel()
+
+				p, err := loadProfile(name)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				routes := directRoutes(t, p, sc, start)
+
+				var pages [2]*capture.Page
+				for i, r := range routes {
+					pages[i] = runCoreKinds(t, p, sc, r)
+				}
+
+				compareCorePages(t, p, pages)
+			})
+		}
+	}
+}
+
+// matchWebSockets runs the websocket pages (directly, over HTTP/2, and
+// through the proxy with credentials and over SOCKS5) through mimicry's
+// Go client and the way start starts, and compares what the server and
+// the proxy recorded.
+func matchWebSockets(t *testing.T, start startVia) {
+	t.Helper()
+
 	for _, name := range testProfiles(t) {
 		for _, sc := range []*server.Scenario{server.WebSocket, server.WebSocketH2, server.ProxyWebSocketAuth, server.ProxyWebSocketSOCKS5} {
 			t.Run(name+"/"+sc.Name, func(t *testing.T) {
@@ -99,12 +118,12 @@ func TestCoreMatchesGoWebSockets(t *testing.T) {
 
 				switch {
 				case sc.Proxy == "":
-					routes = directRoutes(t, p, sc)
+					routes = directRoutes(t, p, sc, start)
 				case w == nil || sc.ProxyAuth && !w.Credentials:
 					// Both ways refuse it (ErrNotMeasured).
 					t.Skipf("%s was not measured opening a WebSocket through this proxy", name)
 				default:
-					routes = proxiedRoutes(t, p, sc)
+					routes = proxiedRoutes(t, p, sc, start)
 				}
 
 				var pages [2]*capture.Page
@@ -160,19 +179,26 @@ type wsConn interface {
 	close() error
 }
 
+// startVia starts the second way a page's requests go out (mimicry-core
+// directly, or an SDK through it) for p's page s: s's CA, its proxy
+// (credentials given the browser's way when browserAuth), else the DNS
+// stub at dns.
+type startVia func(t *testing.T, p *profile.Spec, s *pageSession, dns string, browserAuth bool) via
+
 // noDial has the Go client reach a page as mimicry-core does, which has no
 // DialContext: hosts resolve through the DNS stub, ports are the URL's.
 func noDial(cfg *mimicry.Config) {
 	cfg.DialContext = nil
 }
 
-// directRoutes serves sc twice for p: to mimicry's Go client and to
-// mimicry-core, both resolving the page's hosts through a DNS stub. The
-// core's server listens on a port whose digits have the HPACK Huffman
-// lengths of the Go client's (listenLike), so that every header block,
-// frame and record naming it has the same length; the digits themselves
-// are replaced before comparing.
-func directRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario) [2]coreRoute {
+// directRoutes serves sc twice for p: to mimicry's Go client and to the
+// way start starts (mimicry-core, or an SDK through it), both resolving
+// the page's hosts through a DNS stub. The second server listens on a
+// port whose digits have the HPACK Huffman lengths of the Go client's
+// (listenLike), so that every header block, frame and record naming it
+// has the same length; the digits themselves are replaced before
+// comparing.
+func directRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario, start startVia) [2]coreRoute {
 	t.Helper()
 
 	gs := startPageWith(t, p, sc, noDial)
@@ -187,17 +213,17 @@ func directRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario) [2]coreRou
 		},
 		{
 			s: cs,
-			v: startCore(t, p, cs, stubDNSFor(t, nil), false),
+			v: start(t, p, cs, stubDNSFor(t, nil), false),
 		},
 	}
 }
 
 // proxiedRoutes serves sc twice for p behind the capture proxy, as
 // startProxiedPage does (whose ports are fixed, so equal): to mimicry's
-// Go client and to mimicry-core, with the proxy's credentials given the
-// browser's way where p measured it (Config.BrowserProxyAuth), else
-// upfront.
-func proxiedRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario) [2]coreRoute {
+// Go client and to the way start starts (mimicry-core, or an SDK through
+// it), with the proxy's credentials given the browser's way where p
+// measured it (Config.BrowserProxyAuth), else upfront.
+func proxiedRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario, start startVia) [2]coreRoute {
 	t.Helper()
 
 	var user *url.Userinfo
@@ -220,7 +246,7 @@ func proxiedRoutes(t *testing.T, p *profile.Spec, sc *server.Scenario) [2]coreRo
 		},
 		{
 			s:  cs,
-			v:  startCore(t, p, cs, "", browserAuth),
+			v:  start(t, p, cs, "", browserAuth),
 			px: cpx,
 		},
 	}
@@ -652,7 +678,7 @@ type coreVia struct {
 // startCore starts mimicry-core for p's page s, with a client reaching
 // it as the Go client does: s's CA, its proxy (credentials given the
 // browser's way when browserAuth), else the DNS stub at dns.
-func startCore(t *testing.T, p *profile.Spec, s *pageSession, dns string, browserAuth bool) *coreVia {
+func startCore(t *testing.T, p *profile.Spec, s *pageSession, dns string, browserAuth bool) via {
 	t.Helper()
 
 	var stderr bytes.Buffer
