@@ -5,13 +5,16 @@
 // compress/flate. Raw window bits are 9 to 15: every library rejects 8.
 //
 // This package is an altered version of zlib, Chromium's zlib and zlib-rs,
-// translated to Go and reduced to deflate; it is not the original software.
-// Their notices are in LICENSE-zlib, LICENSE-chromium and LICENSE-zlib-rs.
+// translated to Go and reduced to deflate, writing each message into a
+// buffer of its own (outBuffer) where they fill the caller's; it is not
+// the original software. Their notices are in LICENSE-zlib,
+// LICENSE-chromium and LICENSE-zlib-rs.
 package zdeflate
 
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 )
 
 // Library is the deflate implementation a Writer reproduces.
@@ -225,6 +228,17 @@ func (w *Writer) Reset() {
 	w.c.reset()
 }
 
+// outBuffer is a message's output buffer for in bytes of input: room for
+// half of them and a little, which append grows past. Input too long for
+// that size to fit an int (more than memory holds) starts it empty.
+func outBuffer(in int) []byte {
+	if in > math.MaxInt-16 {
+		return nil
+	}
+
+	return make([]byte, 0, in/2+16)
+}
+
 // zlibWriter is zlib 1.3.1's deflate stream, or Chromium's: one call per
 // message. Fields keep deflate_state's unsigned types (uInt and Pos as
 // uint32, long as int64), so the arithmetic wraps where zlib's does.
@@ -312,7 +326,7 @@ func (w *zlibWriter) lmInit() {
 }
 
 func (w *zlibWriter) message(p []byte) []byte {
-	w.out.buf = make([]byte, 0, len(p)/2+16)
+	w.out.buf = outBuffer(len(p))
 	w.in = p
 
 	if w.cfg.lazy {

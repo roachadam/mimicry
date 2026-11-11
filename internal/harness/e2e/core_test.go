@@ -951,7 +951,7 @@ func compareCorePages(t *testing.T, p *profile.Spec, pages [2]*capture.Page) {
 		}
 	}
 
-	compareLines(t, "the page", coreView(g), coreView(c))
+	compareLines(t, "the page", coreView(g, p.HTTP2.MaxDataFrame), coreView(c, p.HTTP2.MaxDataFrame))
 }
 
 // compareCoreHello compares the core's ClientHello (got) with the Go
@@ -1047,16 +1047,22 @@ func compareLines(t *testing.T, what string, want, got []string) {
 // and upload cut, and every WebSocket (where it ran, the server's answer,
 // how it ended, and each client frame's FIN, RSV bits, opcode, mask bit,
 // length encoding, length, unmasked payload and, over HTTP/2, the DATA
-// frames that carried it, as dataCut). Left out is what is random by design or
-// timing: when anything arrived, ClientHello bytes (key shares, GREASE,
-// shuffles: compareCoreHello compares them parsed), ticket and PSK
-// hashes, masking keys and Sec-WebSocket-Key, where a pong falls among a
-// socket's frames (when the server's ping arrived: pongs are listed
-// after the others), and the increments of the connection's credit
-// returns after its opening flight: a timer-driven one (Chrome's 5 s)
-// returns what was read by then. Ports after .test hosts are replaced
+// frames that carried it, as dataCut renders them against the profile's
+// limit). Left out is what is random by design or timing: when anything
+// arrived, ClientHello bytes (key shares, GREASE, shuffles:
+// compareCoreHello compares them parsed), ticket and PSK hashes, masking
+// keys and Sec-WebSocket-Key, where a pong falls among a socket's frames
+// (when the server's ping arrived: pongs are listed after the others),
+// where the stream's flow-control credit cut a WebSocket frame's DATA
+// frames, the increments of the connection's credit returns after its
+// opening flight: a timer-driven one (Chrome's 5 s) returns what was read
+// by then, and the frames after a connection's last request when its
+// HEADERS ended the stream (trailing): the server answers it at its
+// header block, and /done, on another connection, stops this one's trace
+// whether or not its reader got to them (Firefox's stream WINDOW_UPDATE,
+// sent in the same write). Ports after .test hosts are replaced
 // (directRoutes keeps their lengths equal).
-func coreView(page *capture.Page) []string {
+func coreView(page *capture.Page, limit uint32) []string {
 	var out []string
 
 	add := func(format string, args ...any) {
@@ -1087,9 +1093,10 @@ func coreView(page *capture.Page) []string {
 		var acks []string
 
 		opening, firstRequest := true, len(tr.Frames)
+		end := trailing(tr)
 
 		for fi, f := range tr.Frames {
-			if f.Type == "DATA" && sockets[[2]uint32{uint32(i), f.Stream}] {
+			if f.Type == "DATA" && sockets[[2]uint32{uint32(i), f.Stream}] || fi >= end && !acknowledges(f) {
 				continue
 			}
 
@@ -1140,7 +1147,9 @@ func coreView(page *capture.Page) []string {
 
 			var types []string
 			for _, fi := range rec.Frames {
-				types = append(types, tr.Frames[fi].Type)
+				if fi < end {
+					types = append(types, tr.Frames[fi].Type)
+				}
 			}
 
 			add("  opening record %d preface=%v frames=%v", rec.Size, rec.Preface, types)
@@ -1207,7 +1216,7 @@ func coreView(page *capture.Page) []string {
 			payload := sha256.Sum256(f.Payload)
 			inflated := sha256.Sum256(f.Inflated)
 			l := fmt.Sprintf("  fin=%v rsv=%d op=%d masked=%v length=%d/%d payload=%s compressed=%v inflated=%s/%q close=%d/%q data=%s",
-				f.Fin, f.RSV, f.Opcode, f.Masked, f.LengthBits, f.Length, hex.EncodeToString(payload[:8]), f.Compressed, hex.EncodeToString(inflated[:8]), f.InflateError, f.CloseCode, f.CloseReason, dataCut(cuts[k]))
+				f.Fin, f.RSV, f.Opcode, f.Masked, f.LengthBits, f.Length, hex.EncodeToString(payload[:8]), f.Compressed, hex.EncodeToString(inflated[:8]), f.InflateError, f.CloseCode, f.CloseReason, dataCut(cuts[k], k.head, limit))
 
 			if f.Opcode == capture.WSPong {
 				pongs = append(pongs, l)
@@ -1226,6 +1235,32 @@ func coreView(page *capture.Page) []string {
 	return out
 }
 
+// trailing is where the frames after tr's last request start, when the
+// request's HEADERS ended its stream (len(tr.Frames) otherwise): its
+// header block's end, after any CONTINUATION.
+func trailing(tr *h2trace.Trace) int {
+	const endStream = 0x1
+
+	for fi, f := range slices.Backward(tr.Frames) {
+		if f.Type != "HEADERS" {
+			continue
+		}
+
+		if f.Flags&endStream == 0 {
+			break
+		}
+
+		end := fi + 1
+		for end < len(tr.Frames) && tr.Frames[end].Type == "CONTINUATION" {
+			end++
+		}
+
+		return end
+	}
+
+	return len(tr.Frames)
+}
+
 // acknowledges reports a frame acknowledging the server's SETTINGS or
 // PING: it goes out when the server's frame arrives.
 func acknowledges(f h2trace.Frame) bool {
@@ -1234,22 +1269,35 @@ func acknowledges(f h2trace.Frame) bool {
 	return (f.Type == "SETTINGS" || f.Type == "PING") && f.Flags&ack != 0
 }
 
-// dataCut describes the DATA frames carrying a WebSocket frame: the first
-// (Firefox writes a frame's header on its own), the largest (the client's
-// write size) and their total. How many there are and where the others
-// fall depends on where the stream's flow-control credit ran out, which
-// is when the server's WINDOW_UPDATE arrived.
-func dataCut(cut []uint32) string {
+// dataCut describes the DATA frames carrying a WebSocket frame whose
+// header is head bytes long (mask included): whether one ended before
+// the header's mask or after the header, where the writer cuts (Firefox
+// writes a large frame's header on its own, Safari a control reply's
+// header, mask and payload apart), their total, and whether each kept
+// within limit. Their other ends are left out: they fall where the
+// stream's flow-control credit ran out, which is when the server's
+// WINDOW_UPDATE arrived, so a frame can start in a DATA frame as short as
+// the credit left, and no DATA frame need reach the client's write size.
+func dataCut(cut []uint32, head, limit uint32) string {
 	if len(cut) == 0 {
 		return "-"
 	}
 
+	var ends []uint32
+
 	total := uint32(0)
 	for _, c := range cut {
 		total += c
+		if total+4 == head || total == head {
+			ends = append(ends, total)
+		}
 	}
 
-	return fmt.Sprintf("first %d, largest %d, total %d", cut[0], slices.Max(cut), total)
+	if largest := slices.Max(cut); largest > limit {
+		return fmt.Sprintf("header cut at %v, total %d, largest %d over the limit %d", ends, total, largest, limit)
+	}
+
+	return fmt.Sprintf("header cut at %v, total %d, each within the limit", ends, total)
 }
 
 func framePriority(p *h2trace.Priority) string {
