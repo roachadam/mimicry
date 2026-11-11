@@ -4,6 +4,7 @@
 // created 0600 (cookies and tickets are credentials) and replaced whole.
 
 import { randomBytes } from "node:crypto";
+import { once } from "node:events";
 import { createReadStream } from "node:fs";
 import { chmod, open, rename, rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -31,6 +32,22 @@ export type StateSource = string | URL | Uint8Array | AsyncIterable<Uint8Array |
 
 function path(p: string | URL): string {
   return p instanceof URL ? fileURLToPath(p) : p;
+}
+
+// drained waits for dest's 'drain', failing on its 'error' (once does)
+// or its 'close', either of which means no 'drain' will come.
+async function drained(dest: NodeJS.WritableStream): Promise<void> {
+  const ac = new AbortController();
+  try {
+    await Promise.race([
+      once(dest, "drain", { signal: ac.signal }),
+      once(dest, "close", { signal: ac.signal }).then(() => {
+        throw new Error("mimicry: the destination closed before the state was written");
+      }),
+    ]);
+  } finally {
+    ac.abort();
+  }
 }
 
 // writeState makes a call whose reply's DATA is the state and sends it to
@@ -68,9 +85,7 @@ async function writeState(core: Core, method: Method, dest: StateDestination): P
 
     for (let b = await k.read(); b !== null; b = await k.read()) {
       if (!dest.write(b)) {
-        const { promise, resolve } = Promise.withResolvers<void>();
-        dest.once("drain", resolve);
-        await promise;
+        await drained(dest);
       }
     }
   } finally {

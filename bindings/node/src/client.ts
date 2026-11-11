@@ -669,11 +669,14 @@ function certPinFromPb(p: PbCertPin): CertPin {
 
 /**
  * Go's mimicry.FetchPins: connects to url's host as a request would and
- * returns the verified chain, leaf first, with its pins.
+ * returns the verified chain, leaf first, with its pins. As in Go, it
+ * ignores config.pins and config.verifyConnection.
  */
 export async function fetchPins(config: Config, url: string | URL, options: { signal?: AbortSignal } = {}): Promise<CertPin[]> {
   const core = await coreFor(config);
-  const r = await core.call({ case: "fetchPins", value: { config: configToPb(config), url: String(url) } }, options.signal);
+  const pb = configToPb(config);
+  pb.verifyConnection = false;
+  const r = await core.call({ case: "fetchPins", value: { config: pb, url: String(url) } }, options.signal);
   if (r.result.case !== "pins") {
     throw new ProtocolError("mimicry: FetchPins' reply has no pins");
   }

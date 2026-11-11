@@ -8,6 +8,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import type http from "node:http";
 import type http2 from "node:http2";
 import { tmpdir } from "node:os";
+import { Writable } from "node:stream";
 import { join } from "node:path";
 import { after, afterEach, before, describe, test } from "node:test";
 
@@ -18,6 +19,7 @@ import { errorFromPb } from "../src/errors.ts";
 import { Code, ErrorSchema } from "../src/gen/mimicry/v1/mimicry_pb.js";
 import {
   CORSError,
+  CertRole,
   CloseError,
   CoreExited,
   Credentials,
@@ -32,6 +34,7 @@ import {
   VerifyError,
   asKind,
   exact,
+  fetchPins,
   newClient,
   newJar,
   newTicketCache,
@@ -414,6 +417,27 @@ describe("callbacks", () => {
     assert.deepEqual(seen, ["localhost", "127.0.0.1"]);
   });
 
+  test("fetchPins returns the chain and, as Go's, ignores verifyConnection", async () => {
+    let called = 0;
+    const pins = await fetchPins(
+      {
+        profile,
+        rootCAs: caPEM,
+        verifyConnection: () => {
+          called++;
+          throw new Error("never asked");
+        },
+      },
+      server.tls,
+    );
+    assert.equal(called, 0);
+    assert.deepEqual(
+      pins.map((p) => p.role),
+      [CertRole.Leaf, CertRole.Root],
+    );
+    assert.match(pins[0]?.subject ?? "", /localhost/);
+  });
+
   test("a jar's onSetCookie hears each Set-Cookie line", async () => {
     routes.set("/set", (_req, res) => {
       res.setHeader("set-cookie", ["a=1; Path=/", "b=2; Path=/; Max-Age=0"]);
@@ -520,6 +544,22 @@ describe("saved state", () => {
     assert.equal((await fromTxt.all()).length, 2);
 
     await tickets.readJSON(tj);
+  });
+});
+
+describe("saved state to a stream", () => {
+  test("a destination that fails while full rejects writeJSON instead of hanging", { timeout: 10_000 }, async () => {
+    const jar = closing(await newJar({ rules: profile }));
+    await jar.setHostString("example.com", "a=1");
+    // Full after any write, and failing it: 'error', never 'drain'.
+    const dest = new Writable({
+      highWaterMark: 1,
+      write(_chunk, _encoding, callback) {
+        callback(new Error("disk full"));
+      },
+    });
+    dest.on("error", () => undefined);
+    await assert.rejects(jar.writeJSON(dest), /disk full|closed/);
   });
 });
 
