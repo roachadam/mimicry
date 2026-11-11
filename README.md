@@ -8,7 +8,7 @@ A Go HTTP client that sends requests the way Chrome, Firefox and Safari do: the 
 > Pre-release. The API may change before 1.0. Pin a version and test it on your own workload.
 
 ```sh
-go get github.com/roachadam/mimicry   # Go 1.27.3 or later
+go get github.com/roachadam/mimicry   # Go 1.27.4 or later
 ```
 
 ```go
