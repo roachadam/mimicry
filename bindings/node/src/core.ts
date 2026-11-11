@@ -280,7 +280,12 @@ export class Core {
   }
 
   /** Opens a call; `body` says DATA follows it (ended with closeWrite). */
-  async open(method: Method, options: { signal?: AbortSignal | undefined; body?: boolean } = {}): Promise<CallStream> {
+  open(method: Method, options: { signal?: AbortSignal | undefined; body?: boolean } = {}): Promise<CallStream> {
+    // Tracked whole, so Node stays alive until a failure's error is known.
+    return this.track(this.opening(method, options));
+  }
+
+  private async opening(method: Method, options: { signal?: AbortSignal | undefined; body?: boolean }): Promise<CallStream> {
     if (this.dead !== null) {
       throw await this.dead;
     }
@@ -292,14 +297,14 @@ export class Core {
     let st: Stream | null = null;
     try {
       if (b.length <= maxPayload) {
-        st = await this.track(this.conn.open(b, !body, signal));
+        st = await this.conn.open(b, !body, signal);
       } else {
         // Too large for a frame: the call goes as DATA (continued).
         const head = toBinary(CallSchema, create(CallSchema, { continued: b.length }));
-        st = await this.track(this.conn.open(head, false, signal));
-        await this.track(st.write(b));
+        st = await this.conn.open(head, false, signal);
+        await st.write(b);
         if (!body) {
-          await this.track(st.closeWrite());
+          await st.closeWrite();
         }
       }
     } catch (e) {
@@ -471,12 +476,14 @@ export class CallStream {
     });
   }
 
-  private async wrap<T>(p: Promise<T>): Promise<T> {
-    try {
-      return await this.core.track(p);
-    } catch (e) {
-      throw await this.core.mapError(e, this.stream.id, this.signal);
-    }
+  // wrap keeps Node alive until p settles and, if it failed, until its
+  // error is known: CoreExited waits for the core's exit status.
+  private wrap<T>(p: Promise<T>): Promise<T> {
+    return this.core.track(
+      p.catch(async (e: unknown) => {
+        throw await this.core.mapError(e, this.stream.id, this.signal);
+      }),
+    );
   }
 
   /** Waits for the reply, reading it from DATA when continued. */

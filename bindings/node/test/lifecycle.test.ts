@@ -3,7 +3,7 @@
 // nobody holds are freed in the core.
 
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
@@ -48,4 +48,34 @@ test("Node exits with the SDK's objects open, and the core exits with it", async
 test("objects garbage collected are freed in the core", async () => {
   const { stdout } = await run(process.execPath, ["--expose-gc", join(fixtures, "finalize.ts")], { timeout: 30_000 });
   assert.equal(Number(stdout.trim()), 20);
+});
+
+test("a core killed while a call waits rejects it with CoreExited, nothing else holding Node", async () => {
+  const arrived = Promise.withResolvers<void>();
+  const server = await startServer(() => {
+    arrived.resolve();
+  });
+  try {
+    const child = spawn(process.execPath, [join(fixtures, "core-death.ts"), `${server.plain}/hang`], { stdio: ["ignore", "pipe", "inherit"] });
+    let out = "";
+    const pid = Promise.withResolvers<number>();
+    child.stdout.on("data", (b: Buffer) => {
+      out += b.toString();
+      const first = out.split("\n")[0];
+      if (out.includes("\n") && first !== undefined) {
+        pid.resolve(Number(first));
+      }
+    });
+    const exited = Promise.withResolvers<number | null>();
+    child.on("exit", (code) => {
+      exited.resolve(code);
+    });
+
+    await arrived.promise;
+    process.kill(await pid.promise, "SIGKILL");
+    const code = await exited.promise;
+    assert.deepEqual([code, out.trim().split("\n")[1]], [0, "CoreExited"], out);
+  } finally {
+    await server.close();
+  }
 });
