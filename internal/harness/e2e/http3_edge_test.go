@@ -1604,9 +1604,9 @@ func pnSpace(typ string) string {
 // A pinned connection that moves on time fails, so a pin cannot go stale.
 var pathMoveGaps = map[string]string{
 	"edge-157-windows/browser sample 3: QUIC www.h3-a.test (connection 1)":  "Edge on Windows moved this silenced connection 112.0 ms after its last request, 2.91 of its PTOs and 13.4 ms after its second probe, where samples 1 and 2 moved after 3.89 and 3.93 (h3gen's measure; afterPtos 4, as Chrome's and Edge on macOS): an early timer on Windows, not captured",
-	"brave-157-macos/browser sample 3: QUIC www.h3-a.test (connection 1)":   "Brave moved this silenced connection 119.1 ms after its last request, 3.72 of its PTOs by this test's measure, where samples 1 and 2 moved after 3.48 and 3.41 (h3gen's measure, from the request's retransmission, rounds all three to afterPtos 3; Chrome and Edge 4): when its path-degrading timer fired, not captured",
-	"brave-157-windows/browser sample 1: QUIC www.h3-a.test (connection 1)": "as brave-157-macos's: Brave on Windows moved this silenced connection 3.87 of its PTOs after its last request by this test's measure (sample 2 3.89, sample 3 3.29), where h3gen's measure rounds all three to afterPtos 3, as on macOS",
-	"brave-157-windows/browser sample 2: QUIC www.h3-a.test (connection 1)": "as sample 1: 3.89 of its PTOs",
+	"brave-157-macos/browser sample 1: QUIC www.h3-a.test (connection 1)":   "Brave moved this silenced connection 122.3 ms after its last request, 3.48 of its PTOs by this test's measure, after its second probe as every Brave sample did, where sample 3 moved after 3.72 (afterPtos 4, as Chrome's, Edge's and Brave on Linux; 3 would race the second probe): when its path-degrading timer fired, not captured",
+	"brave-157-macos/browser sample 2: QUIC www.h3-a.test (connection 1)":   "as sample 1: 3.41 of its PTOs",
+	"brave-157-windows/browser sample 3: QUIC www.h3-a.test (connection 1)": "as brave-157-macos's sample 1: Brave on Windows moved this silenced connection 3.29 of its PTOs after its last request by this test's measure, after its second probe, where samples 1 and 2 moved after 3.87 and 3.89",
 }
 
 // checkPathMoves holds every connection of page that moved path to

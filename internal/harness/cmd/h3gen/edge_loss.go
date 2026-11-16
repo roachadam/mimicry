@@ -691,6 +691,12 @@ func (s *edgeSet) pathDegrading(q *profile.QUIC, e *collector) *profile.QUICPath
 // how many probe timeouts it came. A datagram answering the server's
 // PATH_CHALLENGE is the server's timing, not part of the move: it can
 // come before the RETIRE_CONNECTION_ID or after it.
+//
+// Each probe doubles the timeout, so the k-th goes 2^k-1 PTOs after the
+// request. The move is rounded to whole PTOs but kept after the last probe
+// the browser sent before it: a move rounded onto that probe's moment
+// races it (Brave moved 3.4 PTOs in, after its second probe at 3; 3 would
+// move before mimicry's second probe went).
 func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector) *profile.QUICPathDegrading {
 	ds := sl.a.c.Datagrams
 	d := &ds[first]
@@ -745,13 +751,18 @@ func migration(q *profile.QUIC, sl silenced, first int, at string, e *collector)
 
 	pto := sends[1] - sends[0]
 	ratio := (sl.a.millis(d.Micros) - sends[0]) / pto
+	probes := len(sends) - 1
+	lastProbe, nextProbe := 1<<probes-1, 1<<(probes+1)-1
 	out := &profile.QUICPathDegrading{
-		AfterPTOs: int(math.Round(ratio)),
+		AfterPTOs: max(int(math.Round(ratio)), lastProbe+1),
 		Action:    profile.PathMigrate,
 	}
 
-	if math.Abs(ratio-float64(out.AfterPTOs)) > 0.5 {
-		edgeErr(e, at, "migrated %.2f probe timeouts after the request", ratio)
+	// A probe's timer jitters (Brave and Edge on Windows each sent a
+	// second probe early in one sample and moved 2.9 PTOs in): what has to
+	// hold is the rounded move, after the last probe and before the next.
+	if out.AfterPTOs >= nextProbe {
+		edgeErr(e, at, "migrated %.2f probe timeouts after the request, after %d probes: not before the next at %d", ratio, probes, nextProbe)
 	}
 
 	return out
