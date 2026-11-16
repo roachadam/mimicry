@@ -10995,7 +10995,7 @@
         "datagramSize": 1250
       },
       "pathDegrading": {
-        "afterPtos": 3,
+        "afterPtos": 4,
         "action": "migrate"
       }
     },

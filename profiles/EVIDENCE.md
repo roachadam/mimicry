@@ -491,8 +491,8 @@ parameters and `shared_second_long`) but where Brave differs:
   never sent.
 - **W, from the edge captures (h3gen):** `tcpDelayMs` 3–5 (Chrome 305,
   Edge 313), read as a race since the 0-RTT attempt held its request to
-  its give-up (`zeroRttHolds`); `pathDegrading.afterPtos` 3 (Chrome and
-  Edge 4); 143 of 150 second Initials in 2 bytes, the 7 others with a
+  its give-up (`zeroRttHolds`); `pathDegrading.afterPtos` 4, as Chrome's
+  and Edge's (after its second probe); 143 of 150 second Initials in 2 bytes, the 7 others with a
   token; dial delays for resumed attempts.
 - **Pinned:** as Edge's (NEW_TOKEN reconnections, the XHR header order,
   the error-page reload, markup images' hops at `u=1` in 3 of 6 samples,
@@ -501,8 +501,8 @@ parameters and `shared_second_long`) but where Brave differs:
   move to one new TCP connection, the fast fallback, the burst order);
   one second Initial in 1 byte; the one connection that acknowledged the
   server's Initial (1 of 21), numbered after the Handshake and 1-RTT
-  packets it led (`coalescedOrder`); one `h3-broken` sample's path move
-  after 3.72 PTOs by the e2e measure (`pathMoveGaps`).
+  packets it led (`coalescedOrder`); two `h3-broken` samples' path moves
+  after 3.48 and 3.41 PTOs by the e2e measure (`pathMoveGaps`).
 
 **`brave-157-windows`** (2026-11-09, Brave 1.99.55 on the Windows PC,
 Windows 10, a per-user install,
@@ -516,8 +516,8 @@ PRIORITY_UPDATE read 1 ms after its HEADERS and one `h3-streams-blocked`
 sample with 2 more STREAMS_BLOCKED (h3gen's `sampleGaps`); the second
 page's image at `u=1` in 2 of 3 `h3-discovery` samples (kindsgen's
 `h3PriorityGaps`); one markup image's hop at `u=1` in 1 of 6
-`redirects2` samples; two `h3-broken` samples' path moves after 3.87 and
-3.89 PTOs by the e2e measure; 3 of 5 HTTP/1.1 connections resumed on
+`redirects2` samples; one `h3-broken` sample's path move after 3.29
+PTOs by the e2e measure; 3 of 5 HTTP/1.1 connections resumed on
 `client-cert-ec` (`clientCertH1Resumes`); and the replay's scheduling on
 `h3-resume-table`, `h3-too-early` and `h3-broken`
 (`h3EdgeSchedulingGaps`).
@@ -1465,7 +1465,7 @@ A difference closed is removed here, with its pinned gap entry.
 - **Chrome after declining to move** (Chrome): a server's `disable_active_migration` keeps Chrome on its degrading path ([Chromium source](https://chromium.googlesource.com/chromium/src/+/refs/tags/156.0.8078.85/net/quic/quic_chromium_client_session.cc#3282), a lead; [RFC 9000 §18.2](https://www.rfc-editor.org/rfc/rfc9000#section-18.2)), and mimicry stays with its keep-alives, probes and idle timeout; what Chrome does then (probes, close timing, where the stuck request goes) is not captured; detection low; a Chrome `h3-broken` capture against a server sending the parameter.
 - **Chrome's blackhole close** (Chrome, Edge, Brave): Chrome closes after 54–61 s and resends on TCP (Edge and Brave 54.4–54.5 s, macOS and Windows, Brave on Linux too); mimicry falls back at 30 s; detection low; not planned ([0028, amendment](../docs/decisions/0028-quic-failure-model.md#amendment-2026-10-30-blackhole-detection-and-resumed-probes)).
 - **Edge on Windows's early path move** (Edge on Windows): in 1 of 3 `h3-broken` samples Edge moved its silenced connection to a new path after 2.91 of its PTOs, 13 ms after its second probe, where the others and every other Chromium sample moved after about 4; mimicry moves after 4 (`afterPtos`); detection low; more Windows samples, to tell a rule from a timer (`pathMoveGaps`).
-- **Brave's path move timing** (Brave, macOS and Windows): Brave moved its silenced connection 3.3–3.9 of its PTOs after its last request by the e2e test's measure (macOS 3.41, 3.48, 3.72; Windows 3.29, 3.87, 3.89), which h3gen's measure rounds to `afterPtos` 3; mimicry moves after 3, so the later moves differ by about 100 ms; detection low; more samples, to tell a rule from a timer (`pathMoveGaps`).
+- **Brave's path move timing** (Brave, macOS and Windows): Brave moved its silenced connection 3.3–3.9 of its PTOs after its last request by the e2e test's measure (macOS 3.41, 3.48, 3.72; Windows 3.29, 3.87, 3.89), always after its second probe; mimicry moves after 4 (`afterPtos`, as Chrome's; 3 would race the second probe, [0067, amendment](../docs/decisions/0067-brave-profiles.md#amendment-2026-11-16-braves-path-move-after-4-ptos-as-chromes)), so the earlier moves differ by about 20–25 ms; detection low; more samples, to tell a rule from a timer (`pathMoveGaps`).
 - **Resumed attempts' probes** (Chrome, Firefox): Chrome's 4 Initials and lone 0-RTT datagrams, Firefox's varied probes; only to a silent server; detection low; not planned (same amendment).
 - **Firefox's short-lived QUIC side connections** (Firefox, macOS, Windows and Linux): Firefox intermittently opens QUIC connections beside the page's that carry no request and closes each 1–5 ms after its handshake, H3_NO_ERROR: Firefox 158 on Windows in 2 of its 36 HTTP/3 page samples (`h3-broken`, `h3-download`, one per request: 14 and 7); Firefox 159 in 3 of 6 macOS and 4 of 6 Windows `h3-discovery`/`h3-page` samples with locally trusted roots (8–20 per sample, about 300 ms apart), after which later connections to the host in the sample resume nothing and carry no token, and the server's close in `h3-discovery` got no TCP race; on Linux in about half of the `h3-*` samples (15 per sample) and in every `h3-streams-blocked` sample (6, each within 4 ms of a fetch), and in those samples no GET or HEAD went in 0-RTT and the resumed attempt after the server's close ended silently; mimicry opens none; trigger unknown; detection low; more samples to find when (h3gen's `sampleGaps`, kindsgen's `h3AltUsedGaps`, `h3EdgeGaps`).
 - **Firefox on Windows's resumed attempt** (Firefox on Windows): after the server's close, its resumed attempt first probed 1.7–1.9 s after its first flight (`cachedRtt` false) and gave up at 9.8 s or 10.2 s, or (1 of 3 samples) probed from a cached RTT and ended silently at 4.5 s with nothing held (6 further samples: 9.8, 9.8, 10.2, 10.3, 5.0 s and one silent end); mimicry gives up at 9.8 s; only to a silent server; detection low; more samples to find what decides (h3gen's `sampleGaps`).

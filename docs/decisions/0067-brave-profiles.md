@@ -1,6 +1,6 @@
 # 0067: Brave profiles, captured on their own; Brave's Shields modelled
 
-- Status: Accepted
+- Status: Accepted; amended 2026-11-16 (Brave's path move after 4 PTOs, as Chrome's)
 - Date: 2026-11-09
 - Commits: `cf433d6`
 
@@ -158,3 +158,22 @@ Brave changes its Shields defaults (farbling off, cookies, beacons),
 starts sending Trust Anchor IDs or `sec-ch-ua-full-version`, or a
 capture shows the farbled q keyed by something else than the page
 origin.
+
+## Amendment 2026-11-16: Brave's path move after 4 PTOs, as Chrome's
+
+`brave-157-macos` and `brave-157-windows` had `afterPtos` 3: h3gen
+rounded Brave's move, 3.3–3.9 of its PTOs after the request, to the
+nearest whole PTO. Each probe doubles the timeout, so the second goes 3
+PTOs after the request, and a move at 3 raced it: mimicry's second probe
+is timed from its first, sent a few milliseconds late, so mimicry moved
+first and sent one probe where every Brave sample sent two.
+`TestHTTP3EdgeMatchesBrowser` (main and nightly only) failed on it in
+about 15 of 18 runs.
+
+h3gen now keeps the rounded move after the last probe the browser sent
+before it (2^k−1 PTOs after the request for the k-th), so both profiles
+have `afterPtos` 4, as Chrome's, Edge's and `brave-157-linux`; mimicry
+sends both probes and moves 4.0 PTOs in. The three Brave samples that
+moved 3.29–3.48 PTOs in are now pinned in `pathMoveGaps`, and the three
+that moved 3.72–3.89 in no longer are. Every other profile derives the
+same value as before.
