@@ -317,8 +317,23 @@ class Call:
     def ended(self) -> bool:
         return self._s.ended
 
+    @property
+    def write_ended(self) -> bool:
+        """Whether this side's DATA has ended (END sent)."""
+        return self._s.send_ended
+
     async def _raise(self, e: wire.WireError) -> None:
         raise await self._core._error(e, self._s.id) from None
+
+    async def _write_failed(self, e: wire.WireError) -> None:
+        """Raise why a write or end failed. A core that rejects a call (its
+        body, or a call too large) replies with why, then resets it; a write
+        waiting for credit sees only the reset."""
+        if isinstance(e, wire.RemoteReset) and self._s.got_reply:
+            r = pb.Reply.FromString(self._s.reply)
+            if r.HasField("error"):
+                raise from_pb(r.error) from None
+        await self._raise(e)
 
     async def reply(self) -> pb.Reply:
         """The reply, read from DATA when it was too large for a frame."""
@@ -378,7 +393,7 @@ class Call:
             try:
                 n = core._wc.send_data(self._s, mv)
             except wire.WireError as e:
-                await self._raise(e)
+                await self._write_failed(e)
             if n:
                 mv = mv[n:]
                 core._flush()
@@ -392,7 +407,7 @@ class Call:
         try:
             self._core._wc.end_stream(self._s)
         except wire.WireError as e:
-            await self._raise(e)
+            await self._write_failed(e)
         self._core._flush()
 
     async def reply_to(self, payload: bytes) -> None:

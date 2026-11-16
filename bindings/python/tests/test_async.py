@@ -715,3 +715,43 @@ def test_core_exited_with_a_busy_executor(server: Server) -> None:
             await blocker
 
     run(main)
+
+
+def test_a_rejected_body_raises_the_cores_error(server: Server) -> None:
+    """A core that rejects a call's body or the call replies with why, then
+    resets it: a write waiting for credit raises the reply's error, not a
+    cancel."""
+
+    async def main() -> None:
+        jar = await aio.new_jar()
+        with pytest.raises(mimicry.MimicryError) as e:
+            await jar.read_json(io.BytesIO(b"x" * (1 << 20)))
+        assert not isinstance(e.value, mimicry.CanceledError), repr(e.value)
+        with pytest.raises(mimicry.MimicryError) as e:
+            await jar.read_netscape(io.BytesIO(b"x" * (1 << 20)))
+        assert not isinstance(e.value, mimicry.CanceledError), repr(e.value)
+        async with await aio.new_client(config()) as c:
+            # A call over the core's 64 MiB limit, sent as DATA by open().
+            with pytest.raises(mimicry.InvalidError):
+                await c.plan(Request("POST", server.url("/echo"), body=b"x" * (65 << 20)))
+
+    run(main)
+
+
+def test_websocket_close_with_messages_unread(server: Server) -> None:
+    """close() with more than a window of messages unread returns, frees the
+    socket in the core, and a second close (``async with``) is a no-op."""
+
+    async def main() -> None:
+        async with await aio.new_client(config()) as c:
+            async with await c.dial_websocket(server.ws_url()) as ws:
+                for i in range(4):
+                    await ws.write_message(MessageType.BINARY, bytes([i]) * 200_000)
+                await ws.close(1000, "")
+                with pytest.raises(mimicry.CloseError):
+                    await ws.read_message()
+            # Freed: the core no longer knows the id.
+            with pytest.raises(mimicry.MimicryError):
+                await c.core.call(pb.Call(close=pb.Close(id=ws._id)))
+
+    run(main)

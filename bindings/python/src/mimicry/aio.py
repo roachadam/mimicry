@@ -382,6 +382,10 @@ class AsyncResponse:
 
     async def close(self) -> None:
         """Stop reading: a body not read to its end is canceled (RESET)."""
+        self._abort()
+
+    def _abort(self) -> None:
+        """:meth:`close`, on the loop without awaiting."""
         if not self._done:
             self._finish()
         if self._upload is not None and not self._upload.done():
@@ -411,6 +415,7 @@ class AsyncWebSocket:
         # leaves it here, and the next read goes on from it.
         self._rbuf = bytearray()
         self._end: MimicryError | None = None
+        self._closed = False
         self._core.socket_opened(ws.id)
         self._finalizer = weakref.finalize(self, _drop_socket, weakref.ref(self._core), call, ws.id)
 
@@ -463,27 +468,57 @@ class AsyncWebSocket:
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
         """Close the socket with ``code`` and ``reason``, returning once the
-        close handshake is done (Go's ``WebSocket.Close``)."""
-        await self._core.call(pb.Call(close_websocket=pb.CloseWebSocket(websocket=self._id, code=code, reason=reason)))
-        async with self._wlock:
-            if not self._call.ended:
+        close handshake is done (Go's ``WebSocket.Close``), and free it.
+        Messages not read are dropped; a read after it raises why it closed."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            await self._core.call(
+                pb.Call(close_websocket=pb.CloseWebSocket(websocket=self._id, code=code, reason=reason))
+            )
+            async with self._wlock:
+                if not self._call.ended and not self._call.write_ended:
+                    try:
+                        await self._call.end()
+                    except MimicryError:
+                        pass
+            # Read what the server sent before its close: the core's end
+            # record and END wait behind it for credit. The read that raises
+            # is the socket's end, kept for later reads.
+            while True:
                 try:
-                    await self._call.end()
+                    await self.read_message()
                 except MimicryError:
-                    pass
+                    break
+        finally:
+            await self._release()
+
+    async def _release(self) -> None:
+        """Free the socket's call and the socket in the core."""
+        self._closed = True
+        self._finalizer.detach()
+        self._call.close()
+        self._core.socket_closed(self._id)
+        if self._core.usable:
+            try:
+                await self._core.call(pb.Call(close=pb.Close(id=self._id)))
+            except MimicryError:
+                pass
 
     async def __aenter__(self) -> AsyncWebSocket:
         return self
 
     async def __aexit__(self, *exc: object) -> None:
-        if not self._call.ended and self._end is None:
-            try:
-                await self.close()
-            except MimicryError:
-                pass
-        self._finalizer.detach()
-        self._call.close()
-        self._core.socket_closed(self._id)
+        if self._closed:
+            return
+        if self._end is not None or self._call.ended:
+            await self._release()
+            return
+        try:
+            await self.close()
+        except MimicryError:
+            pass
 
 
 def _consume(f: asyncio.Future[Any]) -> None:
@@ -501,6 +536,7 @@ def _drop_socket(ref: weakref.ref[AsyncCore], call: Call, websocket: int) -> Non
     def drop() -> None:
         call.close()
         core.socket_closed(websocket)
+        core.free(websocket)
 
     try:
         core._loop.call_soon_threadsafe(drop)

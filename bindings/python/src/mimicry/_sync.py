@@ -13,6 +13,7 @@ import concurrent.futures
 import dataclasses
 import os
 import socket
+import sys
 import threading
 from collections.abc import Callable, Coroutine, Iterator, Sequence
 from typing import Any, TypeVar
@@ -67,6 +68,10 @@ class _Runtime:
         loop.run_forever()
 
     def run(self, coro: Coroutine[Any, Any, _T]) -> _T:
+        if sys.is_finalizing():
+            # The loop's thread is gone: its result would never come.
+            coro.close()
+            raise MimicryError("the interpreter is exiting: mimicry's thread has stopped")
         loop = self._loop()
         if threading.current_thread() is self.thread:
             coro.close()
@@ -80,6 +85,16 @@ class _Runtime:
             if not fut.done():
                 fut.cancel()
             raise
+
+    def call_soon(self, fn: Callable[[], object]) -> None:
+        """Run ``fn`` on the loop without waiting for it."""
+        loop = self.loop
+        if loop is None or loop.is_closed():
+            return
+        try:
+            loop.call_soon_threadsafe(fn)
+        except RuntimeError:
+            pass
 
     def callbacks(self) -> concurrent.futures.ThreadPoolExecutor:
         """The worker thread on_set_cookie callbacks run on, in order."""
@@ -279,7 +294,9 @@ class Response:
                 yield chunk
         finally:
             if not a._done:
-                _run(a.close())
+                # Closing waits for nothing, so don't wait for the loop: a
+                # generator closed while the interpreter exits has no loop.
+                _rt.call_soon(a._abort)
 
     def close(self) -> None:
         """Stop reading: a body not read to its end is canceled."""

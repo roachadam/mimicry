@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 import stat
+import subprocess
+import sys
 import threading
 import tracemalloc
 from collections.abc import Iterator
@@ -18,7 +20,7 @@ import mimicry
 from mimicry import Kind, MessageType, Request
 
 from .conftest import config
-from .server import Server
+from .server import CA, Server
 
 
 def echo(resp: mimicry.Response) -> dict[str, object]:
@@ -143,3 +145,17 @@ def test_profile_names_resolve() -> None:
     for fn in (mimicry.profiles.chrome_macos, mimicry.profiles.firefox_windows, mimicry.profiles.safari_ios):
         name = fn().resolve(lst.supported)
         assert name in lst.supported and name.startswith(fn().browser)
+
+
+def test_exit_with_a_body_half_read(server: Server) -> None:
+    """A process exits while an iter_bytes generator is half read: closing
+    it at interpreter exit does not wait for mimicry's thread."""
+    script = (
+        "import mimicry\n"
+        "from mimicry import Config, Request, profiles\n"
+        f"c = mimicry.new_client(Config(root_cas={CA!r}, profile=profiles.chrome_macos()))\n"
+        f"r = c.do(Request('GET', {server.url('/bytes/10485760')!r}))\n"
+        "it = r.iter_bytes()\n"
+        "next(it)\n"
+    )
+    subprocess.run([sys.executable, "-c", script], timeout=60, check=True)
