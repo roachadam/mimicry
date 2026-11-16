@@ -746,10 +746,10 @@ this is why they are what they are.
   writer as the peer gone (EPIPE or ECONNRESET on the socket, a broken
   pipe on Windows' pipes, `io.ErrClosedPipe` on the tests' `net.Pipe`),
   and which comes first is a race; `Serve` returns nil for both, so the
-  core exits 0 with nothing on stderr. A truncated frame, a protocol error,
-  the SDK's RESET of the connection and any other I/O error stay
-  failures. `net.ErrClosed` is not the peer: only the core's own close
-  causes it.
+  core exits 0 with nothing on stderr. A reset is the SDK leaving wherever
+  it lands, mid-frame too. A frame cut short by EOF, a protocol error, the
+  SDK's RESET of the connection and any other I/O error stay failures.
+  `net.ErrClosed` is not the peer: only the core's own close causes it.
 
 What v1 leaves out, each until a user asks:
 

@@ -148,15 +148,20 @@ func (s *session) serve() error {
 // frames when it was reading (ErrConnClosed itself) and as the peer gone
 // when it was writing: io.ErrClosedPipe on a net.Pipe, EPIPE or
 // ECONNRESET on the socket, a broken pipe on Windows' pipes. Which of the
-// two sees the close first is a race, so both are the SDK leaving. A
-// truncated frame, a protocol error, the SDK's RESET of the connection
-// and any other I/O error stay errors.
+// two sees the close first is a race, so both are the SDK leaving; a
+// reset is the SDK leaving wherever it lands, mid-frame too. A frame cut
+// short by EOF (ErrTruncated), a protocol error, the SDK's RESET of the
+// connection and any other I/O error stay errors.
 func (s *session) ended(err error) error {
 	if s.ctx.Err() != nil {
 		return context.Cause(s.ctx)
 	}
 
-	if err == wire.ErrConnClosed || peerGone(err) { //nolint:errorlint // the sentinel itself, not one wrapping it
+	if err == wire.ErrConnClosed { //nolint:errorlint // the sentinel itself, not one wrapping it
+		return nil
+	}
+
+	if peerGone(err) {
 		return nil
 	}
 
