@@ -8,8 +8,8 @@
 # check to require: it passes when every job passed, or when a pull request
 # touches only docs and the jobs were skipped. Each job stays under 15
 # minutes; the harness tests are split into shards
-# (.github/scripts/harness-shard.sh). test-node runs the Node SDK's jobs
-# (node.yml). CodeQL is codeql.yml.
+# (.github/scripts/harness-shard.sh). test-node and test-python run the
+# Node and Python SDKs' jobs (node.yml, python.yml). CodeQL is codeql.yml.
 name: CI
 
 on:
@@ -229,11 +229,20 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     uses: ./.github/workflows/node.yml
 
+  # The Python SDK's tests (Linux, macOS, Windows), lint, the harness's
+  # comparison of its requests with the Go client's, and its wheels
+  # (python.yml).
+  test-python:
+    name: test-python
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    uses: ./.github/workflows/python.yml
+
   # The check branch protection requires. A tier a pull request leaves out
   # is no job, only fewer shards, so a skipped job is a docs-only change.
   ci-ok:
     name: ci-ok
-    needs: [changes, lint, test-root, vuln, test-harness, test-node]
+    needs: [changes, lint, test-root, vuln, test-harness, test-node, test-python]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 15

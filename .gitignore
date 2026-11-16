@@ -57,3 +57,13 @@ mimicry-realcheck/
 # Local-only workspace for trying unmerged changes in ../utls (see AGENTS.md)
 go.work
 go.work.sum
+
+# The Python SDK (bindings/python): the core built into the package, the
+# development environment, build output and tool caches
+/bindings/python/src/mimicry/_bin/
+/bindings/python/.venv/
+/bindings/python/dist/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

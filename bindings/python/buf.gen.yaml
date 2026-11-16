@@ -1,0 +1,13 @@
+# Python code for the schema, checked in at src/mimicry/_pb. Run from the
+# repository root (moon run python:proto). The plugins are buf's remote
+# builds of protoc's Python and .pyi generators, pinned: protobuf 6.30's
+# code, which pyproject.toml's protobuf>=6.30.0 runs. tests/test_generated.py
+# fails while the checked-in code differs from the Go code's schema.
+version: v2
+inputs:
+  - directory: proto
+plugins:
+  - remote: buf.build/protocolbuffers/python:v30.0
+    out: bindings/python/src/mimicry/_pb
+  - remote: buf.build/protocolbuffers/pyi:v30.0
+    out: bindings/python/src/mimicry/_pb

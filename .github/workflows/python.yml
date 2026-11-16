@@ -1,0 +1,110 @@
+# The Python SDK (bindings/python, decision 0069), called by ci.yml as
+# test-python: its tests on Linux, macOS and Windows (the oldest and the
+# newest Python it supports, the oldest protobuf runtime it allows too)
+# against the core built from this commit; its lint (ruff, mypy); the
+# harness's comparison of its requests with the Go client's (Linux); and
+# its wheels for every platform, built and checked, never published.
+name: Python SDK
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+
+jobs:
+  test:
+    name: python (${{ matrix.os }}, ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.11', '3.15']
+    defaults:
+      run:
+        shell: bash
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: python-${{ matrix.os }}
+          # One leg per OS saves the cache both legs share.
+          save: ${{ github.ref == 'refs/heads/main' && matrix.python == '3.15' }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      # A directory for -o: Go names the binary (.exe on Windows).
+      - name: build mimicry-core into the package
+        run: CGO_ENABLED=0 go build -trimpath -o bindings/python/src/mimicry/_bin/ ./cmd/mimicry-core
+      - name: uv sync
+        working-directory: bindings/python
+        run: uv sync --locked
+      # The oldest protobuf runtime pyproject.toml allows reads the
+      # generated code too.
+      - if: matrix.python == '3.11'
+        working-directory: bindings/python
+        run: uv pip install protobuf==6.30.0
+      - name: pytest
+        working-directory: bindings/python
+        run: uv run --no-sync pytest
+      - name: ruff, mypy
+        if: runner.os == 'Linux' && matrix.python == '3.15'
+        working-directory: bindings/python
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+          uv run --no-sync mypy
+          uv run --no-sync mypy --platform win32 src
+      # The Python SDK's requests and WebSockets against the Go client's,
+      # as the server and the proxy record them
+      # (internal/harness/e2e/python_test.go).
+      - name: harness (requests through the Python SDK match the Go client's)
+        if: runner.os == 'Linux' && matrix.python == '3.15'
+        working-directory: internal/harness
+        run: |
+          MIMICRY_PYTHON="$GITHUB_WORKSPACE/bindings/python/.venv/bin/python" \
+            go test -count=1 -timeout 12m -run '^TestPythonSDKMatchesGo' ./e2e
+
+  # A wheel per platform, each carrying its core cross-compiled here
+  # (static, CGO_ENABLED=0: one Linux build serves glibc and musl). The
+  # manylinux and musllinux x86-64 wheels are installed and run in a clean
+  # glibc and Alpine Python.
+  wheels:
+    name: python wheels
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: python-wheels
+          save: ${{ github.ref == 'refs/heads/main' }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - name: build the wheels
+        run: bash bindings/python/build-wheels.sh dist
+      - name: install and run the Linux wheels
+        run: |
+          uv venv /tmp/glibc
+          uv pip install -p /tmp/glibc dist/*manylinux*_x86_64*.whl
+          /tmp/glibc/bin/python -c 'import mimicry; print(mimicry.list_profiles().supported[:3])'
+          docker run --rm -v "$PWD/dist:/dist:ro" python:3.13-alpine sh -c \
+            'pip install -q /dist/*musllinux*_x86_64*.whl && python -c "import mimicry; print(mimicry.list_profiles().supported[:3])"'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-wheels
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 7

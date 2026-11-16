@@ -12,6 +12,7 @@ fileGroups:
     - 'go.sum'
     - '!internal/harness/**'
     - '!internal/bench/**'
+    - '!bindings/**'
   testdata:
     - 'profiles/data/**'
     # TestGenerated (internal/rpc/pb) compiles the schema.
@@ -19,6 +20,7 @@ fileGroups:
     - '**/testdata/**'
     - '!internal/harness/**'
     - '!internal/bench/**'
+    - '!bindings/**'
 
 tasks:
   # Lints the protocol's schema (proto/) and generates its Go code into
