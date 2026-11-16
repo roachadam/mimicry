@@ -1,0 +1,159 @@
+# The Node SDK (bindings/node, decision 0069), called by ci.yml's test-node
+# job (so ci-ok counts it) whenever a change touches code. Bun installs the
+# dependencies (bun.lock) and runs the scripts; the SDK and its tests run
+# under Node, which is what users run. test runs the SDK's tests (bun run
+# test, which is node --test: the wire vectors, the SDK against a local
+# server through the real core, the lifecycle tests, and on Windows the
+# stdio pipe checks) on Linux with each supported Node LTS line and on
+# macOS and Windows with one; its Linux Node 24 leg also type-checks,
+# lints and checks the generated code. harness proves requests through the
+# SDK are the Go client's on the wire (TestNodeMatchesGo*). pack builds
+# every npm package (not published) and installs the host's from the
+# tarballs with npm, as users do.
+name: Node SDK
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+
+jobs:
+  test:
+    name: node (${{ matrix.os }}, ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            node: '22'
+          - os: ubuntu-latest
+            node: '24'
+            check: true
+            save: true
+          - os: ubuntu-latest
+            node: '26'
+          - os: macos-latest
+            node: '24'
+            save: true
+          - os: windows-latest
+            node: '24'
+            save: true
+    defaults:
+      run:
+        working-directory: bindings/node
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Go caches are per runner OS: one leg of each saves them.
+      - uses: ./.github/actions/setup
+        with:
+          cache: node-sdk
+          save: ${{ github.ref == 'refs/heads/main' && matrix.save == true }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
+      # Pushes to main save it, from one leg per runner OS.
+      - if: github.ref == 'refs/heads/main' && matrix.save == true
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - name: tsc, eslint, generated code
+        if: matrix.check
+        run: bun run check
+      # node --test under the matrix's Node.
+      - name: bun run test
+        run: bun run test
+
+  harness:
+    name: node (harness, byte-identical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: test-harness
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
+        working-directory: bindings/node
+      # Fails rather than skips if Node or the SDK's dependencies are missing.
+      - name: TestNodeMatchesGo*
+        working-directory: internal/harness
+        env:
+          MIMICRY_NODE_SDK: '1'
+        run: go test -race -count=1 -timeout 12m -run 'TestNodeMatchesGo' ./e2e
+
+  pack:
+    name: node (pack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: bindings/node
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          cache: node-sdk
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      # Bun installs and runs the scripts; Node runs the SDK and its tests.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bindings/node/bun.lock') }}
+      - run: bun install --frozen-lockfile
+      - name: the main package and one per platform
+        run: bun run pack:all
+      # From the tarballs alone, with npm as a user's project would: the
+      # host's core comes from its platform package, not MIMICRY_CORE or PATH.
+      - name: install and use the host's packages
+        run: |
+          name=$(node -p 'require("./package.json").name')
+          dir=$(mktemp -d)
+          cp build/packages/"$name"-[0-9]*.tgz build/packages/"$name"-linux-x64-*.tgz "$dir"
+          cd "$dir"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund ./*.tgz
+          PKG=$name node --input-type=module -e 'const { listProfiles } = await import(process.env.PKG); const p = await listProfiles(); if (p.supported.length === 0) throw new Error("no profiles"); console.log(p.supported.length, "profiles")'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-packages
+          path: bindings/node/build/packages/
+          retention-days: 7

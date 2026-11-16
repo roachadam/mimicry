@@ -1,0 +1,15 @@
+# The schema's JavaScript code and its types (protobuf-es), checked in at
+# src/gen. Run from bindings/node: npm run gen (buf pinned in
+# scripts/gen.ts, protoc-gen-es in package.json); npm run gen:check fails
+# while the checked-in code differs. JavaScript and .d.ts rather than
+# TypeScript: protobuf-es writes TypeScript enums, which Node's type
+# stripping (the tests run src/ as it is) does not take.
+version: v2
+inputs:
+  - directory: ../../proto
+plugins:
+  - local: node_modules/.bin/protoc-gen-es
+    out: src/gen
+    opt:
+      - target=js+dts
+      - import_extension=js
