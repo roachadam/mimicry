@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -480,6 +481,130 @@ func TestDisconnectFreesEverything(t *testing.T) {
 		}
 
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// An SDK that disconnects while the core writes is a disconnect like one
+// the core's reader sees between frames: Serve returns nil. A real
+// disconnect closes both directions at once, and which of the core's
+// reader (EOF) and writer (io.ErrClosedPipe, EPIPE, ECONNRESET) sees it
+// first is a race; here only the SDK's reading side closes, so the writer
+// sees it first, while answering Hello and while answering a call.
+func TestDisconnectWhileWriting(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		hello bool
+	}{
+		{
+			name: "Hello's reply",
+		},
+		{
+			name:  "a call's reply",
+			hello: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			coreR, sdkW := net.Pipe()
+			sdkR, coreW := net.Pipe()
+
+			t.Cleanup(func() {
+				_ = sdkW.Close()
+				_ = sdkR.Close()
+			})
+
+			done := make(chan error, 1)
+
+			go func() {
+				done <- Serve(context.Background(), &splitConn{
+					r: coreR,
+					w: coreW,
+				}, Config{
+					Version: "test",
+				})
+			}()
+
+			sendCall(t, sdkW, 1, &pb.Call{
+				Method: &pb.Call_Hello{
+					Hello: &pb.Hello{
+						ProtocolMajor: pb.ProtocolMajor,
+					},
+				},
+			})
+
+			if tc.hello {
+				// The REPLY: a 10-byte header, then its payload.
+				head := make([]byte, 10)
+				if _, err := io.ReadFull(sdkR, head); err != nil {
+					t.Fatal(err)
+				}
+
+				if _, err := io.ReadFull(sdkR, make([]byte, binary.BigEndian.Uint32(head[6:]))); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			_ = sdkR.Close()
+
+			if tc.hello {
+				sendCall(t, sdkW, 3, &pb.Call{
+					Method: &pb.Call_ListProfiles{
+						ListProfiles: &pb.ListProfiles{},
+					},
+				})
+			}
+
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Errorf("Serve: %v, want nil", err)
+				}
+
+			case <-time.After(10 * time.Second):
+				t.Fatal("Serve did not return")
+			}
+		})
+	}
+}
+
+// splitConn is the core's end of a connection made of one net.Pipe per
+// direction, so that the SDK can close one direction alone.
+type splitConn struct {
+	r net.Conn
+	w net.Conn
+}
+
+func (c *splitConn) Read(p []byte) (int, error) {
+	return c.r.Read(p)
+}
+
+func (c *splitConn) Write(p []byte) (int, error) {
+	return c.w.Write(p)
+}
+
+func (c *splitConn) Close() error {
+	_ = c.r.Close()
+
+	return c.w.Close()
+}
+
+// sendCall writes c as a CALL frame with END on stream id, by hand: the
+// header is stream u32, type u8 (CALL is 1), flags u8 (END is 1) and
+// length u32.
+func sendCall(t *testing.T, w io.Writer, id uint32, c *pb.Call) {
+	t.Helper()
+
+	b, err := proto.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	frame := binary.BigEndian.AppendUint32(nil, id)
+
+	frame = append(frame, 1, 1)
+	frame = binary.BigEndian.AppendUint32(frame, uint32(len(b)))
+
+	if _, err := w.Write(append(frame, b...)); err != nil {
+		t.Fatal(err)
 	}
 }
 
