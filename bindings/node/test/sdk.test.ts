@@ -10,6 +10,7 @@ import type http2 from "node:http2";
 import { tmpdir } from "node:os";
 import { Writable } from "node:stream";
 import { join } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { after, afterEach, before, describe, test } from "node:test";
 
 import { create } from "@bufbuild/protobuf";
@@ -19,6 +20,7 @@ import { errorFromPb } from "../src/errors.ts";
 import { Code, ErrorSchema } from "../src/gen/mimicry/v1/mimicry_pb.js";
 import {
   CORSError,
+  CanceledError,
   CertRole,
   CloseError,
   CoreExited,
@@ -349,6 +351,22 @@ describe("streams", () => {
     await closed.promise;
   });
 
+  test("a body's error read after the core reset the call is still the core's", async () => {
+    routes.set("/cut", (req, res) => {
+      (res as http.ServerResponse).write("first");
+      setTimeout(() => (req as http.IncomingMessage).socket.destroy(), 200);
+    });
+
+    const c = closing(await newClient({ profile }));
+    const r = await c.do({ url: `${server.plain}/cut` });
+    const reader = r.body.getReader();
+    assert.equal(Buffer.from((await reader.read()).value ?? []).toString(), "first");
+    // No read may wait while the core reports the error and resets the
+    // call; the SDK exposes no signal for that moment, so this waits.
+    await sleep(1000);
+    await assert.rejects(reader.read(), (e: unknown) => e instanceof NetError);
+  });
+
   test("AbortSignal.timeout is a timeout", async () => {
     routes.set("/never", () => undefined);
     const c = closing(await newClient({ profile }));
@@ -375,6 +393,19 @@ describe("WebSockets", () => {
     assert.deepEqual([...m2.data], [0, 1, 2, 255]);
     const m3 = await ws.readMessage();
     assert.ok(Buffer.from(m3.data).equals(big));
+
+    await ws.close(1000, "");
+    await assert.rejects(ws.readMessage(), (e: unknown) => e instanceof CloseError && e.closeCode === 1000);
+  });
+
+  test("close returns with more than a window of messages unread", { timeout: 20_000 }, async () => {
+    const c = closing(await newClient({ profile }));
+    await (await c.do({ url: `${server.plain}/` })).text();
+    const ws = await c.dialWebSocket(`${server.ws}/echo`, { page: `${server.plain}/` });
+
+    for (let i = 0; i < 4; i++) {
+      await ws.writeMessage(MessageType.Binary, Buffer.alloc(200 << 10, i));
+    }
 
     await ws.close(1000, "");
     await assert.rejects(ws.readMessage(), (e: unknown) => e instanceof CloseError && e.closeCode === 1000);
@@ -544,6 +575,13 @@ describe("saved state", () => {
     assert.equal((await fromTxt.all()).length, 2);
 
     await tickets.readJSON(tj);
+  });
+
+  test("a rejected load larger than a window throws the core's error", async () => {
+    const jar = closing(await newJar({ rules: profile }));
+    const notCanceled = (e: unknown): boolean => e instanceof MimicryError && !(e instanceof CanceledError);
+    await assert.rejects(jar.readJSON(Buffer.alloc(MiB, "x")), notCanceled);
+    await assert.rejects(jar.readNetscape(Buffer.alloc(2 * MiB, "x")), notCanceled);
   });
 });
 

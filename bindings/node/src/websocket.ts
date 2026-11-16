@@ -248,8 +248,18 @@ export class WebSocket extends CoreObject {
       await this.core.call({ case: "closeWebsocket", value: { websocket: this.id, code, reason } });
       await this.writeLock;
       await this.k.closeWrite().catch(() => undefined);
-      // The core's end record and END follow the handshake: wait for
-      // them, so a read after close returns why it closed.
+      // Read what the server sent before its close: the core holds its
+      // end record and END behind them until credit lets them through.
+      // The read that fails is the socket's end, and later reads throw
+      // why it closed.
+      for (;;) {
+        try {
+          await this.readMessage();
+        } catch {
+          break;
+        }
+      }
+
       await this.core.track(this.k.stream.ended);
     } catch (e) {
       // A socket that had already closed has nothing to close.

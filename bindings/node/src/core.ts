@@ -465,14 +465,21 @@ export class CallStream {
   readonly core: Core;
   readonly stream: Stream;
   private readonly signal: AbortSignal | undefined;
+  // The core's StreamError for this call, kept past its RESET: a body
+  // read after the stream ended still raises the core's error.
+  private streamError: PbError | undefined;
 
   constructor(core: Core, stream: Stream, signal: AbortSignal | undefined) {
     this.core = core;
     this.stream = stream;
     this.signal = signal;
     void stream.ended.then(() => {
-      // Its StreamError has been read, or nothing will read it.
-      setImmediate(() => this.core.streamErrors.delete(stream.id));
+      // The StreamError event precedes the RESET on the connection, but
+      // the event loop may handle it a turn later.
+      setImmediate(() => {
+        this.streamError ??= this.core.streamErrors.get(stream.id);
+        this.core.streamErrors.delete(stream.id);
+      });
     });
   }
 
@@ -481,9 +488,27 @@ export class CallStream {
   private wrap<T>(p: Promise<T>): Promise<T> {
     return this.core.track(
       p.catch(async (e: unknown) => {
+        if (e instanceof WireError && e.remote && !e.conn && this.streamError !== undefined) {
+          throw errorFromPb(this.streamError);
+        }
+
         throw await this.core.mapError(e, this.stream.id, this.signal);
       }),
     );
+  }
+
+  // rejected is the error for a failed write of the call's body: a core
+  // that rejects the body replies with why and then resets the call, so
+  // a reset after a REPLY carrying an error raises that error.
+  private async rejected(e: unknown): Promise<never> {
+    if (e instanceof WireError && e.remote && !e.conn && this.stream.replyPayload !== null) {
+      const r = await this.reply().catch(() => null);
+      if (r?.error !== undefined) {
+        throw errorFromPb(r.error);
+      }
+    }
+
+    throw e;
   }
 
   /** Waits for the reply, reading it from DATA when continued. */
@@ -506,11 +531,11 @@ export class CallStream {
   }
 
   write(b: Uint8Array): Promise<void> {
-    return this.wrap(this.stream.write(b));
+    return this.wrap(this.stream.write(b).catch((e: unknown) => this.rejected(e)));
   }
 
   closeWrite(): Promise<void> {
-    return this.wrap(this.stream.closeWrite());
+    return this.wrap(this.stream.closeWrite().catch((e: unknown) => this.rejected(e)));
   }
 
   /** Ends the call, resetting it if it has not ended. */
