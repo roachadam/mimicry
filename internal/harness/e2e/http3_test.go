@@ -256,33 +256,38 @@ func firstPageDelay(browser *capture.Page, host string, steps []server.H3Step) t
 	return 0
 }
 
-// quicUpWait bounds how long headStart waits for mimicry's QUIC connection
+// quicUpWait bounds how long awaitH3 waits for mimicry's QUIC connection
 // to come up: a handshake on loopback takes milliseconds, a second or two
 // on a loaded machine. Past it the page goes on, and its comparison fails.
 const quicUpWait = 10 * time.Second
 
 // headStart gives the page at / the browser's head start before its first
-// request, the first of next: firstPageDelay, and then, where the browser
-// sent that request over HTTP/3, as long as mimicry would send it over TCP
-// (Transport.Plan; up to quicUpWait). The browser's connection was up long
-// before: Firefox's, validated in the background after the Alt-Svc, sent
-// its Finished 0–4 ms after it started and carried the page's first
-// request 49–253 ms after (every h3-discovery and h3-page sample). On a
-// loaded machine mimicry's handshake can outlast the head start, and its
-// requests then rightly go on TCP, as Firefox's would before validation:
-// the comparison is of where requests go with the connection in the
-// browser's state, not of how long a handshake takes on this machine.
+// request, the first of next: firstPageDelay, then awaitH3.
 func headStart(s *pageSession, browser *capture.Page, steps, next []server.H3Step, page *url.URL) {
+	s.t.Helper()
+
+	pause(s.t, firstPageDelay(browser, steps[0].Host, steps))
+
+	if len(next) > 0 && transports(browser)[next[0].Path()].proto == "h3" {
+		awaitH3(s, next[0], page)
+	}
+}
+
+// awaitH3 holds st, the page's first request, which the browser sent over
+// HTTP/3, as long as mimicry would send it over TCP (Transport.Plan; up to
+// quicUpWait). The browser's connection was up long before: Firefox's,
+// validated in the background after the Alt-Svc, sent its Finished 0–4 ms
+// after it started and carried the page's first request 49–253 ms after
+// (every h3-discovery and h3-page sample; 56–142 ms in h3-resume-table's).
+// On a loaded machine mimicry's handshake can outlast that head start, and
+// its requests then rightly go on TCP, as Firefox's would before
+// validation: the comparison is of where requests go with the connection
+// in the browser's state, not of how long a handshake takes on this
+// machine.
+func awaitH3(s *pageSession, st server.H3Step, page *url.URL) {
 	t := s.t
 	t.Helper()
 
-	pause(t, firstPageDelay(browser, steps[0].Host, steps))
-
-	if len(next) == 0 || transports(browser)[next[0].Path()].proto != "h3" {
-		return
-	}
-
-	st := next[0]
 	method, r, h := h3StepRequest(st, page)
 
 	req, err := s.request(method, s.url(st.Host, st.Path()), r, h, st.Body)
