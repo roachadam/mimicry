@@ -3,7 +3,7 @@
 HTTP requests the way Chrome, Firefox and Safari send them (the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects), from Python. This is the Python SDK of [mimicry](https://github.com/roachadam/mimicry), a Go library: each Python process starts its own `mimicry-core`, mimicry built as a small static program shipped inside the wheel, and talks to it over a socketpair (two anonymous pipes on Windows). Why it is built this way, and what was measured, is in [decision 0069](../../docs/decisions/0069-language-bindings.md).
 
 > [!WARNING]
-> Pre-release, not published yet. The distribution name `mimicry-http` is provisional; the import name is `mimicry`. The API may change before 1.0.
+> Pre-release: the API may change before 1.0. The distribution is `mimicry-http`, the import name `mimicry`. Each version is published from this repository's release workflow with PyPI attestations ([releasing](../../docs/releasing.md#checking-a-release)).
 
 Python 3.11 or later, on Linux (glibc or musl), macOS 13 or later, and Windows; x86-64 and arm64. The one dependency is `protobuf` (6.30 or later).
 

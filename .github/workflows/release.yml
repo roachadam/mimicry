@@ -1,35 +1,313 @@
-# A v* tag runs the full gate (lint, and the tests against every supported
-# profile, as `moon run :vet :lint :test-full` does), then opens a draft
-# GitHub Release with generated notes for the maintainer to finish. No
-# binaries: mimicry is a library.
+# A v* tag releases the Go module, and the Python and Node SDKs built from
+# the same commit (decision 0069; docs/releasing.md):
+#
+#   gate       the full CI (every tier, every profile), as before
+#   core       mimicry-core for each platform, built twice and compared
+#   wheels     the Python wheels, carrying those cores
+#   npm        the npm packages, carrying the same cores
+#   attest     GitHub build provenance for every file above
+#   draft      a draft GitHub Release with the files and their SHA256SUMS
+#   pypi, npm-stage
+#              wait for a maintainer's approval in the `publish` environment,
+#              then upload with trusted publishing (OIDC, no tokens): the
+#              wheels to PyPI with PEP 740 attestations, the npm tarballs to
+#              npm's staging area with provenance, where they stay until a
+#              maintainer approves them on npmjs.com with 2FA.
+#
+# The maintainer publishes the GitHub Release last, which locks its tag and
+# files (immutable releases).
+#
+# Nothing here restores or saves a cache (a poisoned cache is how
+# ultralytics' release was hijacked), the publish jobs check out no code and
+# run nothing of the repository's, and each job holds only the permissions
+# it uses. Run by hand (workflow_dispatch) it is a dry run: the builds and
+# their checks, nothing attested, drafted or published.
 name: Release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version a dry run stamps (X.Y.Z or X.Y.Z-rc.N).
+        default: 0.0.0
+      gate:
+        description: Run the full CI gate too.
+        type: boolean
+        default: false
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
 
+env:
+  # The Go in .prototools, never a download go.mod asks for.
+  GOTOOLCHAIN: local
+
 jobs:
+  # The tag's version for each registry: v1.2.3 is 1.2.3 everywhere;
+  # v1.2.3-rc.4 is 1.2.3-rc.4 on npm (dist-tag next) and 1.2.3rc4 on PyPI.
+  version:
+    name: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      npm: ${{ steps.v.outputs.npm }}
+      python: ${{ steps.v.outputs.python }}
+      dist-tag: ${{ steps.v.outputs.dist-tag }}
+    steps:
+      - id: v
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          if [ "$EVENT" = push ]; then v=${REF_NAME#v}; else v=$INPUT; fi
+          if [[ ! $v =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-rc\.([0-9]+))?$ ]]; then
+            echo "::error::version $v is neither X.Y.Z nor X.Y.Z-rc.N"
+            exit 1
+          fi
+          if [ -n "${BASH_REMATCH[3]}" ]; then
+            python="${BASH_REMATCH[1]}rc${BASH_REMATCH[3]}" tag=next
+          else
+            python=$v tag=latest
+          fi
+          {
+            echo "npm=$v"
+            echo "python=$python"
+            echo "dist-tag=$tag"
+          } >>"$GITHUB_OUTPUT"
+          echo "npm $v ($tag), PyPI $python"
+
   gate:
     name: gate
+    if: github.event_name == 'push' || inputs.gate
+    permissions:
+      contents: read
     uses: ./.github/workflows/ci.yml
     with:
       full: true
 
+  core:
+    name: core
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
+        with:
+          auto-install: true
+          cache: 'false'
+      - name: build mimicry-core for every platform
+        env:
+          VERSION: v${{ needs.version.outputs.npm }}
+        run: bash bindings/build-core.sh dist/core "$VERSION"
+      # The same commit and Go build the same bytes: a second build that
+      # differs means something else went into the first.
+      - name: build again and compare
+        env:
+          VERSION: v${{ needs.version.outputs.npm }}
+        run: |
+          bash bindings/build-core.sh "$RUNNER_TEMP/again" "$VERSION" >/dev/null
+          diff dist/core/SHA256SUMS "$RUNNER_TEMP/again/SHA256SUMS"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core
+          path: dist/core/
+          if-no-files-found: error
+          retention-days: 30
+
+  wheels:
+    name: python wheels
+    needs: [version, core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      UV_NO_CACHE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: core
+          path: ${{ runner.temp }}/core
+      # The build backend comes pinned with hashes (build-constraints.txt).
+      - name: build the wheels
+        env:
+          MIMICRY_CORE_DIR: ${{ runner.temp }}/core
+          MIMICRY_VERSION: ${{ needs.version.outputs.python }}
+        run: bash bindings/python/build-wheels.sh dist/python
+      - name: install and run the Linux wheels
+        env:
+          VERSION: ${{ needs.version.outputs.python }}
+        run: |
+          check='import importlib.metadata as m, mimicry; assert m.version("mimicry-http") == "'"$VERSION"'"; print(len(mimicry.list_profiles().supported), "profiles")'
+          uv venv "$RUNNER_TEMP/glibc"
+          uv pip install -p "$RUNNER_TEMP/glibc" dist/python/*manylinux*_x86_64*.whl
+          "$RUNNER_TEMP/glibc/bin/python" -c "$check"
+          docker run --rm -v "$PWD/dist/python:/dist:ro" \
+            python:3.13-alpine@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e \
+            sh -c 'pip install -q /dist/*musllinux*_x86_64*.whl && python -c "$0"' "$check"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python
+          path: dist/python/*.whl
+          if-no-files-found: error
+          retention-days: 30
+
+  npm:
+    name: npm packages
+    needs: [version, core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: bindings/node
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: bindings/node/package.json
+          no-cache: true
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: core
+          path: ${{ runner.temp }}/core
+      # The lockfile's packages and nothing else, and none of their scripts.
+      - run: bun install --frozen-lockfile --ignore-scripts --no-cache
+      - name: the main package and one per platform
+        env:
+          VERSION: ${{ needs.version.outputs.npm }}
+        run: node scripts/pack.ts --version "$VERSION" --core "$RUNNER_TEMP/core"
+      # From the tarballs alone, with npm, as a user's project would.
+      - name: install and use the Linux packages
+        env:
+          VERSION: ${{ needs.version.outputs.npm }}
+        run: |
+          dir=$(mktemp -d)
+          cp build/packages/mimicry-http-"$VERSION".tgz build/packages/mimicry-http-linux-x64-"$VERSION".tgz "$dir"
+          cd "$dir"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund --ignore-scripts ./*.tgz
+          node --input-type=module -e 'const { listProfiles } = await import("mimicry-http"); const p = await listProfiles(); if (p.supported.length === 0) throw new Error("no profiles"); console.log(p.supported.length, "profiles")'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm
+          path: bindings/node/build/packages/*.tgz
+          if-no-files-found: error
+          retention-days: 30
+
+  attest:
+    name: attest
+    if: github.event_name == 'push'
+    needs: [core, wheels, npm]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/core/mimicry-core-*
+            dist/python/*.whl
+            dist/npm/*.tgz
+
   draft:
     name: draft release
-    needs: gate
+    needs: [gate, attest]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
     steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
       - env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --generate-notes --verify-tag
+        run: |
+          mkdir assets
+          cp dist/core/mimicry-core-* dist/python/*.whl dist/npm/*.tgz assets/
+          (cd assets && sha256sum -- * >SHA256SUMS)
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --generate-notes --verify-tag assets/*
+
+  # The two publish jobs need the `publish` environment's approval, and
+  # each registry trusts only this workflow in that environment.
+  pypi:
+    name: publish to PyPI
+    needs: [version, draft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: publish
+      url: https://pypi.org/project/mimicry-http/${{ needs.version.outputs.python }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: dist/
+
+  npm-stage:
+    name: stage on npm
+    needs: [version, draft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: publish
+      url: https://www.npmjs.com/package/mimicry-http
+    permissions:
+      id-token: write
+    steps:
+      # Node 26.13.1's npm is 11.20.0: staged publishing needs 11.15.0.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26.13.1'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: npm
+          path: dist
+      # Platform packages first, so the main package's optional
+      # dependencies are staged before it. Staged versions stay invisible
+      # until a maintainer approves them on npmjs.com (npm stage list).
+      - env:
+          VERSION: ${{ needs.version.outputs.npm }}
+          DIST_TAG: ${{ needs.version.outputs.dist-tag }}
+        run: |
+          npm --version
+          for f in dist/mimicry-http-*-"$VERSION".tgz dist/mimicry-http-"$VERSION".tgz; do
+            npm stage publish "$f" --tag "$DIST_TAG"
+          done
