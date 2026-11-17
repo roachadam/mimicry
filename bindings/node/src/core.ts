@@ -42,7 +42,7 @@ const exitGrace = 2000;
 /**
  * The core binary: MIMICRY_CORE when set (an absolute path, for
  * development: `go build ./cmd/mimicry-core`), else the one in this
- * platform's package (`<name>-<platform>-<arch>`, an optional dependency).
+ * platform's package (`@<name>/<platform>-<arch>`, an optional dependency).
  * Never looked up in PATH.
  */
 export function corePath(): string {
@@ -55,7 +55,7 @@ export function corePath(): string {
     return env;
   }
 
-  const platformPkg = `${pkg.name}-${process.platform}-${process.arch}`;
+  const platformPkg = `@${pkg.name}/${process.platform}-${process.arch}`;
   let dir: string;
   try {
     dir = dirname(require.resolve(`${platformPkg}/package.json`));

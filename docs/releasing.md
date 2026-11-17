@@ -72,8 +72,12 @@ which npm is retiring) and PyPI. No API tokens on npm or PyPI.
 `mimicry`, workflow `release.yml`, environment `publish`. The first
 release creates the project.
 
-**npm**: trusted publishing can only be set on a package that exists, so
-the first version of each of the seven packages is staged by hand:
+**npm**: the main package is `mimicry-http`; the six platform packages are
+in the `@mimicry-http` scope (`@mimicry-http/darwin-arm64`, ...), which only
+its owner can publish to. Create the scope first: npmjs.com → your avatar
+→ Add Organization, name `mimicry-http`, the free plan (public packages).
+Trusted publishing can only be set on a package that exists, so the first
+version of each of the seven packages is staged by hand:
 
 1. On a clean checkout of the tag to release, build the tarballs as the
    workflow does (or download the `npm` artifact of a dry run of that
