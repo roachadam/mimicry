@@ -9,7 +9,11 @@
 #
 # The build is static (CGO_ENABLED=0) and reproducible: -trimpath, no
 # cgo, the module cache's sources only, so the same commit and Go build the
-# same bytes (the release builds twice and compares).
+# same bytes (the release builds twice and compares). Go stamps each binary
+# with whether the checkout had changes (vcs.modified), untracked files
+# included: <dir> must be outside the checkout or ignored by git (the
+# release's dist/ is), or a binary written there marks the next builds as
+# modified.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)

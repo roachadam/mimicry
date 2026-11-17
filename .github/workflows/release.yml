@@ -117,6 +117,18 @@ jobs:
         run: |
           bash bindings/build-core.sh "$RUNNER_TEMP/again" "$VERSION" >/dev/null
           diff dist/core/SHA256SUMS "$RUNNER_TEMP/again/SHA256SUMS"
+      # Each binary records the commit it was built from; a release's must
+      # say the checkout had no changes.
+      - name: built from the clean commit
+        run: |
+          for f in dist/core/mimicry-core-*; do
+            info=$(go version -m "$f")
+            if ! grep -q "vcs.revision=$GITHUB_SHA" <<<"$info" || ! grep -q "vcs.modified=false" <<<"$info"; then
+              echo "::error::$f: not built from a clean $GITHUB_SHA"
+              grep vcs <<<"$info"
+              exit 1
+            fi
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: core
