@@ -9,7 +9,12 @@
 #
 # The build is static (CGO_ENABLED=0) and reproducible: -trimpath, no
 # cgo, the module cache's sources only, so the same commit and Go build the
-# same bytes (the release builds twice and compares).
+# same bytes (the release builds twice and compares). Go stamps each binary
+# with whether the checkout had changes (vcs.modified), untracked files
+# included, so every target is built into a scratch directory outside the
+# checkout and moved into <dir> only once all are built: a binary written
+# into <dir> inside the checkout would otherwise mark the next ones as
+# modified.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
@@ -29,12 +34,17 @@ targets=(
 	"windows arm64"
 )
 
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+
 for t in "${targets[@]}"; do
 	read -r goos goarch <<<"$t"
 	exe="mimicry-core-$goos-$goarch"
 	[ "$goos" = windows ] && exe="$exe.exe"
-	(cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "$ldflags" -o "$out/$exe" ./cmd/mimicry-core)
+	(cd "$root" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "$ldflags" -o "$scratch/$exe" ./cmd/mimicry-core)
 done
+
+mv "$scratch"/mimicry-core-* "$out/"
 
 sum=(sha256sum)
 command -v sha256sum >/dev/null || sum=(shasum -a 256)
