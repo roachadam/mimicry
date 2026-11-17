@@ -876,9 +876,11 @@ is the user's side. This is why it is what it is.
   Windows the mode does not apply.
 - **The binary**: `MIMICRY_CORE` (an absolute path, for development; the
   Python SDK honours the same) or `bin/mimicry-core` of the package
-  `<name>-<platform>-<arch>`, resolved from the main package; never
-  `PATH`. The name `mimicry-http` is written in `package.json` only;
-  `scripts/pack.ts` derives the platform packages' names from it.
+  `@<name>/<platform>-<arch>` (`@mimicry-http/darwin-arm64`), resolved
+  from the main package; never `PATH`. The name `mimicry-http` is written
+  in `package.json` only; `scripts/pack.ts` derives the platform
+  packages' names from it, in its scope, which only its owner can publish
+  to.
 - **Packages** (`bun run pack:all`, CI's `node (pack)`, not published):
   the main package with the six platform packages as
   `optionalDependencies`, each with `os` and `cpu`. No `libc` field: the

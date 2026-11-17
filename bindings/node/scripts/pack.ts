@@ -5,10 +5,11 @@
 // download at install or run time. Nothing is published here: the release
 // workflow stages the tarballs (release.yml).
 //
-// The platform packages are named <main>-<platform>-<arch> after package.json's
-// name, which is also how src/core.ts finds the binary. Linux has one package
-// per architecture for glibc and musl alike: the core is static
-// (CGO_ENABLED=0), so no `libc` field narrows it.
+// The platform packages are named @<main>/<platform>-<arch> after
+// package.json's name (@mimicry-http/darwin-arm64), which is also how
+// src/core.ts finds the binary: a scope only its owner can publish to.
+// Linux has one package per architecture for glibc and musl alike: the core
+// is static (CGO_ENABLED=0), so no `libc` field narrows it.
 //
 //   node scripts/pack.ts                 every platform
 //   node scripts/pack.ts --host          this platform only (CI's smoke test)
@@ -80,7 +81,7 @@ function pack(dir: string): void {
 const optional: Record<string, string> = {};
 
 for (const t of targets) {
-  const name = `${pkg.name}-${t.platform}-${t.arch}`;
+  const name = `@${pkg.name}/${t.platform}-${t.arch}`;
   const dir = join(staged, name);
   const exe = t.platform === "win32" ? "mimicry-core.exe" : "mimicry-core";
   mkdirSync(join(dir, "bin"), { recursive: true });
@@ -113,6 +114,8 @@ for (const t of targets) {
         cpu: [t.arch],
         files: ["bin"],
         preferUnplugged: true,
+        // A scoped package is private unless published public.
+        publishConfig: { access: "public" },
       },
       null,
       2,

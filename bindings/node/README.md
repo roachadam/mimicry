@@ -30,7 +30,7 @@ await client.close();
 - Node 22.12 or later (the current LTS lines: 22, 24, 26). ES modules with
   types; `require("mimicry-http")` works too, through Node's `require(esm)`.
 - One dependency, `@bufbuild/protobuf`, plus the core for your platform,
-  an optional dependency (`mimicry-http-<platform>-<arch>`: macOS, Linux
+  an optional dependency (`@mimicry-http/<platform>-<arch>`: macOS, Linux
   and Windows, x64 and arm64; one static Linux build serves glibc and
   musl). No install scripts and nothing downloaded at run time.
 
