@@ -498,7 +498,12 @@ class AsyncCore:
             # the carrier's speed. Neither parent end is inheritable; Popen
             # passes the child's ends alone (close_fds: a handle list).
             stdin_r, stdin_w = _pipe()
-            stdout_r, stdout_w = _pipe()
+            try:
+                stdout_r, stdout_w = _pipe()
+            except BaseException:
+                os.close(stdin_r)
+                os.close(stdin_w)
+                raise
             try:
                 proc = subprocess.Popen(  # noqa: ASYNC220
                     [path],

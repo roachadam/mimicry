@@ -118,6 +118,29 @@ def test_saved_state_0600(client: mimicry.Client, server: Server, tmp_path: Path
     assert sorted(c.name for c in jar.all()) == [b"a", b"b"]
 
 
+def test_slow_file_object_does_not_block_the_loop(client: mimicry.Client, server: Server) -> None:
+    """write_json to a file object writes off the shared loop thread: other
+    calls proceed while the write blocks."""
+    release = threading.Event()
+    writing = threading.Event()
+
+    class Slow:
+        def write(self, data: bytes) -> int:
+            writing.set()
+            release.wait(30)
+            return len(data)
+
+    with concurrent.futures.ThreadPoolExecutor(2) as ex:
+        saving = ex.submit(client.cookies.write_json, Slow())  # type: ignore[arg-type]
+        try:
+            assert writing.wait(10)
+            other = ex.submit(lambda: client.do(Request("GET", server.url("/echo"))).read())
+            assert other.result(10)
+        finally:
+            release.set()
+        saving.result(10)
+
+
 def test_core_killed(server: Server) -> None:
     with mimicry.Core.spawn() as core:
         c = mimicry.new_client(config(), core=core)
