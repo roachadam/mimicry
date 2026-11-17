@@ -716,6 +716,12 @@ func runH3Schedule(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 		t.Fatal(t.Context().Err())
 	}
 
+	// Firefox's QUIC connection, started on /'s Alt-Svc, was up long
+	// before the script's first request (h3-resume-table: 56–142 ms).
+	if edgeSentOnH3(browser, steps[0].Path()) {
+		awaitH3(s, steps[0], page)
+	}
+
 	// from is the page the step is made from, read when it is issued: a
 	// navigation step replaces page while earlier steps are still sending.
 	send := func(st server.H3Step, from *url.URL, target string) error {
@@ -793,6 +799,18 @@ func runH3Schedule(t *testing.T, p *profile.Spec, sc *server.Scenario, browser *
 			t.Fatal("no page capture")
 		}
 	}
+}
+
+// edgeSentOnH3 reports whether the browser's page first sent its request
+// for path over HTTP/3.
+func edgeSentOnH3(browser *capture.Page, path string) bool {
+	for _, r := range viewEdge(browser).requests {
+		if r.label == path {
+			return len(r.sent) > 0 && strings.HasPrefix(r.sent[0], "h3 ")
+		}
+	}
+
+	return false
 }
 
 // scriptStart is how long after its request for / arrived the browser's
