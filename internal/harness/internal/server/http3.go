@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -44,11 +45,13 @@ type h3conn struct {
 	acceptedMillis int64
 
 	// mu guards rec, closed and c, the connection's capture (handed over
-	// at /done, or when the connection ends).
+	// at /done, or when the connection ends), and uni, how far the server
+	// has read each of the client's unidirectional streams (settle).
 	mu     sync.Mutex
 	rec    quictrace.H3
 	closed *quictrace.Close
 	c      *capture.Capture
+	uni    map[uint64]*uniRead
 	emit   func()
 
 	// qmu guards the QPACK decoder's table and how many inserts the server
@@ -95,6 +98,7 @@ func (s *Server) serveH3(serverCtx context.Context, conn *quic.Conn, sc *Scenari
 			Protocol: "h3",
 		},
 		table:      quictrace.NewTable(sc.h3.setting(quictrace.SettingQPACKMaxTableCapacity)),
+		uni:        map[uint64]*uniRead{},
 		decoderOut: make(chan []byte, 256),
 	}
 
@@ -296,14 +300,63 @@ func streamEnd(err error) string {
 	return ""
 }
 
+// uniRead is how far the server has read one of the client's
+// unidirectional streams: pulled counts the bytes taken from the stream,
+// its type included; waiting is set while the reader waits for more,
+// having recorded everything it could parse before; ended once it
+// stopped reading.
+type uniRead struct {
+	pulled  int
+	waiting bool
+	ended   bool
+}
+
+// uniReader reads one unidirectional stream, keeping its uniRead.
+type uniReader struct {
+	h    *h3conn
+	str  io.Reader
+	read *uniRead
+}
+
+func (u *uniReader) Read(p []byte) (int, error) {
+	u.h.mu.Lock()
+
+	u.read.waiting = true
+	u.h.mu.Unlock()
+
+	n, err := u.str.Read(p)
+
+	u.h.mu.Lock()
+
+	u.read.pulled, u.read.waiting = u.read.pulled+n, false
+	u.h.mu.Unlock()
+
+	return n, err
+}
+
 // uniStream reads one unidirectional stream: its type, then a control
 // stream's frames, a QPACK stream's instructions, or any other type's
 // bytes.
 func (h *h3conn) uniStream(str *quic.ReceiveStream) {
-	counter := &countingReader{
-		r: str,
-	}
-	r := bufio.NewReader(counter)
+	read := &uniRead{}
+
+	h.mu.Lock()
+
+	h.uni[uint64(str.StreamID())] = read
+	h.mu.Unlock()
+
+	defer func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+
+		read.ended = true
+	}()
+
+	r := bufio.NewReader(&uniReader{
+		h:    h,
+		str:  str,
+		read: read,
+	})
 
 	typ, err := quictrace.ReadVarint(r)
 	if err != nil {
@@ -325,7 +378,7 @@ func (h *h3conn) uniStream(str *quic.ReceiveStream) {
 		s := &h.rec.Streams[index]
 		f(s)
 
-		s.Bytes = counter.n - typeLen - r.Buffered()
+		s.Bytes = read.pulled - typeLen - r.Buffered()
 	}
 
 	switch typ {
@@ -765,6 +818,80 @@ func (h *h3conn) recordClose(cause error) {
 	defer h.mu.Unlock()
 
 	h.closed = c
+}
+
+// h3Settle bounds settle: far longer than a loaded machine takes to run a
+// stream's reader once quic-go has its data.
+const h3Settle = 2 * time.Second
+
+// settle waits, until deadline at most, until the server has read and
+// recorded what c, the connection as the socket received it, carried on
+// the client's unidirectional streams. quic-go hands a packet's streams to
+// their readers in no particular order, so /done's request may be answered
+// (and the page taken) before the control stream's reader has recorded
+// the PRIORITY_UPDATE that came with it.
+func (h *h3conn) settle(c *quictrace.Conn, deadline time.Time) {
+	want := uniReceived(c)
+	for !h.settled(want) && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// settled reports that each stream in want was read to its end there,
+// with all its complete frames recorded, or that its reader stopped; a
+// stream not accepted yet counts only once the connection has ended.
+func (h *h3conn) settled(want map[uint64]int) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for id, end := range want {
+		r, ok := h.uni[id]
+		if (!ok && h.closed == nil) || (ok && !r.ended && (!r.waiting || r.pulled < end)) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// uniReceived is how far c's datagrams carried each of the client's
+// unidirectional streams without a gap: what quic-go can hand its reader.
+func uniReceived(c *quictrace.Conn) map[uint64]int {
+	spans := map[uint64][][2]uint64{}
+
+	for _, d := range c.Datagrams {
+		for _, p := range d.Packets {
+			for _, f := range p.Frames {
+				// Client-initiated unidirectional streams' IDs end in 0b10
+				// (RFC 9000, section 2.1).
+				if f.Type == quictrace.FrameStream && f.Stream != nil && *f.Stream&0x3 == 0x2 {
+					spans[*f.Stream] = append(spans[*f.Stream], [2]uint64{f.Offset, f.Offset + f.Length})
+				}
+			}
+		}
+	}
+
+	out := make(map[uint64]int, len(spans))
+
+	for id, s := range spans {
+		slices.SortFunc(s, func(a, b [2]uint64) int {
+			return cmp.Compare(a[0], b[0])
+		})
+
+		var end uint64
+
+		for _, span := range s {
+			if span[0] > end {
+				break
+			}
+
+			end = max(end, span[1])
+		}
+
+		out[id] = int(end)
+	}
+
+	return out
 }
 
 // snapshot copies what the connection recorded so far.

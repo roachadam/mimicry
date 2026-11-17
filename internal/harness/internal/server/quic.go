@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"errors"
+	"maps"
 	"net"
 	"os"
 	"slices"
@@ -362,6 +363,7 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 	}
 
 	served := slices.Clone(q.conns)
+	silenced := maps.Clone(q.silenced)
 	keyLogFile := q.keyLogFile
 	q.mu.Unlock()
 
@@ -376,6 +378,8 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 	})
 
 	decoded := quictrace.Decode(l.start, datagrams, quicCIDLen, &q.keyLog)
+	settle := time.Now().Add(h3Settle)
+
 	for _, h := range served {
 		// The served connection is the latest decoded one from its address
 		// that started before the server accepted it.
@@ -387,6 +391,12 @@ func (l *pageLog) quicConns() []*quictrace.Conn {
 		}
 
 		if match != nil && match.H3 == nil {
+			// A silenced connection's later datagrams never reached its
+			// streams.
+			if !silenced[h.addr] {
+				h.settle(match, settle)
+			}
+
 			match.H3, match.Close = h.snapshot()
 		}
 	}
