@@ -35,6 +35,11 @@ bin/
 /internal/bench/proxy
 /internal/bench/server
 /internal/bench/setup
+# The release's build output (release.yml, bindings/build-core.sh). Ignored,
+# not merely untracked: Go stamps a binary vcs.modified=true when git status
+# shows an untracked file, so a core built after another was written here
+# would differ from the first.
+/dist/
 
 # Profiler output from the bench README's profiling recipe
 /internal/bench/reports/**/*.pprof
