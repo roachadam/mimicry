@@ -2,17 +2,19 @@
 // package, whose optionalDependencies are one package per platform, and
 // those platform packages, each holding its static mimicry-core with `os`
 // and `cpu` set so npm installs only the host's. No install scripts, no
-// download at install or run time. Nothing is published here.
+// download at install or run time. Nothing is published here: the release
+// workflow stages the tarballs (release.yml).
 //
 // The platform packages are named <main>-<platform>-<arch> after package.json's
-// name (the one place the provisional name is written), which is also how
-// src/core.ts finds the binary. Linux has one package per architecture
-// for glibc and musl alike: the core is static (CGO_ENABLED=0), so no
-// `libc` field narrows it.
+// name, which is also how src/core.ts finds the binary. Linux has one package
+// per architecture for glibc and musl alike: the core is static
+// (CGO_ENABLED=0), so no `libc` field narrows it.
 //
 //   node scripts/pack.ts                 every platform
 //   node scripts/pack.ts --host          this platform only (CI's smoke test)
 //   node scripts/pack.ts --version 1.2.3 the version to stamp (default package.json's)
+//   node scripts/pack.ts --core <dir>    take the cores bindings/build-core.sh
+//                                        built there instead of building them
 
 import { execFileSync } from "node:child_process";
 import { chmodSync, copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -38,8 +40,19 @@ interface Manifest {
 
 const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as Manifest;
 const args = process.argv.slice(2);
-const vi = args.indexOf("--version");
-const version = vi >= 0 ? (args[vi + 1] ?? pkg.version) : pkg.version;
+const flag = (name: string): string | undefined => {
+  const i = args.indexOf(name);
+  if (i < 0) {
+    return undefined;
+  }
+  const v = args[i + 1];
+  if (v === undefined) {
+    throw new Error(`${name} needs a value`);
+  }
+  return v;
+};
+const version = flag("--version") ?? pkg.version;
+const coreDir = flag("--core");
 
 // Node's platform and arch, and Go's.
 const targets = [
@@ -72,11 +85,15 @@ for (const t of targets) {
   const exe = t.platform === "win32" ? "mimicry-core.exe" : "mimicry-core";
   mkdirSync(join(dir, "bin"), { recursive: true });
 
-  execFileSync("go", ["build", "-trimpath", "-ldflags", `-s -w -X main.version=v${version}`, "-o", join(dir, "bin", exe), "./cmd/mimicry-core"], {
-    cwd: repo,
-    env: { ...process.env, CGO_ENABLED: "0", GOOS: t.goos, GOARCH: t.goarch },
-    stdio: "inherit",
-  });
+  if (coreDir === undefined) {
+    execFileSync("go", ["build", "-trimpath", "-ldflags", `-s -w -X main.version=v${version}`, "-o", join(dir, "bin", exe), "./cmd/mimicry-core"], {
+      cwd: repo,
+      env: { ...process.env, CGO_ENABLED: "0", GOOS: t.goos, GOARCH: t.goarch },
+      stdio: "inherit",
+    });
+  } else {
+    copyFileSync(join(coreDir, `mimicry-core-${t.goos}-${t.goarch}${t.platform === "win32" ? ".exe" : ""}`), join(dir, "bin", exe));
+  }
   chmodSync(join(dir, "bin", exe), 0o755);
   copyFileSync(join(repo, "LICENSE"), join(dir, "LICENSE"));
   writeFileSync(

@@ -23,6 +23,7 @@
 ## Contributing
 
 - [Refreshing profiles](refreshing-profiles.md): updating profiles for a new browser version.
+- [Releasing](releasing.md): tagging a release, and how the Python and Node SDKs are built and published.
 - [Capturing](capturing.md): capturing browsers and the harness tools.
 - [Benchmarks](../internal/bench/README.md) and [measurement reports](../internal/harness/reports/).
 - [AGENTS.md](../AGENTS.md): working conventions.
@@ -45,7 +46,7 @@ Each record explains why mimicry works the way it does, and what would reopen th
 | [0034](decisions/0034-request-plans.md) | Request plans: RoundTrip's path, without sending | Accepted |
 | [0041](decisions/0041-default-request-timeout.md) | `NewClient` times requests out after 30 s | Accepted |
 | [0046](decisions/0046-response-decompression.md) | Responses are decoded whoever set `Accept-Encoding` | Accepted |
-| [0069](decisions/0069-language-bindings.md) | Python and Node bindings through a per-process `mimicry-core` child: framed, multiplexed protocol with protobuf messages over a socketpair (anonymous pipes on Windows); Go's names in each SDK; callbacks as data plus `VerifyConnection`; no in-process cgo, daemon or local proxy | Accepted; amended (the wire protocol's details; the schema, the core and WebSocket framing; the Node SDK; the Python SDK) |
+| [0069](decisions/0069-language-bindings.md) | Python and Node bindings through a per-process `mimicry-core` child: framed, multiplexed protocol with protobuf messages over a socketpair (anonymous pipes on Windows); Go's names in each SDK; callbacks as data plus `VerifyConnection`; no in-process cgo, daemon or local proxy | Accepted; amended (the wire protocol's details; the schema, the core and WebSocket framing; the Node SDK; the Python SDK; the release pipeline and the name `mimicry-http`) |
 
 ### Profiles and evidence
 

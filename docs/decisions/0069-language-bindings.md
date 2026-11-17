@@ -1,6 +1,6 @@
 # 0069: Python and Node bindings through a per-process core child
 
-- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127); amended 2026-11-10 (the Node SDK, #129); amended 2026-11-10 (the Python SDK, #128)
+- Status: Accepted; amended 2026-11-10 (the wire protocol's details, #126); amended 2026-11-10 (the schema, the core and WebSocket framing, #127); amended 2026-11-10 (the Node SDK, #129); amended 2026-11-10 (the Python SDK, #128); amended 2026-11-17 (the release pipeline and the package name, #130)
 - Date: 2026-11-10
 - Commits: `2f9c670` (the record; no code yet)
 
@@ -877,9 +877,8 @@ is the user's side. This is why it is what it is.
 - **The binary**: `MIMICRY_CORE` (an absolute path, for development; the
   Python SDK honours the same) or `bin/mimicry-core` of the package
   `<name>-<platform>-<arch>`, resolved from the main package; never
-  `PATH`. The provisional name `mimicry-http` is written in
-  `package.json` only; `scripts/pack.ts` derives the platform packages'
-  names from it.
+  `PATH`. The name `mimicry-http` is written in `package.json` only;
+  `scripts/pack.ts` derives the platform packages' names from it.
 - **Packages** (`bun run pack:all`, CI's `node (pack)`, not published):
   the main package with the six platform packages as
   `optionalDependencies`, each with `os` and `cpu`. No `libc` field: the
@@ -1053,7 +1052,8 @@ it is.
   `test-python`, where `MIMICRY_PYTHON` is set. Dropping `exact` in the
   driver fails them (26 of 814 lines differ).
 - **The package name stays open**: `mimicry-http`, provisional, written in
-  `pyproject.toml` only; the import name is `mimicry`.
+  `pyproject.toml` only; the import name is `mimicry`. (Settled as
+  `mimicry-http` on 2026-11-17, below.)
 
 ### Evidence: the SDK's costs, Windows included
 
@@ -1093,3 +1093,41 @@ Open, each until a user asks or the numbers above show in one's profile:
   call path that starts a call on the loop without a Task would cut it.
 - A `docs/concepts/` page for the SDK: the README has the translation table
   and the Python-only notes; the guides apply as they are.
+
+## Amendment 2026-11-17: the release pipeline and the package name
+
+The fifth pull request ([#130](https://github.com/roachadam/mimicry/issues/130))
+builds and publishes the SDKs from `release.yml`;
+[docs/releasing.md](../releasing.md) has the steps and the one-time setup.
+
+- **The name is `mimicry-http`** on PyPI and npm, the import name
+  `mimicry` in Python; `mimicry`, the `@mimicry` npm scope and
+  `mimicry-js` are other projects'. No better name was free.
+- **One build, three channels.** `bindings/build-core.sh` builds the six
+  cores once; the wheels (`build-wheels.sh`, `MIMICRY_CORE_DIR`) and the
+  npm packages (`pack.ts --core`) carry those same files, and the release
+  builds the cores twice and fails if a byte differs. Versions move in
+  lockstep with the Go tag (`v1.2.3-rc.4` is npm's `1.2.3-rc.4`, dist-tag
+  `next`, and PyPI's `1.2.3rc4`).
+- **No token publishes anything.** Both registries accept only trusted
+  publishing (OIDC) from `release.yml` in the `publish` environment;
+  npm's packages refuse tokens. The publish jobs wait for a maintainer's
+  approval in that environment, and npm's trusted publisher may only
+  *stage*: the versions go live when a maintainer approves them on
+  npmjs.com with 2FA, a second approval a GitHub account alone cannot
+  give. PyPI has no staging yet (PEP 694, the upload 2.0 API, is a draft),
+  so its upload follows the environment's approval.
+- **The build trusts nothing it does not pin.** No job restores or saves a
+  cache (ultralytics' release was hijacked through a poisoned Actions
+  cache, December 2024); lockfiles without install scripts; the Python
+  build backend pinned with hashes (`build-constraints.txt`); actions
+  pinned to commits, the Alpine image to its digest; zizmor audits every
+  workflow in CI (`zizmor`, counted by `ci-ok`). The publish jobs check
+  out no code.
+- **Provenance everywhere**: npm provenance and PyPI's PEP 740
+  attestations from trusted publishing, GitHub build provenance for every
+  core, wheel and tarball, and the GitHub Release made immutable once
+  published.
+- Not done: no `libc` field on the Linux npm packages (the core is
+  static, as above); no sdist on PyPI (a wheel without a core is of no
+  use, and building the core needs Go).

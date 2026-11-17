@@ -5,8 +5,13 @@ Go client, reached through `mimicry-core`, a static binary this package
 starts as a child of your process ([decision 0069](../../docs/decisions/0069-language-bindings.md)).
 The names are Go's, in Node's casing.
 
-> The package name `mimicry-http` is provisional; it is decided with the
-> Python SDK's and written only in `package.json`.
+> Pre-release: the API may change before 1.0. Each version is published
+> from this repository's release workflow with npm provenance; `npm audit
+> signatures` checks it ([releasing](../../docs/releasing.md#checking-a-release)).
+
+```sh
+npm install mimicry-http
+```
 
 ```js
 import { newClient, asKind, Kind } from "mimicry-http";

@@ -100,7 +100,7 @@ jobs:
           uv venv /tmp/glibc
           uv pip install -p /tmp/glibc dist/*manylinux*_x86_64*.whl
           /tmp/glibc/bin/python -c 'import mimicry; print(mimicry.list_profiles().supported[:3])'
-          docker run --rm -v "$PWD/dist:/dist:ro" python:3.13-alpine sh -c \
+          docker run --rm -v "$PWD/dist:/dist:ro" python:3.13-alpine@sha256:9ef1a599f863231c3d91e941389bfdc4a2d6070557243d54df1a4e57015b960e sh -c \
             'pip install -q /dist/*musllinux*_x86_64*.whl && python -c "import mimicry; print(mimicry.list_profiles().supported[:3])"'
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
