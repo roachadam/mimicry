@@ -315,11 +315,13 @@ jobs:
       # Platform packages first, so the main package's optional
       # dependencies are staged before it. Staged versions stay invisible
       # until a maintainer approves them on npmjs.com (npm stage list).
+      # The ./ matters: npm reads dist/<file>.tgz as a GitHub repository
+      # (user/repo) and tries to clone it.
       - env:
           VERSION: ${{ needs.version.outputs.npm }}
           DIST_TAG: ${{ needs.version.outputs.dist-tag }}
         run: |
           npm --version
-          for f in dist/mimicry-http-*-"$VERSION".tgz dist/mimicry-http-"$VERSION".tgz; do
+          for f in ./dist/mimicry-http-*-"$VERSION".tgz ./dist/mimicry-http-"$VERSION".tgz; do
             npm stage publish "$f" --tag "$DIST_TAG"
           done
