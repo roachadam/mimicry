@@ -569,13 +569,13 @@ async def _put(file: FileLike, data: bytes) -> None:
     if isinstance(file, (str, os.PathLike)):
         await asyncio.to_thread(_atomic_write, file, data)
     else:
-        file.write(data)
+        await asyncio.to_thread(file.write, data)
 
 
 async def _get(file: FileLike) -> bytes:
     if isinstance(file, (str, os.PathLike)):
         return await asyncio.to_thread(Path(file).read_bytes)
-    data = file.read()
+    data = await asyncio.to_thread(file.read)
     return data.encode() if isinstance(data, str) else bytes(data)
 
 
