@@ -1,14 +1,14 @@
 # mimicry
 
+[![License](https://img.shields.io/github/license/roachadam/mimicry)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/roachadam/mimicry.svg)](https://pkg.go.dev/github.com/roachadam/mimicry)
-[![License](https://img.shields.io/github/license/roachadam/mimicry)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/mimicry-http?logo=pypi&logoColor=white)](https://pypi.org/project/mimicry-http/)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue?logo=python&logoColor=white)](bindings/python)
 [![npm](https://img.shields.io/npm/v/mimicry-http?logo=npm)](https://www.npmjs.com/package/mimicry-http)
 [![Node](https://img.shields.io/node/v/mimicry-http?logo=nodedotjs&logoColor=white)](bindings/node)
 
-A Go HTTP client that sends requests the way Chrome, Firefox and Safari do: the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects.
+A Go HTTP client, with Python and Node SDKs, that sends requests the way Chrome, Firefox, Safari, Edge and Brave do: the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects.
 
 > [!WARNING]
 > Pre-release. The API may change before 1.0. Pin a version and test it on your own workload.
@@ -35,6 +35,17 @@ resp, err = client.Do(mimicry.As(api, mimicry.Fetch))
 ```
 
 [Coming from tls-client](docs/concepts/coming-from-tls-client.md) · [What it sends](docs/concepts/what-mimicry-does.md) · [Performance](docs/performance.md) · [All docs](docs/README.md)
+
+## Python and Node
+
+The same client from Python and Node: each starts mimicry built as a small static program (`mimicry-core`) shipped in the package, with no cgo, no install scripts and nothing downloaded at run time. Requests are byte-identical to the Go client's, and CI checks it.
+
+```sh
+pip install mimicry-http   # Python 3.11 or later; import mimicry
+npm install mimicry-http   # Node 22.12+ or 24+
+```
+
+Linux (glibc and musl), macOS 13+ and Windows, x64 and arm64. Each version is published from this repository's release workflow with provenance ([checking a release](docs/releasing.md#checking-a-release)). Usage: [Python](bindings/python/README.md) · [Node](bindings/node/README.md)
 
 ## Why mimicry
 
@@ -141,7 +152,7 @@ Details, method, and where mimicry is slower: [docs/performance.md](docs/perform
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). [`AGENTS.md`](AGENTS.md) has the conventions and commands, [`docs/refreshing-profiles.md`](docs/refreshing-profiles.md) how profiles are captured, and [`docs/README.md`](docs/README.md) indexes everything else.
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). [`AGENTS.md`](AGENTS.md) has the conventions and commands, [`docs/refreshing-profiles.md`](docs/refreshing-profiles.md) how profiles are captured, [`docs/releasing.md`](docs/releasing.md) how a release is built and published, and [`docs/README.md`](docs/README.md) indexes everything else.
 
 ## Licence
 

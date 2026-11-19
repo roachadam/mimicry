@@ -1,18 +1,18 @@
 # mimicry for Node
 
+[![License](https://img.shields.io/github/license/roachadam/mimicry)](https://github.com/roachadam/mimicry/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/mimicry-http?logo=npm)](https://www.npmjs.com/package/mimicry-http)
 [![Node](https://img.shields.io/node/v/mimicry-http?logo=nodedotjs&logoColor=white)](https://www.npmjs.com/package/mimicry-http)
-[![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/roachadam/mimicry)](https://github.com/roachadam/mimicry/blob/main/LICENSE)
 
 A browser's requests from Node, byte for byte: [mimicry](https://github.com/roachadam/mimicry)'s
 Go client, reached through `mimicry-core`, a static binary this package
-starts as a child of your process ([decision 0069](../../docs/decisions/0069-language-bindings.md)).
+starts as a child of your process ([decision 0069](https://github.com/roachadam/mimicry/blob/main/docs/decisions/0069-language-bindings.md)).
 The names are Go's, in Node's casing.
 
 > Pre-release: the API may change before 1.0. Each version is published
 > from this repository's release workflow with npm provenance; `npm audit
-> signatures` checks it ([releasing](../../docs/releasing.md#checking-a-release)).
+> signatures` checks it ([releasing](https://github.com/roachadam/mimicry/blob/main/docs/releasing.md#checking-a-release)).
 
 ```sh
 npm install mimicry-http
@@ -38,6 +38,9 @@ await client.close();
   an optional dependency (`@mimicry-http/<platform>-<arch>`: macOS, Linux
   and Windows, x64 and arm64; one static Linux build serves glibc and
   musl). No install scripts and nothing downloaded at run time.
+- HTTPS needs the system's root certificates: a slim image without them
+  (`node:*-slim`, where `/etc/ssl/certs` is missing) needs the
+  `ca-certificates` package.
 
 ## From Go to Node
 
