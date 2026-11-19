@@ -20,9 +20,11 @@ How the checks on pull requests, main and releases are run, and how to reproduce
 | `ci-ok` | Passes when all the others do. It is the check to require. |
 
 1. Fails on a finding of medium severity or more. Run it locally: `GH_TOKEN=$(gh auth token) uvx zizmor@<version in ci.yml> --min-severity medium .github/workflows .github/actions`.
-2. Its tests on Linux, macOS and Windows, the harness's `TestNodeMatchesGo*`, and its npm packages.
-3. Its tests on Linux, macOS and Windows, ruff and mypy, `TestPythonSDKMatchesGo*` in the harness, and its wheels built.
+2. Its tests on Linux with the oldest and newest supported Node LTS lines (22, 26), and on macOS and Windows with the newest. Also the harness's `TestNodeMatchesGo*` and its npm packages.
+3. Its tests on Linux with the oldest and newest supported Python (3.11 with the oldest allowed protobuf, 3.15), and on macOS and Windows with the newest. Also ruff and mypy, `TestPythonSDKMatchesGo*` in the harness, and its wheels built.
 
+- **Why only the newest on macOS and Windows:** the version floor is a language and API question, the same on every OS; the platform code (the core binary, its pipes) does not vary by Python or Node version. Fewer macOS jobs also means fewer runs lost to GitHub's macOS arm64 runner capacity.
+- **macOS off pull requests:** the macOS SDK jobs run on main, nightly, by hand and in release gates, not on pull requests. GitHub's macOS arm64 runners often never pick a job up ("not acquired by Runner"), which failed `ci-ok` with no test run; the SDK's macOS path is the POSIX one Linux tests.
 - **Docs-only changes:** a pull request touching only `*.md`, `docs/` or `internal/bench/reports/` skips them.
 - **Releases:** pushing a `v*` tag runs `.github/workflows/release.yml` ([Releasing](releasing.md)).
   - It runs `:test-full`, builds and attests the SDKs' wheels and npm packages, and opens a draft GitHub Release.
