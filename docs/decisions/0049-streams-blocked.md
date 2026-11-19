@@ -61,7 +61,8 @@ STREAM_DATA_BLOCKED: no capture lost one.
 The e2e comparison holds the frames sent with streams as sets where the
 samples differ: each frame every sample sent last in its packet (the
 limit each raise ended at) is required, and each of mimicry's must be one
-some sample sent, at most as often.
+some sample's burst sent, at most as often in a burst (amendment
+2026-11-19).
 
 ## Evidence
 
@@ -90,3 +91,30 @@ of Chrome's forms over runs of the test.
   apart by what the server sent.
 - A browser is seen sending STREAMS_BLOCKED for unidirectional streams,
   or resending one.
+
+## Amendment 2026-11-19: frames beyond the browser's, by burst
+
+The "at most as often" check keyed each frame by its absolute limit, so
+by the raise it fell on. Chrome's frame after a raise's first stream
+falls on whichever raise the timing gives, and three samples do not show
+every raise with it.
+
+- **The flake:** Edge on macOS sent it in raises 1, 2 and 4 of its
+  samples, never in raise 3 (11 after stream 10, 0 of 3).
+  - Brave on macOS and Linux, Chrome 156 and 157 and Edge on Windows sent
+    it in raise 3.
+  - mimicry sends it in a few raises in a hundred, any of the four (2 of
+    96 in 24 local runs). One in raise 3 failed main (2026-11-13): "bidi
+    11 after stream 10 1 times, the browser's at most 0".
+  - Brave on macOS's second sample fails Edge on macOS's samples the
+    same way.
+- **The change:** the check counts frames per burst, by place relative
+  to the limit the burst's requests waited at (the last limit sent
+  alone): "bidi W+1 after stream W".
+  - The page's two bursts are the same requests against the same limit.
+  - Each of mimicry's bursts may send a frame at most as often as some
+    sample's burst did.
+  - The required frames (every sample's last in its packet) are compared
+    as before.
+- **Still caught:** Firefox's frame without "another request still
+  waits" (W+4 before stream W+3), and Safari sending any.
