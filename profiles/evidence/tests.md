@@ -175,7 +175,7 @@ Edge captures (`server.H3EdgeCaptures`):
   - Per request: every connection it went on, and how long it was held.
   - Per stream, on a connection that sent 0-RTT: in 0-RTT, held with or after the Finished, or sent again after a 425.
   - Per host, STREAMS_BLOCKED frames sent alone: count and limits.
-  - Per host, STREAMS_BLOCKED frames sent with a stream: limit and place. Compared whole where the samples agree, as sets where they differ (`compareStreamsBlockedWith`).
+  - Per host, STREAMS_BLOCKED frames sent with a stream: limit and place. Compared whole where the samples agree, as sets where they differ (`compareStreamsBlockedWith`). Frames beyond the browser's are counted per burst, by place relative to the limit the burst waited at ([decision 0049's amendment](../../docs/decisions/0049-streams-blocked.md#amendment-2026-11-19-frames-beyond-the-browsers-by-burst)).
   - On `h3-streams-blocked`: each burst's waits for the stream limit, sorted, since the replay makes a burst's requests together (`compareBurstWaits`).
   - Per QUIC attempt: versions, the server's answer, datagrams and give-up.
   - Per QUIC attempt: when the attempt and each TCP connection started after the request that caused them (the race), within the samples' range.

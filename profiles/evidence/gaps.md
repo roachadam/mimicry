@@ -680,6 +680,16 @@ Known differences from the browsers, and behaviour no capture measured, with no 
     is not measured.
   - **Detection**: Low ([`h3EdgeGaps`](../../internal/harness/e2e/http3_edge_test.go)).
   - **To close**: None stated.
+- **How often Chrome's frame after a raise's first stream comes**
+  - **Browsers**: Chrome, Edge, Brave.
+  - **What differs**: After a raise, the browsers send a second STREAMS_BLOCKED with the raise's
+    first waiting stream in 9 of 12 raises (Chrome), 5 of 12 (Edge on macOS). mimicry sends it in
+    about 2 of 96 (24 local runs, 2026-11-19): only when a waiting request opens its stream between
+    quic-go's reading the raise's two MAX_STREAMS frames ([decision
+    0049](../../docs/decisions/0049-streams-blocked.md)). Which raise carries it varies in both.
+  - **Detection**: Low (the server's count of STREAMS_BLOCKED frames, only against a server
+    allowing few streams).
+  - **To close**: A rule for when Chrome sends it, from captures with the raise's frames timed.
 - **Chrome's small-packet padding**
   - **Browsers**: Chrome.
   - **What differs**: Chrome's 29-byte 1-RTT packets (a lone PING, RETIRE_CONNECTION_ID or
