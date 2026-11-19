@@ -178,16 +178,20 @@ and what the proxy and the site then see.
   - `connect-udp-refused`: a proxy answering 501, and one whose
     connection has no HTTP/3 datagrams: each request goes on TCP within
     2 s, and the proxy sees one connection (and the 501 one request)
-    across two origins; a proxy that never answers: TCP within the race
-    delay (5 s in these rows) plus 2 s.
+    across two origins, the second asked once the client has closed its
+    connection to the proxy (the refusal remembered; an origin asked
+    while the first attempt waits for the answer starts its own); a proxy
+    that never answers: TCP within the race delay (5 s in these rows)
+    plus 2 s.
   - `connect-udp-teardown`: the proxy ends the stream under a live
     connection; the next request goes on TCP within 2 s.
 - Mutation checks, each failing its row: datagrams written empty
   (`connect-udp`: never on HTTP/3), no room added to the outer packets
   (the same: the inner datagrams do not fit), no `proxy-authorization` on
   the retry (the same), the refusal not remembered (`connect-udp-refused`:
-  5 connections, want 1), the stream's end not ending the socket
-  (`connect-udp-teardown`: 20 s, the case's limit).
+  5 connections with Chrome, Edge and Brave, 2–3 with Firefox; want 1),
+  the stream's end not ending the socket (`connect-udp-teardown`: 20 s,
+  the case's limit).
 - Unit tests for what no interop row reaches (quic-go's server announces
   a fixed max_datagram_frame_size of 16383; the harness never sweeps
   proxies): `internal/h3`'s `TestConnectUDPNeedsRoomForTheDatagrams` (a

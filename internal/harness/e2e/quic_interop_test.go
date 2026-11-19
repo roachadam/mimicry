@@ -690,7 +690,8 @@ var interopCases = []interopCase{
 		name:  "amplification",
 		limit: 20 * time.Second,
 		server: backendOpts{
-			bigChain: true,
+			bigChain:    true,
+			holdToLimit: true,
 		},
 		run: func(e *interopEnv) {
 			e.warm()
@@ -699,10 +700,13 @@ var interopCases = []interopCase{
 			// The chain is over three times the client's first flight,
 			// so the server stops at its limit (quic-go checks it before
 			// each packet, so it may pass 3 by one packet) and the client
-			// must keep the handshake going for the rest. Counted by the
-			// server: the relay cannot tell when the server has taken in
-			// the packet validating the address, and would stop counting
-			// while the rest of the server's flight is still coming.
+			// must keep the handshake going for the rest. The server's
+			// flight is held until it is at its limit (limitGate): on
+			// loopback the client's ACK could otherwise arrive while a
+			// stalled server is still sending. Counted by the server: the
+			// relay cannot tell when the server has taken in the packet
+			// validating the address, and would stop counting while the
+			// rest of the server's flight is still coming.
 			e.server.mu.Lock()
 
 			a := e.server.amplification
@@ -1197,6 +1201,16 @@ var interopCases = []interopCase{
 						e.t.Errorf("a request through a CONNECT-UDP proxy %s took %v", what, d)
 					}
 				}
+
+				// The client remembers the refusal before it closes its
+				// connection to the proxy: only then does another origin's
+				// request come after it. One sent while the first attempt
+				// still waits for the proxy's answer starts an attempt of
+				// its own (decision 0066: the refusal counts from its
+				// answer on).
+				e.waitFor("the client closing its connection to the CONNECT-UDP proxy "+what, func() bool {
+					return px.endedConns() > 0
+				})
 
 				other := *next
 
@@ -1917,6 +1931,10 @@ type backendOpts struct {
 	// bigChain: a certificate chain several times larger than the client's
 	// first flight, so the anti-amplification limit holds the server's.
 	bigChain bool
+	// holdToLimit: the server's datagrams to its first client are held
+	// until it reaches its anti-amplification limit (limitGate). Not with
+	// dualStack.
+	holdToLimit bool
 	// chacha: a server without AES hardware, which prefers ChaCha20 (in a
 	// child process, GODEBUG=cpu.aes=off).
 	chacha bool
@@ -2029,6 +2047,10 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 		pc = newDualConn(v4, v6)
 	}
 
+	if opts.holdToLimit {
+		pc = newLimitGate(v4)
+	}
+
 	tlsConf := http3.ConfigureTLSConfig(&tls.Config{
 		Certificates: []tls.Certificate{
 			cert,
@@ -2124,6 +2146,121 @@ func startBackend(opts backendOpts, cert tls.Certificate, ticketKey [32]byte) (*
 	}
 
 	return b, stop, nil
+}
+
+// limitGate is a server socket that holds the server's datagrams to its
+// first client until the server has sent three times the bytes it received
+// from it, its anti-amplification limit (RFC 9000, section 8.1), then sends
+// them in order and holds nothing more.
+//
+// Before the handshake is confirmed quic-go sends one datagram per turn of
+// its run loop and takes in what has arrived between two (Conn.sendPackets).
+// On loopback a run loop stalled by a loaded machine let the client's
+// Handshake ACK in, validating its address, before the server reached its
+// limit. Held, nothing of the flight can be acknowledged before the server
+// is at its limit, as on any path whose round trip is longer than the
+// server takes to send it. The bytes are counted as quic-go counts them,
+// whole datagrams in and out; a server that stops short of the limit is let
+// go after limitGateValve.
+type limitGate struct {
+	net.PacketConn
+
+	udp *net.UDPConn
+
+	mu sync.Mutex
+	// client is the first client's address, once it has sent; in and out
+	// count the bytes received from and sent to it while the gate holds
+	// the datagrams to it (held).
+	client  net.Addr
+	in, out int
+	held    [][]byte
+	open    bool
+	valve   *time.Timer
+}
+
+// limitGateValve is how long a limitGate holds a server that has stopped
+// short of its limit (a chain too small for the case).
+const limitGateValve = 5 * time.Second
+
+func newLimitGate(udp *net.UDPConn) *limitGate {
+	return &limitGate{
+		PacketConn: udp,
+		udp:        udp,
+	}
+}
+
+func (g *limitGate) ReadFrom(p []byte) (int, net.Addr, error) {
+	n, from, err := g.PacketConn.ReadFrom(p)
+	if err != nil {
+		return n, from, err
+	}
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.client == nil {
+		g.client = from
+	}
+
+	if !g.open && from.String() == g.client.String() {
+		g.in += n
+	}
+
+	return n, from, nil
+}
+
+func (g *limitGate) WriteTo(p []byte, addr net.Addr) (int, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if g.open || g.client == nil || addr.String() != g.client.String() {
+		return g.PacketConn.WriteTo(p, addr)
+	}
+
+	g.out += len(p)
+
+	g.held = append(g.held, bytes.Clone(p))
+
+	if g.valve == nil {
+		g.valve = time.AfterFunc(limitGateValve, func() {
+			g.mu.Lock()
+			defer g.mu.Unlock()
+
+			g.release()
+		})
+	}
+
+	if g.out >= 3*g.in {
+		g.release()
+	}
+
+	return len(p), nil
+}
+
+// release sends the held datagrams and opens the gate; g.mu must be held.
+func (g *limitGate) release() {
+	if g.open {
+		return
+	}
+
+	g.open = true
+	g.valve.Stop()
+
+	for _, b := range g.held {
+		_, _ = g.PacketConn.WriteTo(b, g.client)
+	}
+
+	g.held = nil
+}
+
+// SetReadBuffer and SetWriteBuffer size the socket's buffers, as quic-go
+// asks.
+func (g *limitGate) SetReadBuffer(n int) error {
+	return g.udp.SetReadBuffer(n)
+}
+
+func (g *limitGate) SetWriteBuffer(n int) error {
+	return g.udp.SetWriteBuffer(n)
 }
 
 // dualConn is one PacketConn over an IPv4 and an IPv6 socket: it reads
