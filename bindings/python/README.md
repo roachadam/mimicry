@@ -1,11 +1,16 @@
 # mimicry for Python
 
-HTTP requests the way Chrome, Firefox and Safari send them (the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects), from Python. This is the Python SDK of [mimicry](https://github.com/roachadam/mimicry), a Go library: each Python process starts its own `mimicry-core`, mimicry built as a small static program shipped inside the wheel, and talks to it over a socketpair (two anonymous pipes on Windows). Why it is built this way, and what was measured, is in [decision 0069](../../docs/decisions/0069-language-bindings.md).
+[![License](https://img.shields.io/github/license/roachadam/mimicry)](https://github.com/roachadam/mimicry/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/mimicry-http?logo=pypi&logoColor=white)](https://pypi.org/project/mimicry-http/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue?logo=python&logoColor=white)](https://pypi.org/project/mimicry-http/)
+
+HTTP requests the way Chrome, Firefox, Safari, Edge and Brave send them (the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects), from Python. This is the Python SDK of [mimicry](https://github.com/roachadam/mimicry), a Go library: each Python process starts its own `mimicry-core`, mimicry built as a small static program shipped inside the wheel, and talks to it over a socketpair (two anonymous pipes on Windows). Why it is built this way, and what was measured, is in [decision 0069](https://github.com/roachadam/mimicry/blob/main/docs/decisions/0069-language-bindings.md).
 
 > [!WARNING]
-> Pre-release: the API may change before 1.0. The distribution is `mimicry-http`, the import name `mimicry`. Each version is published from this repository's release workflow with PyPI attestations ([releasing](../../docs/releasing.md#checking-a-release)).
+> Pre-release: the API may change before 1.0. The distribution is `mimicry-http`, the import name `mimicry`. Each version is published from this repository's release workflow with PyPI attestations ([releasing](https://github.com/roachadam/mimicry/blob/main/docs/releasing.md#checking-a-release)).
 
-Python 3.11 or later, on Linux (glibc or musl), macOS 13 or later, and Windows; x86-64 and arm64. The one dependency is `protobuf` (6.30 or later).
+Python 3.11 or later, on Linux (glibc or musl), macOS 13 or later, and Windows; x86-64 and arm64. The one dependency is `protobuf` (6.30 or later). HTTPS needs the system's root certificates: a slim container image without them (`/etc/ssl/certs` missing) needs the `ca-certificates` package.
 
 ```sh
 pip install mimicry-http
@@ -47,7 +52,7 @@ A request the profile can't describe fails with `NotMeasuredError` before anythi
 
 ## Go's names
 
-The SDK uses mimicry's Go names in Python casing, so [the Go guides](../../docs/README.md) apply as they are. Three Go names are Python keywords or clash, and change:
+The SDK uses mimicry's Go names in Python casing, so [the Go guides](https://github.com/roachadam/mimicry/blob/main/docs/README.md) apply as they are. Three Go names are Python keywords or clash, and change:
 
 | Go | Python |
 |---|---|
@@ -91,7 +96,7 @@ If `mimicry-core` dies, every call on it raises `CoreExited`, with its exit stat
 
 ## Saving an identity
 
-Cookies, TLS session tickets, Alt-Svc records and client hints save and load as JSON, to carry an identity to another process ([sessions](../../docs/concepts/sessions.md)):
+Cookies, TLS session tickets, Alt-Svc records and client hints save and load as JSON, to carry an identity to another process ([sessions](https://github.com/roachadam/mimicry/blob/main/docs/concepts/sessions.md)):
 
 ```python
 jar = mimicry.new_jar(rules=profiles.chrome_macos())
