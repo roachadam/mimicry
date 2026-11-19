@@ -176,7 +176,7 @@ func (s *proxySample) fail(format string, args ...any) {
 // capture host sent the profile's ClientHello, to the proxy's host. The
 // browser's own traffic to the proxy (refused, so not in the trace) is
 // left out: Firefox's background requests send another hello, with no
-// session ID (EVIDENCE.md, Not covered).
+// session ID (profiles/evidence/gaps.md).
 func (s *proxySample) checkHellos() {
 	for _, c := range s.conns {
 		if !slices.ContainsFunc(s.reqs, func(r capture.ProxyRequest) bool {

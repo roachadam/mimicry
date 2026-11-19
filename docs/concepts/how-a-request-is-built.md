@@ -115,7 +115,7 @@ connection of its own).
      ([cookies](cookies.md)), in the list's `cookie` slot; a redirect hop
      the captures never saw carrying cookies has none, and the jar's
      cookies go after its list
-     ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+     ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
    - `Origin`: on non-GET/HEAD requests and on CORS requests to another
      origin; `null` where the browser sends it after redirects.
    - `Referer`: strict-origin-when-cross-origin, applied hop by hop.

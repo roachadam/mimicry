@@ -81,7 +81,7 @@ var clientCertPreconnects = map[string][]string{
 // capture, that open connections no request goes on, some dropped at the
 // CertificateRequest and some answering it with an empty Certificate, in
 // no pattern across samples: Firefox's speculative connections, which
-// mimicry does not make (profiles/EVIDENCE.md, Not covered). They are left
+// mimicry does not make (profiles/evidence/gaps.md). They are left
 // out of the browser's samples.
 var clientCertSpeculative = map[string]bool{
 	"firefox-159-macos":   true,

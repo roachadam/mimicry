@@ -65,7 +65,7 @@ some sample sent, at most as often.
 
 ## Evidence
 
-[EVIDENCE.md, Stream limits](../../profiles/EVIDENCE.md#stream-limits):
+[EVIDENCE.md, Stream limits](../../profiles/evidence/http3.md#stream-limits):
 the rule each sample shows (6 bursts per browser), h3gen's refusals,
 and the mutations `TestHTTP3EdgeMatchesBrowser` catches. mimicry sent both
 of Chrome's forms over runs of the test.

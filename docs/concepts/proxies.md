@@ -105,7 +105,7 @@ closed it.
 One difference remains: after a 407 on a plain-HTTP request, Safari also
 sends `Proxy-Authorization` inside its tunnels, where the server reads it.
 mimicry never does
-([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 
 SOCKS5 credentials are sent when the URL has them. No browser sends
 SOCKS5 credentials, so this is a fingerprint no browser produces. A

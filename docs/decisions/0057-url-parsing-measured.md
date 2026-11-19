@@ -87,7 +87,7 @@ alone encodes `|` in a path. `xn--a.urls.test`: sent by Chrome and
 Safari 27, refused by Firefox and Safari 26. A trailing-dot host keeps its
 dot in `Host` everywhere; its SNI keeps it in Chrome and Firefox
 (recorded as refused by Go's TLS) and is absent in Safari. Ledger:
-[URLs](../../profiles/EVIDENCE.md#urls).
+[URLs](../../profiles/evidence/requests.md#urls).
 
 ## Consequences
 

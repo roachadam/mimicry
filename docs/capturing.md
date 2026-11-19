@@ -352,7 +352,7 @@ Only the `devicectl` and `manual` drivers take it.
   can't show the ClientHello's ALPN: its trace keeps HTTP/1.1 requests
   only. In two earlier three-sample runs, the capture tool's log showed
   sample 1's ClientHello offering `http/1.1` alone and sample 3's `h2,
-  http/1.1` ([EVIDENCE](../profiles/EVIDENCE.md), Not covered).
+  http/1.1` ([gaps](../profiles/evidence/gaps.md)).
 
 ```sh
 go run ./cmd/capture -browsers ios-firefox -listen <mac-ip> -scenarios page:3
@@ -635,7 +635,7 @@ Through the HTTP/2 proxy Firefox ends a tunnelled connection the server
 sent GOAWAY on by resetting the tunnel's stream (CANCEL), with no GOAWAY
 reply inside it, so `hellogen` leaves `proxy-https-auth` (and any scenario
 whose proxy offers `h2`) out of `http2.goawayReply`
-([EVIDENCE](../profiles/EVIDENCE.md), Not covered by any claim).
+([gaps](../profiles/evidence/gaps.md)).
 
 Safari and the browsers on an iPhone cannot take these scenarios
 (`Scenario.UnsupportedBy`, `Scenario.UnsupportedOnIOS`): macOS offers no

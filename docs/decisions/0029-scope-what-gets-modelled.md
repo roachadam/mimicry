@@ -100,7 +100,7 @@ error-page reload alone as browser UI.
 - The e2e tests keep their pinned gap tables (`sampleGaps`,
   `partitionGaps`, `h3EdgeGaps` and the others). A pinned gap is now
   expected to be recorded too
-  ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim),
+  ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim),
   a decision or an issue).
 - Deferring makes some failure paths behave unlike the browser (a QUIC
   attempt that never gets an answer, a WebSocket whose server never
@@ -165,7 +165,7 @@ looks:
   `docs/concepts/`;
 - a known fingerprint difference or unmeasured edge with no planned
   work: one line in
-  [EVIDENCE.md, Not covered by any claim](../../profiles/EVIDENCE.md#not-covered-by-any-claim),
+  [EVIDENCE.md, Not covered by any claim](../../profiles/evidence/gaps.md#not-covered-by-any-claim),
   with when it shows, its detection relevance and what closing it takes.
 
 A pinned gap in the tests' tables appears in one of those places. A

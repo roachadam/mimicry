@@ -238,7 +238,7 @@ differently. That includes every subresource's table run under
   so with `HintsDelegated`. Otherwise that third party sees only the
   low-entropy hints, as without delegation.
 - Some of what follows was not captured. Each is a line in
-  [EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim):
+  [EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim):
   - `Width`;
   - `Clear-Site-Data` on a redirect's response;
   - Chrome's network quality estimator.

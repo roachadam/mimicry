@@ -96,7 +96,7 @@ any browser here.
    the parameter is gone, and `ack_delay_constant` moved from 19–24 to
    27–29 (three new samples; a per-connection constant drawn by Safari,
    the range narrower than the browser's). EVIDENCE.md records the switch
-   ([EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+   ([EVIDENCE.md, Not covered](../../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 
 ## Protected sites
 
@@ -133,7 +133,7 @@ Akamai and HUMAN let every profile through where Go's client was blocked.
   titles and text markers only.
 - From Firefox's source, not on any wire here: no `alt-used` on anonymous
   (credential-less) or private-browsing requests. Never compared; in
-  [EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim).
+  [EVIDENCE.md, Not covered](../../../profiles/evidence/gaps.md#not-covered-by-any-claim).
 - Safari 27's `0xff080808` may come back if Apple flips it again; a
   recapture of `h3-discovery` shows it.
 

@@ -134,7 +134,7 @@ page load. Each connection on its own is the browser's: the same
 ClientHello, SETTINGS and headers. All three browsers coalesce; Safari
 too (`lookup` in both Safari profiles, measured in the `connections`
 capture: no connection to `static` or `y`;
-[EVIDENCE.md](../../profiles/EVIDENCE.md#connections)), so the option
+[EVIDENCE.md](../../profiles/evidence/connections.md#connections)), so the option
 matches none of them. Sites whose hosts have their own certificates or
 addresses get separate connections from browsers too, and nothing differs.
 

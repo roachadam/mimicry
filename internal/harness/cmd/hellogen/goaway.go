@@ -21,7 +21,7 @@ import (
 // browser can end a connection by resetting its tunnel's stream to the
 // proxy instead, and Firefox 159, which answers NO_ERROR everywhere else,
 // reset it (CANCEL) with no GOAWAY in the tunnel on every one
-// (profiles/EVIDENCE.md, Not covered by any claim).
+// (profiles/evidence/gaps.md).
 func goAwayReply(dir string, p *profile.Spec) (string, error) {
 	var (
 		reply, replyAt string
