@@ -433,8 +433,8 @@ the preflight reads that build's version, so the plan picks its profile.
 ## What stays manual
 
 - Reviewing the report and any generator refusal; new gap entries.
-- The evidence ledger (`profiles/EVIDENCE.md`), new gaps in its Not
-  covered by any claim section included.
+- The evidence ledger (`profiles/evidence/`): the profile's notes, and new
+  gaps in `gaps.md`.
 - Safari's proxy-credential scenarios (a person types the credentials) and,
   on the second Mac, its click scenario (no Accessibility over ssh). Safari's
   full refresh leaves them out, so the profile keeps or inherits them.
