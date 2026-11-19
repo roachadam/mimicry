@@ -1,0 +1,85 @@
+# CI
+
+For contributors; users don't need this page.
+
+How the checks on pull requests, main and releases are run, and how to reproduce them locally.
+
+## Workflows
+
+`.github/workflows/ci.yml` runs on every pull request, every push to main, nightly and by hand (`workflow_dispatch`).
+
+| Job | What it runs |
+|---|---|
+| `lint` | `moon run :vet :lint`, then the harness built, vetted and golangci-linted for Windows |
+| `test-root` | The library's race tests; bench builds and vets |
+| `vuln` | govulncheck (pinned in the job), in each of the three modules |
+| `zizmor` | Audits the workflows and the setup action [1] |
+| `test-harness (1)` to `(N)` | The harness's tests, in shards ([Harness tiers and shards](#harness-tiers-and-shards)) |
+| `test-node` | The Node SDK (`.github/workflows/node.yml`) [2] |
+| `test-python` | The Python SDK (`.github/workflows/python.yml`) [3] |
+| `ci-ok` | Passes when all the others do. It is the check to require. |
+
+1. Fails on a finding of medium severity or more. Run it locally: `GH_TOKEN=$(gh auth token) uvx zizmor@<version in ci.yml> --min-severity medium .github/workflows .github/actions`.
+2. Its tests on Linux, macOS and Windows, the harness's `TestNodeMatchesGo*`, and its npm packages.
+3. Its tests on Linux, macOS and Windows, ruff and mypy, `TestPythonSDKMatchesGo*` in the harness, and its wheels built.
+
+- **Docs-only changes:** a pull request touching only `*.md`, `docs/` or `internal/bench/reports/` skips them.
+- **Releases:** pushing a `v*` tag runs `.github/workflows/release.yml` ([Releasing](releasing.md)).
+  - It runs `:test-full`, builds and attests the SDKs' wheels and npm packages, and opens a draft GitHub Release.
+  - It waits for the maintainer to approve publishing them.
+  - The release jobs never use a cache, and the publish jobs check out no code. Keep it so.
+
+## Harness tiers and shards
+
+The harness's tests come in tiers, set per test in `.github/harness-shards.txt`. The `changes` job in `ci.yml` has the paths each tier watches.
+
+| Tier | Tests | Runs on |
+|---|---|---|
+| `core` | Headers, hellos, cookies, redirects, kinds, proxies, WebSockets, resumption, HPACK/QPACK, profiles and the harness's unit tests [1] | Every pull request |
+| `protocol` | `TestConnectionMatchesBrowserTrace`, `TestChainedPrioritiesMatchBrowserTraces`, the HTTP/3 download and match tests | Pull requests touching protocol code [2] |
+| `gen` | The hellogen, h3gen and kindsgen tests | Pull requests touching the generators, captures, capture parsing or profiles |
+| `main` | `TestHTTP3EdgeMatchesBrowser`, `TestQUICInterop` | Main, nightly and by hand only [3] |
+
+1. A test not listed is core.
+2. The HTTP/2, HTTP/3, QUIC or engine code, the profiles, the e2e tests, the scenario server or the trace decoders, or the Go and module versions.
+3. So their regressions show after the merge.
+
+### Shards
+
+- **Counts:**
+  - Main, nightly, by hand and the release run every tier in 8 shards.
+  - A pull request runs 2 shards for core, plus 3 for protocol and 1 for gen.
+- **Time limit:** each job must finish in 15 minutes, so the tests are split into shards.
+- **How tests are dealt:** `.github/scripts/harness-shard.sh <tiers> <shard> <total>` does it.
+  - Every top-level test is a unit, weighed by its seconds on the runner in `.github/harness-shards.txt`.
+  - An unlisted test weighs 2.
+  - A `Test/regex` line splits a test's subtests.
+  - Units are dealt heaviest first to the least-loaded shard.
+- **How shards run:** `go test -race -v`, so their logs carry each test's runner duration.
+  - Without `-race` where a test's line says `norace`.
+  - With `-parallel N` where it says `parallel=N`.
+- **Adding a slow test**, or slowing one down, means adding or updating its line in `.github/harness-shards.txt`, with its tier. Then check the splits:
+  - `bash .github/scripts/harness-shard.sh all plan 8`: no shard above about 9 minutes.
+  - For a pull request's tiers, e.g. `bash .github/scripts/harness-shard.sh core,protocol plan 5`: about 250 s of tests a shard.
+
+## Linting other platforms
+
+- Host lint never loads another OS's build-tagged files (`*_linux.go`, `*_windows.go`).
+- CI lints on Linux, and the harness also for Windows.
+- Before pushing platform-specific code, in each module the code is in:
+  - Build the pinned golangci-lint for the host: `GOBIN=/tmp/gclbin go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@<version in .moon/tasks/go.yml>`.
+  - Run `GOOS=linux` and `GOOS=windows` `golangci-lint run ./...`, with `go build ./...` and `go vet ./...`.
+
+## Vulnerabilities and dependencies
+
+- **`vuln`** fails only on a vulnerability the code reaches (a call path to it).
+  - Ones it lists as imported or required but not called pass.
+  - Run it locally in a module: `go run golang.org/x/vuln/cmd/govulncheck@<version in ci.yml> ./...` (`GOWORK=off` in `internal/bench`).
+  - Fix a reachable one by moving the dependency to the fixed version. Never suppress it.
+  - In the bench, a competitor's dependency moves only as an indirect bump; the competitor's own version stays.
+- **CodeQL** (`.github/workflows/codeql.yml`) analyses the Go modules and the workflows.
+  - Go: a traced `go build ./...` in each module, Linux only.
+  - Runs on every pull request, every push to main and weekly.
+  - Its alerts are in the Security tab. It is not part of `ci-ok`.
+- **Dependabot** (`.github/dependabot.yml`) bumps only the GitHub Actions, weekly, in one pull request.
+  - Go modules move only through its security updates or by hand (see [SECURITY.md](../SECURITY.md)).
