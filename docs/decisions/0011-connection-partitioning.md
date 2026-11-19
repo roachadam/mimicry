@@ -65,7 +65,7 @@ carries requests from two top-level sites; passing the same jar in
 `Config.Cookies` to each keeps one cookie store, as one browser profile
 has (the jar keys partitioned cookies by top-level site itself). The gap
 is listed in
-[EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim).
+[EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim).
 
 ## Amendment 2026-10-28: the Alt-Svc cache
 

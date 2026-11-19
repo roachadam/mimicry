@@ -76,7 +76,7 @@ The capture server could not see records at all: crypto/tls hides them.
 ## Evidence
 
 `resume` captures, 2 samples each, 2026-10-28 (a Mac mini used for captures, except where noted; [EVIDENCE.md,
-HTTP/2 connection](../../profiles/EVIDENCE.md#http2-connection)):
+HTTP/2 connection](../../profiles/evidence/http2-http1.md#http2-connection)):
 - Chrome 156: 14 of 14 connections `[preface SETTINGS WINDOW_UPDATE]
   [HEADERS]`, fresh and resumed.
 - Chrome 155: Chrome for Testing 155.0.8059.84 (the Mac mini, `resume`, 2

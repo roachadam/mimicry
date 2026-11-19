@@ -149,7 +149,7 @@ socket:
   the variance for `px-h2`, `px-h1` and `px-h1-again`. Pinning the
   trigger needs captures from a restarted Safari; sending the caller's
   proxy credentials to every server is a decision of its own
-  ([EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+  ([EVIDENCE.md, Not covered](../../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 
 ### Checks
 

@@ -73,4 +73,4 @@ exceeds a DATA frame: compressed messages of 1030 to 8107 bytes show it
 `ws.Compressor`, Firefox's 1000-byte header rule, and
 `client_max_window_bits` accepted unoffered. Firefox's hang is not
 reproduced: mimicry fails the dial and ends the transport
-([EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+([EVIDENCE.md, Not covered](../../../profiles/evidence/gaps.md#not-covered-by-any-claim)).

@@ -61,7 +61,7 @@ faster default and an option for the browser's.)
   hiccupped, and telling a dead path from a slow server needs a
   path-degrading signal mimicry models for Chrome and Safari only. The
   waits stay the browser's
-  ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+  ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 
 ## Decision
 
@@ -130,7 +130,7 @@ By default (`Config.BrowserQUICFallback` false):
   works, and decision 0029 rates failure-path timing as not checked.
 - Live-connection deaths (dead paths) keep the browser's timing: a request
   pending on a Firefox connection whose path died still waits up to 30 s
-  ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+  ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 - What-mimicry-does lists the option. Code that measures fidelity on
   failure paths (the harness, research) sets `BrowserQUICFallback`.
 

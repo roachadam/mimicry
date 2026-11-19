@@ -135,7 +135,7 @@ requires `forwardCredentials: always`: no browser was measured answering
 a challenge to a handshake sent whole. The capture also shows Safari
 putting `Proxy-Authorization` on requests inside its tunnels, to the
 server, once it has answered a challenge to a plain-HTTP request; that is
-not modelled ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+not modelled ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 
 ## Amendment 2026-10-28: HTTP/3 through SOCKS5
 

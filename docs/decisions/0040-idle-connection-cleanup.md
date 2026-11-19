@@ -189,7 +189,7 @@ realistic pattern (a new client per identity) is benchmarked.
   most recent proxies' idle connections beyond 10–20 s.
 - A server whose own idle timeout is longer than 90 s sees mimicry close
   an idle HTTP/2 connection at 90 s, where the browser's time is not
-  measured ([EVIDENCE.md, Not covered](../../profiles/EVIDENCE.md#not-covered-by-any-claim)).
+  measured ([EVIDENCE.md, Not covered](../../profiles/evidence/gaps.md#not-covered-by-any-claim)).
 - Round-robin over more than 16 proxies, each used less often than every
   10 s, opens a connection per request beyond the most recent 16.
 - A Transport collected while requests are in flight closes their

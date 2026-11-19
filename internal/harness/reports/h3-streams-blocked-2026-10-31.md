@@ -132,4 +132,4 @@ waiting (9 and 15, beyond the browser's); Safari sending after a raise
 The ACK difference, the profiles without the capture, and Chrome's
 PADDING before the frame in its 29-byte packets (mimicry's goes after)
 are lines in
-[EVIDENCE.md, Not covered](../../../profiles/EVIDENCE.md#not-covered-by-any-claim).
+[EVIDENCE.md, Not covered](../../../profiles/evidence/gaps.md#not-covered-by-any-claim).
