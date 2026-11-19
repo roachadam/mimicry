@@ -1,5 +1,10 @@
 # mimicry for Node
 
+[![npm](https://img.shields.io/npm/v/mimicry-http?logo=npm)](https://www.npmjs.com/package/mimicry-http)
+[![Node](https://img.shields.io/node/v/mimicry-http?logo=nodedotjs&logoColor=white)](https://www.npmjs.com/package/mimicry-http)
+[![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/roachadam/mimicry)](https://github.com/roachadam/mimicry/blob/main/LICENSE)
+
 A browser's requests from Node, byte for byte: [mimicry](https://github.com/roachadam/mimicry)'s
 Go client, reached through `mimicry-core`, a static binary this package
 starts as a child of your process ([decision 0069](../../docs/decisions/0069-language-bindings.md)).

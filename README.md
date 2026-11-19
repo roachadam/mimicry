@@ -1,6 +1,12 @@
 # mimicry
 
+[![CI](https://img.shields.io/github/actions/workflow/status/roachadam/mimicry/ci.yml?branch=main&label=CI&logo=github)](https://github.com/roachadam/mimicry/actions/workflows/ci.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/roachadam/mimicry.svg)](https://pkg.go.dev/github.com/roachadam/mimicry)
+[![License](https://img.shields.io/github/license/roachadam/mimicry)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/mimicry-http?logo=pypi&logoColor=white)](https://pypi.org/project/mimicry-http/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.11-blue?logo=python&logoColor=white)](bindings/python)
+[![npm](https://img.shields.io/npm/v/mimicry-http?logo=npm)](https://www.npmjs.com/package/mimicry-http)
+[![Node](https://img.shields.io/node/v/mimicry-http?logo=nodedotjs&logoColor=white)](bindings/node)
 
 A Go HTTP client that sends requests the way Chrome, Firefox and Safari do: the TLS handshake, HTTP/2 and HTTP/3, the headers and their order, cookies and redirects.
 
