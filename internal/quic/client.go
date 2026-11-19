@@ -155,9 +155,13 @@ func Dial(ctx context.Context, pc net.PacketConn, peer netip.AddrPort, cfg DialC
 // Cork holds the connection's packets: what the application writes and
 // flushes until the matching Uncork leaves together, its STREAM frames in
 // the order the streams were flushed. Corks nest. A handshake in progress
-// is not held, apart from the client's Finished once it is ready.
+// is not held, apart from the client's Finished once it is ready. A
+// datagram the loop is building when Cork is called is finished first, so
+// nothing written after Cork returns goes in it.
 func (c *Conn) Cork() {
+	c.corkMu.Lock()
 	c.cork.Add(1)
+	c.corkMu.Unlock()
 }
 
 // Uncork releases a Cork; at the last one the held packets are sent.
