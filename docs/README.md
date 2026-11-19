@@ -25,6 +25,7 @@
 - [Refreshing profiles](refreshing-profiles.md): updating profiles for a new browser version.
 - [Releasing](releasing.md): tagging a release, and how the Python and Node SDKs are built and published.
 - [Capturing](capturing.md): capturing browsers and the harness tools.
+- [CI](ci.md): the checks on pull requests and main, harness test tiers and shards, linting other platforms, vulnerabilities and dependencies.
 - [Benchmarks](../internal/bench/README.md) and [measurement reports](../internal/harness/reports/).
 - [AGENTS.md](../AGENTS.md): working conventions.
 - Decisions, below. New records copy [`decisions/template.md`](decisions/template.md).
