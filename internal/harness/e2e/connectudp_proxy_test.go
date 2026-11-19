@@ -38,12 +38,13 @@ type connectUDPProxy struct {
 	mu sync.Mutex
 	// refuse, when set, is the status it answers every CONNECT-UDP with.
 	refuse int
-	// conns counts the QUIC connections to it; requests are the
-	// CONNECT-UDP requests in order; relays the local addresses of the
-	// relay sockets, which the target sees the client's datagrams from.
-	conns    int
-	requests []connectUDPRequest
-	relays   []netip.AddrPort
+	// conns counts the QUIC connections to it, ended those that have
+	// ended; requests are the CONNECT-UDP requests in order; relays the
+	// local addresses of the relay sockets, which the target sees the
+	// client's datagrams from.
+	conns, ended int
+	requests     []connectUDPRequest
+	relays       []netip.AddrPort
 	// streams are the open tunnels' streams, for dropStreams.
 	streams map[*http3.Stream]struct{}
 }
@@ -92,11 +93,18 @@ func newConnectUDPProxy(e *interopEnv, datagrams bool, user, password string) *c
 			// first) in a DATAGRAM frame of the proxy's packet.
 			InitialPacketSize: 1400,
 		},
-		ConnContext: func(ctx context.Context, _ *quic.Conn) context.Context {
+		ConnContext: func(ctx context.Context, c *quic.Conn) context.Context {
 			p.mu.Lock()
 
 			p.conns++
 			p.mu.Unlock()
+
+			context.AfterFunc(c.Context(), func() {
+				p.mu.Lock()
+
+				p.ended++
+				p.mu.Unlock()
+			})
 
 			return ctx
 		},
@@ -145,6 +153,16 @@ func (p *connectUDPProxy) stats() (conns int, requests []connectUDPRequest, rela
 	defer p.mu.Unlock()
 
 	return p.conns, append([]connectUDPRequest(nil), p.requests...), append([]netip.AddrPort(nil), p.relays...)
+}
+
+// endedConns returns how many connections to the proxy have ended so far.
+// The client closes its connection once the proxy has refused CONNECT-UDP
+// (answered 501, or announced no datagrams), after remembering the refusal.
+func (p *connectUDPProxy) endedConns() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return p.ended
 }
 
 // dropStreams ends every open tunnel, as a proxy dropping them does: the
