@@ -30,20 +30,20 @@ jobs:
     timeout-minutes: 15
     strategy:
       fail-fast: false
+      # macOS only off pull requests (main, nightly, release): GitHub's
+      # macOS arm64 runners often never pick a job up, and the SDK's macOS
+      # path is the POSIX one Linux tests.
       matrix:
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
+        node: ['26']
         include:
-          - os: ubuntu-latest
-            node: '22'
+          - node: '26'
+            save: true
           - os: ubuntu-latest
             node: '26'
             check: true
-            save: true
-          - os: macos-latest
-            node: '26'
-            save: true
-          - os: windows-latest
-            node: '26'
-            save: true
+          - os: ubuntu-latest
+            node: '22'
     defaults:
       run:
         working-directory: bindings/node
