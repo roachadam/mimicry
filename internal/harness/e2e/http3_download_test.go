@@ -61,6 +61,8 @@ func TestHTTP3DownloadMatchesBrowser(t *testing.T) {
 				t.Logf("sample %d: %s", i+1, summary)
 			}
 
+			holdRace(p)
+
 			got := runH3Page(t, p, server.H3Download, want[0])
 			c := downloadConn(t, got)
 			violations, summary := bulkRuleViolations(p.QUIC, c)
@@ -110,6 +112,9 @@ func TestHTTP3ACKEvery(t *testing.T) {
 
 		t.Run(name, func(t *testing.T) {
 			want := h3Captures(t, p, server.H3Download)
+
+			holdRace(p)
+
 			got := runH3PageWith(t, p, server.H3Download, want[0], func(cfg *mimicry.Config) {
 				cfg.HTTP3ACKEvery = every
 			})
@@ -149,6 +154,25 @@ func downloadConn(t *testing.T, page *capture.Page) *quictrace.Conn {
 	}
 
 	return best
+}
+
+// holdRace gives p a race delay no handshake on a loaded machine outlasts
+// (quicUpWait, as awaitH3 waits), as TestQUICInterop's interopRaceDelay:
+// the download checks need the QUIC connection the browser used, not how a
+// request races QUIC against TCP, which TestHTTP3EdgeMatchesBrowser checks
+// at the profile's delay. At Safari's 100–129 ms, the page's first QUIC
+// handshake (after the GOAWAY) can lose to TCP on a runner busy with the
+// sibling pages' downloads; Safari then drops the attempt and keeps its
+// live HTTP/2 connection, so the download goes over HTTP/2.
+func holdRace(p *profile.Spec) {
+	if fb := &p.HTTP3.Discovery.Fallback; fb.TCPDelayMillis != nil {
+		ms := int(quicUpWait.Milliseconds())
+
+		fb.TCPDelayMillis = &profile.Range{
+			Min: ms,
+			Max: ms,
+		}
+	}
 }
 
 // downloadPackets is fewer packets than 50 MiB takes (about 37,000).

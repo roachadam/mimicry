@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/netip"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -63,9 +64,13 @@ type Conn struct {
 	testSendPing      sentVal
 
 	// mimicry: client is a client connection's profile behaviour (Dial),
-	// nil for upstream's; cork holds its packets (Cork).
+	// nil for upstream's; cork holds its packets (Cork). corkMu is held
+	// by the send path from its cork check to the end of the datagram it
+	// builds, and by Cork around the increment, so a write after Cork
+	// never joins a datagram whose check came before it.
 	client *clientState
 	cork   atomic.Int32
+	corkMu sync.Mutex
 
 	log *slog.Logger
 }

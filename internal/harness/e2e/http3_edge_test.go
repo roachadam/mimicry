@@ -58,8 +58,9 @@ const h3PageHost = "www.h3-a.test"
 // with the fast default ("fast"), whose differences besides are exactly
 // h3EdgeFastGaps: requests that stop waiting on a QUIC attempt the server
 // has not answered, and the TCP connections they open (a healthy page has
-// none), and dials that start at once (checkDialDelays). Subtests run in
-// parallel; the slowest page, h3-broken, takes about 75 s.
+// none), and dials that start at once (checkDialDelays). Subtests decode
+// their captures one at a time, then run in parallel; the slowest page,
+// h3-broken, takes about 75 s.
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	dials := &dialRecord{}
 	lone := &afterRTTRecord{}
@@ -104,8 +105,6 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 				}
 
 				t.Run(name+"/"+sc.Name+"/"+mode, func(t *testing.T) {
-					t.Parallel()
-
 					defer func() {
 						finishedMu.Lock()
 
@@ -113,13 +112,24 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 						finishedMu.Unlock()
 					}()
 
+					// The browser's captures are decoded before t.Parallel,
+					// so before any page runs. Decoding is a page's heaviest
+					// CPU work. Done beside a running page, it starves that
+					// page's goroutines, which the stall watcher sees only in
+					// part (stallWatch): the pages with the smallest captures
+					// (h3-vn, h3-blackhole) started first and made their
+					// first QUIC dial 30–110 ms after its trigger while the
+					// others decoded, where mimicry takes 3–5 ms.
+					want := h3Captures(t, p, sc)
+
+					t.Parallel()
+
 					if sc.NeedsAioquic() {
 						if err := server.AioquicAvailable(t.Context()); err != nil {
 							t.Skipf("%s needs aioquic: %v", sc.Name, err)
 						}
 					}
 
-					want := h3Captures(t, p, sc)
 					skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name, fast)
 					config := func(cfg *mimicry.Config) {
 						cfg.BrowserQUICFallback = !fast
@@ -1272,7 +1282,7 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 							continue
 						}
 
-						if w, ok := streamsBlockedWith(pk.Frames, i); ok {
+						if w, ok := streamsBlockedWith(pk.Frames, i, 0); ok {
 							with = append(with, w)
 						} else {
 							alone = append(alone, streamsBlockedLimit(fr))
@@ -1340,12 +1350,17 @@ func edgeFeatures(page *capture.Page) (f features, ms, stalled map[string]int) {
 // streamsBlockedLimit is a STREAMS_BLOCKED frame's type and limit: "bidi 4"
 // (frame type 0x16) or "uni 4" (0x17).
 func streamsBlockedLimit(fr quictrace.Frame) string {
-	kind := "bidi"
+	return fmt.Sprintf("%s %d", streamsBlockedKind(fr), fr.Max)
+}
+
+// streamsBlockedKind is a STREAMS_BLOCKED frame's stream type: "bidi"
+// (frame type 0x16) or "uni" (0x17).
+func streamsBlockedKind(fr quictrace.Frame) string {
 	if fr.Code == 0x17 {
-		kind = "uni"
+		return "uni"
 	}
 
-	return fmt.Sprintf("%s %d", kind, fr.Max)
+	return "bidi"
 }
 
 // streamsBlockedWith describes the STREAMS_BLOCKED frames[i] in a packet
@@ -1353,10 +1368,24 @@ func streamsBlockedLimit(fr quictrace.Frame) string {
 // "bidi 6 after stream 5" (right after the STREAM frame of the stream that
 // took the limit up, the last before it), "bidi 6 before stream 5" (the
 // first after it), else "bidi 6 with streams". False in a packet with no
-// request's STREAM frame.
-func streamsBlockedWith(frames []quictrace.Frame, i int) (string, bool) {
+// request's STREAM frame. With waited not 0, the numbers are relative to
+// it, W: "bidi W+2 after stream W+1" (blockedWith.bursts).
+func streamsBlockedWith(frames []quictrace.Frame, i int, waited uint64) (string, bool) {
 	fr := frames[i]
-	l := streamsBlockedLimit(fr)
+	num := func(n uint64) string {
+		switch {
+		case waited == 0:
+			return strconv.FormatUint(n, 10)
+		case n == waited:
+			return "W"
+		case n < waited:
+			return fmt.Sprintf("W-%d", waited-n)
+		}
+
+		return fmt.Sprintf("W+%d", n-waited)
+	}
+
+	l := streamsBlockedKind(fr) + " " + num(fr.Max)
 
 	var prev, next *uint64
 
@@ -1377,9 +1406,9 @@ func streamsBlockedWith(frames []quictrace.Frame, i int) (string, bool) {
 	case prev == nil && next == nil:
 		return "", false
 	case fr.Max > 0 && prev != nil && *prev/4 == fr.Max-1:
-		return fmt.Sprintf("%s after stream %d", l, fr.Max-1), true
+		return fmt.Sprintf("%s after stream %s", l, num(fr.Max-1)), true
 	case fr.Max > 0 && next != nil && *next/4 == fr.Max-1:
-		return fmt.Sprintf("%s before stream %d", l, fr.Max-1), true
+		return fmt.Sprintf("%s before stream %s", l, num(fr.Max-1)), true
 	}
 
 	return l + " with streams", true
@@ -2165,43 +2194,52 @@ func (r *afterRTTRecord) compare(t *testing.T, planned map[string]int) {
 // also hold where the samples differ (compareFeatures compares the list
 // whole where they agree): each one every sample sent last in its packet
 // mimicry sends too ("with streams", the feature's own label), and each of
-// mimicry's some sample sent, at most as often ("beyond the browser's",
-// kept when the first is pinned). A browser's waiting streams leave in one
-// packet per raise, ending with the frame for the limit the raise ended
-// at. Chrome sent that one after the last stream of each raise (6, 8, 12,
-// 14) in every sample, and one after the first of the two in 9 of 12
-// raises (5, 7, 11, 13: the limit of the raise's first MAX_STREAMS
+// mimicry's some sample's burst sent, at most as often ("beyond the
+// browser's", kept when the first is pinned). A browser's waiting streams
+// leave in one packet per raise, ending with the frame for the limit the
+// raise ended at. Chrome sent that one after the last stream of each raise
+// (6, 8, 12, 14) in every sample, and one after the first of the two in 9
+// of 12 raises (5, 7, 11, 13: the limit of the raise's first MAX_STREAMS
 // frame); mimicry's first comes as its waiting request opens its stream
 // before or after its loop has read the second frame
 // (profile.StreamsBlockedRaiseAlways).
+//
+// The second is compared by burst: the page's two bursts are the same
+// requests against the same limit, so a frame is held to the samples'
+// bursts by its place in its own (blockedWith.bursts), not to the raise
+// it fell on. Which raises get Chrome's first-of-two is timing: Edge on
+// macOS sent it in raises 1, 2 and 4 of its samples but never in raise 3
+// (11 after 10, 0 of 3), which Brave, Chrome and Edge on Windows sent.
 func compareStreamsBlockedWith(t *testing.T, got *capture.Page, want []*capture.Page, skip func(string) bool) {
 	t.Helper()
 
-	g, _ := streamsBlockedWithPackets(got)
+	g := streamsBlockedWithPackets(got)
 	every, most := map[string]map[string]bool{}, map[string]map[string]int{}
 
 	for i, w := range want {
-		all, last := streamsBlockedWithPackets(w)
-		for host, c := range all {
+		sample := streamsBlockedWithPackets(w)
+		for host, b := range sample {
 			if most[host] == nil {
 				most[host] = map[string]int{}
 			}
 
-			for s, n := range c {
-				most[host][s] = max(most[host][s], n)
+			for _, burst := range b.bursts {
+				for s, n := range burst {
+					most[host][s] = max(most[host][s], n)
+				}
 			}
 		}
 
 		for host := range every {
 			maps.DeleteFunc(every[host], func(s string, _ bool) bool {
-				return last[host][s] == 0
+				return sample[host] == nil || sample[host].last[s] == 0
 			})
 		}
 
 		if i == 0 {
-			for host, c := range last {
+			for host, b := range sample {
 				every[host] = map[string]bool{}
-				for s := range c {
+				for s := range b.last {
 					every[host][s] = true
 				}
 			}
@@ -2216,22 +2254,30 @@ func compareStreamsBlockedWith(t *testing.T, got *capture.Page, want []*capture.
 	}
 
 	for _, host := range hosts {
+		b := g[host]
+		if b == nil {
+			b = &blockedWith{}
+		}
+
 		var missing, beyond []string
 
 		for _, s := range slices.Sorted(maps.Keys(every[host])) {
-			if g[host][s] == 0 {
+			if b.all[s] == 0 {
 				missing = append(missing, fmt.Sprintf("no %s, which every browser sample sent last in its packet", s))
 			}
 		}
 
-		for _, s := range slices.Sorted(maps.Keys(g[host])) {
-			if g[host][s] > most[host][s] {
-				beyond = append(beyond, fmt.Sprintf("%s %d times, the browser's at most %d", s, g[host][s], most[host][s]))
+		for _, waited := range slices.Sorted(maps.Keys(b.bursts)) {
+			burst := b.bursts[waited]
+			for _, s := range slices.Sorted(maps.Keys(burst)) {
+				if burst[s] > most[host][s] {
+					beyond = append(beyond, fmt.Sprintf("%s (W %d) %d times, the browser's at most %d in a burst", s, waited, burst[s], most[host][s]))
+				}
 			}
 		}
 
 		label := "edge QUIC " + host + " STREAMS_BLOCKED with streams"
-		mine := strings.Join(slices.Sorted(maps.Keys(g[host])), ", ")
+		mine := strings.Join(slices.Sorted(maps.Keys(b.all)), ", ")
 
 		for l, diffs := range map[string][]string{
 			label:                            missing,
@@ -2246,13 +2292,44 @@ func compareStreamsBlockedWith(t *testing.T, got *capture.Page, want []*capture.
 	}
 }
 
-// streamsBlockedWithPackets counts the STREAMS_BLOCKED that page's
-// requests sent with their streams (streamsBlockedWith), by host: all of
-// them, and those last in their packet.
-func streamsBlockedWithPackets(page *capture.Page) (all, last map[string]map[string]int) {
-	all, last = map[string]map[string]int{}, map[string]map[string]int{}
+// blockedWith is the STREAMS_BLOCKED one host's requests sent with their
+// streams (streamsBlockedWith).
+type blockedWith struct {
+	// all counts each frame, last those last in their packet.
+	all, last map[string]int
+	// bursts counts them by the burst they were sent in, keyed by the
+	// limit its requests waited at: the highest a frame sent alone carried
+	// (a request made at the limit), up to the frame's own (0 for none).
+	// Each is described relative to that limit, W: "bidi W+2 after stream
+	// W+1".
+	bursts map[uint64]map[string]int
+}
+
+// streamsBlockedWithPackets is the STREAMS_BLOCKED that page's requests
+// sent with their streams, by host.
+func streamsBlockedWithPackets(page *capture.Page) map[string]*blockedWith {
+	out := map[string]*blockedWith{}
 
 	for host, conns := range viewEdge(page).quic {
+		// The limits sent alone, by frame type.
+		alone := map[uint64][]uint64{}
+
+		for _, c := range conns {
+			for _, d := range c.Datagrams {
+				for _, pk := range d.Packets {
+					for i, fr := range pk.Frames {
+						if fr.Type != quictrace.FrameStreamsBlocked {
+							continue
+						}
+
+						if _, with := streamsBlockedWith(pk.Frames, i, 0); !with {
+							alone[fr.Code] = append(alone[fr.Code], fr.Max)
+						}
+					}
+				}
+			}
+		}
+
 		for _, c := range conns {
 			for _, d := range c.Datagrams {
 				for _, pk := range d.Packets {
@@ -2263,26 +2340,49 @@ func streamsBlockedWithPackets(page *capture.Page) (all, last map[string]map[str
 							continue
 						}
 
-						if w, ok := streamsBlockedWith(pk.Frames, i); ok {
-							if all[host] == nil {
-								all[host], last[host] = map[string]int{}, map[string]int{}
-							}
-
-							all[host][w]++
-
-							end = w
+						w, ok := streamsBlockedWith(pk.Frames, i, 0)
+						if !ok {
+							continue
 						}
+
+						var waited uint64
+						for _, l := range alone[fr.Code] {
+							if l <= fr.Max {
+								waited = max(waited, l)
+							}
+						}
+
+						b := out[host]
+						if b == nil {
+							b = &blockedWith{
+								all:    map[string]int{},
+								last:   map[string]int{},
+								bursts: map[uint64]map[string]int{},
+							}
+							out[host] = b
+						}
+
+						if b.bursts[waited] == nil {
+							b.bursts[waited] = map[string]int{}
+						}
+
+						rel, _ := streamsBlockedWith(pk.Frames, i, waited)
+						b.bursts[waited][rel]++
+
+						b.all[w]++
+
+						end = w
 					}
 
 					if end != "" {
-						last[host][end]++
+						out[host].last[end]++
 					}
 				}
 			}
 		}
 	}
 
-	return all, last
+	return out
 }
 
 // streamsBlockedBursts are the h3-streams-blocked page's bursts, each its

@@ -89,7 +89,14 @@ the mechanical import rewrites.
    profile). Hooks in upstream's files, each marked `mimicry:`; with no
    `Config.client` (every upstream path and test) behaviour is upstream's:
    - `config.go`: `Config.client`.
-   - `conn.go`: `Conn.client`, `Conn.cork`; `newConn` takes the profile's
+   - `conn.go`: `Conn.client`, `Conn.cork`, `Conn.corkMu` (held by
+     `maybeSendClient` from its cork check until the datagram's packets
+     are built, and by `Cork` around the increment, so nothing written
+     after `Cork` returns joins a datagram whose check came before it:
+     without it, a loop pass that checked just before a 0-RTT request's
+     `Cork` could take the PRIORITY_UPDATE written under it alone, the
+     request's stream following in a packet of its own;
+     `TestHTTP3MatchesBrowser`, h3-discovery); `newConn` takes the profile's
      datagram size, first Initial packet number and ACK delay and starts
      TLS with `startClientTLS`; registers a sole endpoint's connection
      before its loop starts; `loop` calls `maybeSendClient`, skips the
