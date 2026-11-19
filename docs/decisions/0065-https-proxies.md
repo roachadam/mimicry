@@ -83,7 +83,7 @@ and, over HTTP/2, its SETTINGS, priorities and HPACK: all fingerprintable.
 ## Evidence
 
 Captures `proxy-https`, `proxy-https-h1`, `proxy-https-auth`,
-`proxy-https-h1-auth` ([capturing](../capturing.md#https-proxy-scenarios)),
+`proxy-https-h1-auth` ([capturing](../capturing/proxy-scenarios.md#https-proxy-scenarios)),
 three samples each, for chrome-156-macos/windows, chrome-157-linux,
 edge-157-macos/windows and firefox-159-macos/windows/linux (2026-11-09):
 

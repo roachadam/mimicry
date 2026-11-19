@@ -109,7 +109,7 @@ gives them; the browsers sent the leaf alone.
 Captured 2026-11-08, three samples per scenario and browser, each a fresh
 browser launch holding one identity from a client CA made for the run
 (`internal/clientcert`), auto-selected by policy (Chrome, Edge) or
-preference (Firefox) ([capturing](../capturing.md#client-certificate-scenarios)):
+preference (Firefox) ([capturing](../capturing/scenarios.md#client-certificate-scenarios)):
 Chrome 156 on macOS 27 (the capture Mac) and on Windows 10, Chrome 157 on
 Linux (WSL2 on the Windows PC), Edge 157 on macOS 26 (the second Mac) and
 Windows 10, Firefox 159 on macOS 26, Windows 10 and

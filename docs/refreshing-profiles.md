@@ -92,7 +92,7 @@ order, GREASE values, ECH lengths) take three samples; the rest take one.
 Chrome and Firefox take `h3-discovery` and `h3-page` twice, without and
 with `-h3-local-roots`, as their committed captures do, and `ech-h3` with
 it only; Safari does not take `ech-h3`. Both ECH scenarios have the
-browser look their hosts up in DNS ([Capturing](capturing.md#ech-scenarios)),
+browser look their hosts up in DNS ([Capturing](capturing/scenarios.md#ech-scenarios)),
 and the plan says how for each browser.
 
 Every other scenario is inherited from the browser's previous version. The
@@ -159,7 +159,7 @@ The second Mac needs no Go. The tool cross-compiles `cmd/capture` and
 Browsers opened over ssh show on the session logged in at that Mac's
 screen, so its user must be logged in there (Screen Sharing is enough).
 Each Mac's one-time setup (capture CA, resolver, aioquic, Gatekeeper) is in
-[Capturing browsers](capturing.md#browser-setup).
+[Capturing browsers](capturing/browser-setup.md#browser-setup).
 
 It is not yet checked whether a fully covered window throttles its page's
 timers. If `h3-discovery` or
@@ -311,7 +311,7 @@ A full refresh (or a browser's first on a platform) captures
 `hellogen` derives `tls.clientAuth`; a quick one inherits them, and
 hellogen reads the inherited captures. Each needs the browser to hold an
 identity and send it unasked; the capture tool installs it for the
-scenario and removes it after ([Capturing](capturing.md#client-certificate-scenarios)):
+scenario and removes it after ([Capturing](capturing/scenarios.md#client-certificate-scenarios)):
 a temporary keychain and Chromium policy entries on macOS, the user's
 store and policy entries on Windows, the throwaway profile's NSS
 database elsewhere. Firefox on macOS needs NSS's `pk12util` (`brew
@@ -339,7 +339,7 @@ stub on port 53 for the run, and opens each sample's URL in the phone's
 own Safari through devicectl over USB. Its one-time setup (the capture
 CA, Safari's settings) and what each run needs (the phone's DNS pointed
 at this Mac, unlocked, Auto-Lock Never) are in
-[Capturing browsers](capturing.md#safari-on-an-iphone); the plan lists
+[Capturing browsers](capturing/iphone.md#safari-on-an-iphone); the plan lists
 them. Safari's version is the phone's iOS version, which the preflight
 reads with `xcrun devicectl list devices` (`-ios-device <udid>` picks one
 of several iPhones).
@@ -350,7 +350,7 @@ from and the HTTP/3 failure pair (`h3-blackhole`, `h3-broken`; h3gen
 takes their structure, not their timing over Wi-Fi), unattended, then
 `proxy-connect` and `proxy-plain`, for which the capture tool asks
 someone to set the phone's Wi-Fi proxy and waits for Enter on refresh's
-standard input (see [Capturing browsers](capturing.md#safari-on-an-iphone));
+standard input (see [Capturing browsers](capturing/iphone.md#safari-on-an-iphone));
 about a quarter of an hour, someone at the phone only for the proxy settings.
 A scenario is inherited from the captures of the macOS Safari profile it
 starts from (`capturesFrom`, `internal/platform.Stack`) only where the
@@ -367,14 +367,14 @@ app's, which the preflight reads with `xcrun devicectl device info apps`.
 Someone must be at the phone during `kinds-plain` to tap "Send anyway" on
 Chrome's insecure-form warnings; the plan says so, and the capture tool
 says when. Details are in
-[Capturing browsers](capturing.md#chrome-on-an-iphone).
+[Capturing browsers](capturing/iphone.md#chrome-on-an-iphone).
 
 `-browser firefox-ios` refreshes Firefox on the same iPhone the same way,
 opened through devicectl with `firefox://open-url`; nothing is asked at the
 phone but the proxy settings. Its redirect scenarios may stall a sample
 (Firefox sometimes does not open the next URL after "too many
 redirects", even restarted): take them again as single-sample runs and join the trace files, as
-[Capturing browsers](capturing.md#firefox-on-an-iphone) says.
+[Capturing browsers](capturing/iphone.md#firefox-on-an-iphone) says.
 
 ## What a run does
 
@@ -440,12 +440,12 @@ the preflight reads that build's version, so the plan picks its profile.
   full refresh leaves them out, so the profile keeps or inherits them.
 - Safari through an `https://` proxy: macOS offers Safari none, so every
   refresh skips the `proxy-https*` scenarios for it (logged; see
-  [Capturing](capturing.md#https-proxy-scenarios)), and the iPhone's
+  [Capturing](capturing/proxy-scenarios.md#https-proxy-scenarios)), and the iPhone's
   scenario set leaves them out.
 - Safari's SOCKS4 scenarios: they need the Mac's SOCKS proxy setting as
   SOCKS4, which takes every URL, so a refresh skips them unless that is
   set (preflight `socks4`), and then runs them alone; set it at the Mac's
-  screen ([Capturing](capturing.md#proxy-scenarios)).
+  screen ([Capturing](capturing/proxy-scenarios.md#proxy-scenarios)).
 - New Safari versions come only with macOS updates. Updating the second Mac
   past macOS 26 ends Safari 26's captures.
 - Committing: the tool never touches git.
