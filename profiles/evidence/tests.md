@@ -188,6 +188,7 @@ Edge captures (`server.H3EdgeCaptures`):
   - Its credit increases are held to the range of the browser's.
   - Where the connection limit follows what arrived (Safari), how far it moves is timing.
   - There, mimicry and every sample are held to the rule instead: the limit against what the client's ACKs acknowledged, plus the window.
+  - It runs with a 10 s race delay (`holdRace`), as `TestQUICInterop` does: it needs the QUIC connection the browser used. At Safari's 100–129 ms, a handshake on a busy runner could lose to TCP, and the download then went over HTTP/2. `TestHTTP3EdgeMatchesBrowser` checks the race at the profile's delay.
 - **`TestQPACKReproducesBrowserSections`**: re-encodes every captured field list.
   - It must reproduce the browser's bytes.
 - **`TestQUICInterop`** (`internal/harness/e2e/quic_interop_test.go`): runs every profile against quic-go's HTTP/3 server.

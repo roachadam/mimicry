@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"runtime"
 	"testing"
 
 	"golang.org/x/net/http2"
@@ -242,8 +243,8 @@ func TestWarmRequestAllocations(t *testing.T) {
 		// requests go on HTTP/3 to serveH3Requests instead.
 		serve func(ctx context.Context, conn net.Conn)
 		h3    bool
-		// most is the bound, a little above what it measured; mostRace
-		// with -race, whose sync.Pool drops a quarter of what is put back.
+		// most is the bound; mostRace with -race, whose sync.Pool
+		// drops a random quarter of what is put back.
 		most, mostRace float64
 	}{
 		{
@@ -325,13 +326,40 @@ func TestWarmRequestAllocations(t *testing.T) {
 				most = tc.mostRace
 			}
 
-			// 1000 runs: over 200, HTTP/3's average fell on either side
-			// of a whole number.
-			if n := testing.AllocsPerRun(1000, get); n > most {
-				t.Errorf("%v allocations per warm GET, want at most %v", n, most)
+			// The average with its fraction, over 4000 runs. -race's
+			// random pool drops each cost an allocation at the next Get:
+			// an HTTP/3 request then takes 53 to 75, and the average of
+			// 1000, rounded down as testing.AllocsPerRun does, came out
+			// 61 or 62 (a standard deviation of 0.11, 0.34 below 62).
+			// Over 4000 the deviation is 0.06.
+			if n := allocsPerRun(4000, get); n > most {
+				t.Errorf("%.2f allocations per warm GET, want at most %v", n, most)
 			}
 		})
 	}
+}
+
+// allocsPerRun is testing.AllocsPerRun without its rounding down: the
+// allocations per call of f, fraction kept, over runs calls after one
+// to warm up, with GOMAXPROCS 1.
+func allocsPerRun(runs int, f func()) float64 {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+
+	f()
+
+	var ms runtime.MemStats
+
+	runtime.ReadMemStats(&ms)
+
+	before := ms.Mallocs
+
+	for range runs {
+		f()
+	}
+
+	runtime.ReadMemStats(&ms)
+
+	return float64(ms.Mallocs-before) / float64(runs)
 }
 
 // errNoTCP fails the HTTP/3 row's TCP dials: its requests go on QUIC only.
@@ -369,15 +397,16 @@ func tcpServer(t *testing.T, serve func(ctx context.Context, conn net.Conn)) str
 	return ln.Addr().String()
 }
 
-// The bounds, allocations per warm GET: 26 (HTTP/1.1) and 33 (HTTP/2;
-// 34-35 with -race) measured, 32 and 57 before the cuts; HTTP/3 52 (61
-// with -race), the QUIC server's included, at what it measured
-// (2026-10-28).
+// The bounds, allocations per warm GET, against what was measured over
+// 4000 runs (2026-11-19): HTTP/1.1 26.0 (26.5 with -race), 32 before the
+// cuts; HTTP/2 30.1 (33.9), 57 before; HTTP/3 52.1 (61.4), the QUIC
+// server's included. HTTP/3's sit about halfway to one more allocation
+// per request, many standard deviations from either.
 const (
 	h1Most     = 27
 	h1MostRace = 28
 	h2Most     = 35
 	h2MostRace = 37
-	h3Most     = 52
-	h3MostRace = 61
+	h3Most     = 52.5
+	h3MostRace = 62
 )

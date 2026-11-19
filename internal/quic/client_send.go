@@ -47,7 +47,12 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 			return time.Time{}
 		}
 
+		// Held until the datagram's packets are built: a Cork comes
+		// before this check or after them, never between (Conn.corkMu).
+		c.corkMu.Lock()
+
 		if c.corkHolds() {
+			c.corkMu.Unlock()
 			// Uncork wakes the loop.
 			return time.Time{}
 		}
@@ -68,6 +73,7 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 
 		dstConnID, ok := c.connIDState.dstConnID()
 		if !ok {
+			c.corkMu.Unlock()
 			return time.Time{}
 		}
 
@@ -238,6 +244,8 @@ func (c *Conn) maybeSendClient(now time.Time) (next time.Time) {
 				c.packetSent(now, appDataSpace, sent)
 			}
 		}
+
+		c.corkMu.Unlock()
 
 		buf := c.w.datagram()
 		if len(buf) == 0 {

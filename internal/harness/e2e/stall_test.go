@@ -13,6 +13,12 @@ import (
 // goroutine sleeping stallTick records how late it woke. Timing checks
 // subtract the stall inside their interval, so they hold under -race while
 // a wrong timer still fails.
+//
+// It sees only part of a starvation by this process's own CPU-bound
+// goroutines: the runtime runs a goroutine its timer woke ahead of those
+// the network woke, which wait their turn on every hop (a QUIC dial's
+// DNS lookup and socket read: 110 ms, 33 of them seen). So a test keeps
+// such work, like decoding captures, out of the times it checks.
 var stalls stallWatch
 
 // stallTick is how long the watcher sleeps at a time; stallFloor the

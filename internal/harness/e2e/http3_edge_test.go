@@ -58,8 +58,9 @@ const h3PageHost = "www.h3-a.test"
 // with the fast default ("fast"), whose differences besides are exactly
 // h3EdgeFastGaps: requests that stop waiting on a QUIC attempt the server
 // has not answered, and the TCP connections they open (a healthy page has
-// none), and dials that start at once (checkDialDelays). Subtests run in
-// parallel; the slowest page, h3-broken, takes about 75 s.
+// none), and dials that start at once (checkDialDelays). Subtests decode
+// their captures one at a time, then run in parallel; the slowest page,
+// h3-broken, takes about 75 s.
 func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 	dials := &dialRecord{}
 	lone := &afterRTTRecord{}
@@ -104,8 +105,6 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 				}
 
 				t.Run(name+"/"+sc.Name+"/"+mode, func(t *testing.T) {
-					t.Parallel()
-
 					defer func() {
 						finishedMu.Lock()
 
@@ -113,13 +112,24 @@ func TestHTTP3EdgeMatchesBrowser(t *testing.T) {
 						finishedMu.Unlock()
 					}()
 
+					// The browser's captures are decoded before t.Parallel,
+					// so before any page runs. Decoding is a page's heaviest
+					// CPU work. Done beside a running page, it starves that
+					// page's goroutines, which the stall watcher sees only in
+					// part (stallWatch): the pages with the smallest captures
+					// (h3-vn, h3-blackhole) started first and made their
+					// first QUIC dial 30–110 ms after its trigger while the
+					// others decoded, where mimicry takes 3–5 ms.
+					want := h3Captures(t, p, sc)
+
+					t.Parallel()
+
 					if sc.NeedsAioquic() {
 						if err := server.AioquicAvailable(t.Context()); err != nil {
 							t.Skipf("%s needs aioquic: %v", sc.Name, err)
 						}
 					}
 
-					want := h3Captures(t, p, sc)
 					skip, unused := edgeGapsFor(t, capture.Source(p, sc.Name)+"/"+sc.Name, fast)
 					config := func(cfg *mimicry.Config) {
 						cfg.BrowserQUICFallback = !fast
