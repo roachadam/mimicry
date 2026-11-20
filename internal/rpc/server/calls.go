@@ -66,6 +66,7 @@ func (s *session) call(st *wire.Stream, c *pb.Call) (*pb.Reply, error) {
 		return object(s.objects.add(mimicry.NewTrafficMeter(mimicry.TrafficOptions{
 			ByHost: m.NewTrafficMeter.GetByHost(),
 		}))), nil
+
 	case *pb.Call_CloseIdleConnections:
 		tr, err := lookup[*transport](&s.objects, m.CloseIdleConnections.GetTransport(), "client or transport")
 		if err != nil {
