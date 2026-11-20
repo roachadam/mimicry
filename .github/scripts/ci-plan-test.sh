@@ -136,6 +136,60 @@ shards=[]
 node=all
 python=none'
 
+check 'push, library: the left-out tiers, main, macOS SDK jobs' push 'mimicry.go' 'jobs=["test-harness","test-node","test-python"]
+tiers=protocol,gen,main
+shards=[1,2,3,4,5,6,7,8]
+node=macos
+python=macos'
+
+check 'push, protocol code: gen and main' push 'internal/h2/frame.go' 'jobs=["test-harness","test-node","test-python"]
+tiers=gen,main
+shards=[1,2,3,4,5]
+node=macos
+python=macos'
+
+check 'push, profile data: main' push 'profiles/data/chrome-157-macos.json' 'jobs=["test-harness","test-node","test-python"]
+tiers=main
+shards=[1,2,3,4]
+node=macos
+python=macos'
+
+check 'push, harness: its left-out tiers, no SDK job' push 'internal/harness/internal/headers/order.go' 'jobs=["test-harness"]
+tiers=protocol,gen,main
+shards=[1,2,3,4,5,6,7,8]
+node=none
+python=none'
+
+check 'push, node SDK: its macOS job' push 'bindings/node/src/client.ts' 'jobs=["test-node"]
+tiers=
+shards=[]
+node=macos
+python=none'
+
+check 'push, bench: nothing' push 'internal/bench/cmd/bench/main.go' 'jobs=[]
+tiers=
+shards=[]
+node=none
+python=none'
+
+check 'push, docs: nothing' push 'docs/ci.md' 'jobs=[]
+tiers=
+shards=[]
+node=none
+python=none'
+
+check 'push, workflow: the left-out tiers, main, macOS SDK jobs' push '.github/workflows/ci.yml' 'jobs=["test-harness","test-node","test-python"]
+tiers=protocol,gen,main
+shards=[1,2,3,4,5,6,7,8]
+node=macos
+python=macos'
+
+CI_SELECTION=full check 'CI_SELECTION=full: a push is a full run' push 'docs/ci.md' 'jobs=["lint","test-root","vuln","zizmor","test-harness","test-node","test-python"]
+tiers=core,protocol,gen,main
+shards=[1,2,3,4,5,6,7,8]
+node=all
+python=all'
+
 check 'full: every job and tier' full '' 'jobs=["lint","test-root","vuln","zizmor","test-harness","test-node","test-python"]
 tiers=core,protocol,gen,main
 shards=[1,2,3,4,5,6,7,8]

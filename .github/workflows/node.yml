@@ -11,14 +11,15 @@
 # are the Go client's on the wire (TestNodeMatchesGo*). pack builds
 # every npm package (not published) and installs the host's from the
 # tarballs with npm, as users do. A pull request that changes only the
-# harness runs harness alone (scope: harness).
+# harness runs harness alone (scope: harness); a push to main whose pull
+# request ran the rest, the macOS test job alone (scope: macos).
 name: Node SDK
 
 on:
   workflow_call:
     inputs:
       scope:
-        description: 'all: every job; harness: TestNodeMatchesGo* only.'
+        description: 'all: every job; harness: TestNodeMatchesGo* only; macos: the macOS test job only.'
         type: string
         default: all
 
@@ -32,7 +33,7 @@ env:
 jobs:
   test:
     name: node (${{ matrix.os }}, ${{ matrix.node }})
-    if: inputs.scope == 'all'
+    if: inputs.scope == 'all' || inputs.scope == 'macos'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -41,16 +42,11 @@ jobs:
       # macOS arm64 runners often never pick a job up, and the SDK's macOS
       # path is the POSIX one Linux tests.
       matrix:
-        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
+        os: ${{ fromJSON(inputs.scope == 'macos' && '["macos-latest"]' || github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
         node: ['26']
-        include:
-          - node: '26'
-            save: true
-          - os: ubuntu-latest
-            node: '26'
-            check: true
-          - os: ubuntu-latest
-            node: '22'
+        # Every Node 26 leg saves its OS's caches; the Linux one also checks
+        # (tsc, eslint, generated code); Linux adds the oldest line, 22.
+        include: ${{ fromJSON(inputs.scope == 'macos' && '[{"node":"26","save":true}]' || '[{"node":"26","save":true},{"os":"ubuntu-latest","node":"26","check":true},{"os":"ubuntu-latest","node":"22"}]') }}
     defaults:
       run:
         working-directory: bindings/node

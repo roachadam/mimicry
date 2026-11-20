@@ -6,7 +6,7 @@ How the checks on pull requests, main and releases are run, and how to reproduce
 
 ## Workflows
 
-`.github/workflows/ci.yml` runs on every pull request, every push to main, nightly and by hand (`workflow_dispatch`). A pull request runs the jobs its changes can affect ([What a pull request runs](#what-a-pull-request-runs)); every other run runs them all.
+`.github/workflows/ci.yml` runs on every pull request, every push to main, nightly and by hand (`workflow_dispatch`). A pull request runs the jobs its changes can affect ([What a pull request runs](#what-a-pull-request-runs)); a push to main adds what pull requests leave out ([What a push to main runs](#what-a-push-to-main-runs)); the nightly run, a run by hand and the release run them all.
 
 | Job | What it runs |
 |---|---|
@@ -24,7 +24,7 @@ How the checks on pull requests, main and releases are run, and how to reproduce
 3. Its tests on Linux with the oldest and newest supported Python (3.11 with the oldest allowed protobuf, 3.15), and on macOS and Windows with the newest. Also ruff and mypy, `TestPythonSDKMatchesGo*` in the harness, and its wheels built.
 
 - **Why only the newest on macOS and Windows:** the version floor is a language and API question, the same on every OS; the platform code (the core binary, its pipes) does not vary by Python or Node version. Fewer macOS jobs also means fewer runs lost to GitHub's macOS arm64 runner capacity.
-- **macOS off pull requests:** the macOS SDK jobs run on main, nightly, by hand and in release gates, not on pull requests. GitHub's macOS arm64 runners often never pick a job up ("not acquired by Runner"), which failed `ci-ok` with no test run; the SDK's macOS path is the POSIX one Linux tests.
+- **macOS off pull requests:** the macOS SDK jobs run on pushes to main, nightly, by hand and in release gates, not on pull requests. GitHub's macOS arm64 runners often never pick a job up ("not acquired by Runner"), which failed `ci-ok` with no test run; the SDK's macOS path is the POSIX one Linux tests.
 - **Releases:** pushing a `v*` tag runs `.github/workflows/release.yml` ([Releasing](releasing.md)).
   - It runs `:test-full`, builds and attests the SDKs' wheels and npm packages, and opens a draft GitHub Release.
   - It waits for the maintainer to approve publishing them.
@@ -46,8 +46,30 @@ The `changes` job (`.github/scripts/ci-plan.sh`) sorts the pull request's change
 
 - **Why it is safe:** each module is tested on its own. The library never imports the harness or the bench, and `go test ./...` at the root skips them. The SDKs run the core built from the library. The harness's tests of the SDKs (`TestNodeMatchesGo*`, `TestPythonSDKMatchesGo*`) run when either side changes.
 - **A path no rule names runs every job.** Adding a module, a top-level directory or a file one owner's tests read from another's means adding its rule to `ci-plan.sh` and a case to `ci-plan-test.sh`.
-- **Every job, every pull request:** set the repository variable `CI_SELECTION` to `full` (Settings → Secrets and variables → Actions → Variables). The docs rule still applies.
-- Main, nightly, by hand and the release run every job and tier, whatever changed.
+- **Every job, every pull request and push:** set the repository variable `CI_SELECTION` to `full` (Settings → Secrets and variables → Actions → Variables). The docs rule still applies to pull requests.
+
+## What a push to main runs
+
+Pull requests merge by squash, and the ruleset requires them up to date with main, so a pull request's last run tested the tree its merge puts on main. A push to main runs only what pull requests leave out, when `.github/scripts/ci-push-proof.sh` shows all of this through the GitHub API:
+
+- the commit is the squash merge of exactly one pull request into main;
+- that pull request's head has the commit's tree;
+- `ci-ok` passed on that head.
+
+It then plans the commit's changed paths as a pull request's, and runs what a full run of those owners adds:
+
+| The pull request ran | The push adds |
+|---|---|
+| The harness's tiers | The `main` tier, and `protocol` and `gen` if the pull request left them out: 4 shards for main, 3 more for protocol, 1 more for gen |
+| `test-node`, every job | Its macOS test job |
+| `test-python`, every job | Its macOS test job |
+| `lint`, `test-root`, `vuln`, `zizmor`, the SDKs' Linux and Windows jobs, pack, wheels | Nothing: they passed on this tree |
+
+- **Anything else runs every job and tier:** a direct push, a merge that bypassed the ruleset, a pull request whose `ci-ok` never passed, an API error. The `changes` job's log says which.
+- **Each push has its own concurrency group**, so a push queued behind another is never cancelled and every merge gets its run.
+- **What a push no longer repeats** still runs nightly, on every job and tier: a new vulnerability in the database, a flaky test, a runner change.
+- **Caches:** a job saves its caches when it runs on main. The jobs a push leaves out save theirs in the nightly run, so a pull request restores them from at most a day before.
+- The API reads need no token permission while the repository is public. If it goes private, they fail and every push gets a full run until `changes` gets `pull-requests: read` and `checks: read` (and `release.yml`'s `gate` too).
 
 ## Harness tiers and shards
 
@@ -58,7 +80,7 @@ The harness's tests come in tiers, set per test in `.github/harness-shards.txt`.
 | `core` | Headers, hellos, cookies, redirects, kinds, proxies, WebSockets, resumption, HPACK/QPACK, profiles and the harness's unit tests [1] | Every pull request |
 | `protocol` | `TestConnectionMatchesBrowserTrace`, `TestChainedPrioritiesMatchBrowserTraces`, the HTTP/3 download and match tests | Pull requests touching protocol code [2] |
 | `gen` | The hellogen, h3gen and kindsgen tests | Pull requests touching the generators, captures, capture parsing or profiles |
-| `main` | `TestHTTP3EdgeMatchesBrowser`, `TestQUICInterop` | Main, nightly and by hand only [3] |
+| `main` | `TestHTTP3EdgeMatchesBrowser`, `TestQUICInterop` | Pushes to main, nightly and by hand only [3] |
 
 1. A test not listed is core.
 2. The HTTP/2, HTTP/3, QUIC or engine code, the profiles, the e2e tests, the scenario server or the trace decoders, or the Go and module versions.
@@ -67,8 +89,9 @@ The harness's tests come in tiers, set per test in `.github/harness-shards.txt`.
 ### Shards
 
 - **Counts:**
-  - Main, nightly, by hand and the release run every tier in 8 shards.
+  - The nightly run, a run by hand, the release and a push to main nothing proves run every tier in 8 shards.
   - A pull request runs 2 shards for core, plus 3 for protocol and 1 for gen.
+  - A push to main its pull request proves runs 4 for main, plus 3 for protocol and 1 for gen when the pull request left them out.
 - **Time limit:** each job must finish in 15 minutes, so the tests are split into shards.
 - **How tests are dealt:** `.github/scripts/harness-shard.sh <tiers> <shard> <total>` does it.
   - Every top-level test is a unit, weighed by its seconds on the runner in `.github/harness-shards.txt`.

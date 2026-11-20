@@ -3,15 +3,17 @@
 # them all, the harness's or an SDK's fewer, docs nothing, any other path
 # every job) and the harness tests of the tiers its paths call for
 # (.github/harness-shards.txt: core always; protocol and gen when it touches
-# their paths); a push to main, the nightly run and a run by hand run every
-# job and tier, main's too (the timing-heavy HTTP/3 edge and QUIC interop
-# tests: their regressions show after the merge). release.yml calls it with
-# full: true before a release (every tier, every profile). ci-ok is the one
-# check to require: it passes when every planned job passed and the others
-# were skipped. Each job stays under 15 minutes; the harness tests are split
-# into shards (.github/scripts/harness-shard.sh). test-node and test-python
-# run the Node and Python SDKs' jobs (node.yml, python.yml). CodeQL is
-# codeql.yml.
+# their paths). A push to main that merged such a pull request adds what
+# pull requests leave out: the main tier (the timing-heavy HTTP/3 edge and
+# QUIC interop tests: their regressions show after the merge), the tiers
+# that pull request left out, and the SDKs' macOS jobs. The nightly run, a
+# run by hand and any other push run every job and tier. release.yml calls
+# it with full: true before a release (every tier, every profile). ci-ok is
+# the one check to require: it passes when every planned job passed and
+# the others were skipped. Each job stays under 15 minutes; the harness
+# tests are split into shards (.github/scripts/harness-shard.sh). test-node
+# and test-python run the Node and Python SDKs' jobs (node.yml,
+# python.yml). CodeQL is codeql.yml.
 name: CI
 
 on:
@@ -31,9 +33,11 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request cancels its running checks; other runs queue.
+# A new push to a pull request cancels its running checks. A push to main
+# has a group of its own, so none is cancelled while queued (each adds what
+# its pull request left out); other runs queue.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ inputs.full && 'full' || 'gate' }}
+  group: ci-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.sha) || github.ref }}-${{ inputs.full && 'full' || 'gate' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -49,9 +53,13 @@ jobs:
   # What the run tests (.github/scripts/ci-plan.sh): a pull request what its
   # changed paths can affect, by owner (the library, the harness, the bench,
   # each SDK; docs nothing; any other path every job), and the harness
-  # tiers its paths call for; every other run every job and tier. The
-  # repository variable CI_SELECTION=full makes a pull request run every
-  # job. A shard takes about 5 minutes with its setup.
+  # tiers its paths call for. A push to main that squash-merged a pull
+  # request whose ci-ok passed on the same tree (ci-push-proof.sh) adds
+  # only what pull requests leave out: the main tier, the tiers that pull
+  # request left out, the SDKs' macOS jobs. Every other run, and any push
+  # that proof fails, runs every job and tier. The repository variable
+  # CI_SELECTION=full makes every pull request and push run every job. A
+  # shard takes about 5 minutes with its setup.
   changes:
     name: changes
     runs-on: ubuntu-latest
@@ -70,16 +78,29 @@ jobs:
       - id: plan
         env:
           CI_SELECTION: ${{ vars.CI_SELECTION }}
+          FULL: ${{ inputs.full }}
+          # The proof's API reads need no permission on a public repository.
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            bash .github/scripts/ci-plan.sh full </dev/null >>"$GITHUB_OUTPUT"
-          else
-            # A pull request checks out its merge commit: the first parent
-            # is the base branch, so HEAD^1..HEAD is the pull request's
-            # change.
-            changed=$(git diff --name-only HEAD^1 HEAD)
-            bash .github/scripts/ci-plan.sh pr <<<"$changed" >>"$GITHUB_OUTPUT"
+          mode='full'
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            mode='pr'
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/main ] && [ "$FULL" != true ]; then
+            if proof=$(bash .github/scripts/ci-push-proof.sh "$GITHUB_SHA"); then
+              echo "pull request #$proof passed ci-ok on this tree"
+              mode='push'
+            else
+              echo "$proof: a full run"
+            fi
           fi
+          changed=
+          if [ "$mode" != full ]; then
+            # A pull request checks out its merge commit, a push to main its
+            # squash merge: the first parent is main, so HEAD^1..HEAD is the
+            # pull request's change.
+            changed=$(git diff --name-only HEAD^1 HEAD)
+          fi
+          bash .github/scripts/ci-plan.sh "$mode" <<<"$changed" >>"$GITHUB_OUTPUT"
 
   lint:
     name: lint

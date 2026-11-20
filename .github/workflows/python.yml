@@ -5,14 +5,15 @@
 # lint (ruff, mypy); the harness's comparison of its requests with the Go
 # client's (Linux); and its wheels for every platform, built and checked,
 # never published. A pull request that changes only the harness runs the
-# Linux job with the comparison alone (scope: harness).
+# Linux job with the comparison alone (scope: harness); a push to main
+# whose pull request ran the rest, the macOS job alone (scope: macos).
 name: Python SDK
 
 on:
   workflow_call:
     inputs:
       scope:
-        description: 'all: every job; harness: the Linux job with the harness comparison only.'
+        description: 'all: every job; harness: the Linux job with the harness comparison only; macos: the macOS job only.'
         type: string
         default: all
 
@@ -34,9 +35,9 @@ jobs:
       # macOS arm64 runners often never pick a job up, and the SDK's macOS
       # path is the POSIX one Linux tests.
       matrix:
-        os: ${{ fromJSON(inputs.scope == 'harness' && '["ubuntu-latest"]' || github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
+        os: ${{ fromJSON(inputs.scope == 'macos' && '["macos-latest"]' || inputs.scope == 'harness' && '["ubuntu-latest"]' || github.event_name == 'pull_request' && '["ubuntu-latest","windows-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
         python: ['3.15']
-        include: ${{ fromJSON(inputs.scope == 'harness' && '[]' || '[{"os":"ubuntu-latest","python":"3.11"}]') }}
+        include: ${{ fromJSON(inputs.scope == 'all' && '[{"os":"ubuntu-latest","python":"3.11"}]' || '[]') }}
     defaults:
       run:
         shell: bash
