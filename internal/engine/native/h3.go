@@ -23,6 +23,7 @@ import (
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/internal/quic"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -1370,7 +1371,16 @@ func (e *Engine) connectH3(ctx context.Context, r route, spec dialSpec) (*quicCo
 // CONNECT-UDP stream (listenConnectUDP), a new one for each socket: no
 // datagram goes to the origin directly.
 func (e *Engine) dialQUIC(ctx context.Context, r route, port uint16, hello fingerprint.Hello, cfg handshake.Config, dc quic.DialConfig) (*quic.Conn, error) {
+	proxy := r.proxy
+	if r.udp != nil {
+		proxy = r.udp
+	}
+
 	listen := func(ctx context.Context, host string, port uint16) (net.PacketConn, netip.AddrPort, error) {
+		// Each socket, a migration's too, counted as this origin's
+		// HTTP/3 (Config.Traffic).
+		ctx, _ = e.trafficTag(ctx, traffic.HTTP3, r.host, proxy)
+
 		switch {
 		case r.udp != nil:
 			return e.listenConnectUDP(ctx, r, port)

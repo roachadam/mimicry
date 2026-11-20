@@ -1,13 +1,15 @@
 // Package convert turns mimicry-core's protocol messages (internal/rpc/pb)
 // into mimicry's public types and back (decision 0069): a Config with its
 // callbacks as data, a request and its options, a response, a plan, a
-// connection's TLS state, cookies, errors as codes, and the framing of a
-// WebSocket's messages inside DATA. It holds no state: the objects a
-// message names by id are the server's to resolve.
+// connection's TLS state, cookies, a traffic meter's counts, errors as
+// codes, and the framing of a WebSocket's messages inside DATA. It holds
+// no state: the objects a message names by id are the server's to
+// resolve.
 package convert
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -31,9 +33,9 @@ import (
 )
 
 // Config returns c's data as a mimicry.Config: everything but its
-// objects (Profile, Cookies, ClientHintStore, AltSvc, Tickets), its
-// VerifyConnection and its KeyLogWriter, which name things the server
-// holds.
+// objects (Profile, Cookies, ClientHintStore, AltSvc, Tickets, Traffic),
+// its VerifyConnection and its KeyLogWriter, which name things the
+// server holds.
 func Config(c *pb.Config) (mimicry.Config, error) {
 	cfg := mimicry.Config{
 		DialTimeout:          c.GetDialTimeout().AsDuration(),
@@ -586,4 +588,39 @@ func CertPins(pins []mimicry.CertPin) *pb.CertPins {
 	}
 
 	return out
+}
+
+// Traffic returns t as data, its ByHost entries sorted by host, then
+// proxy.
+func Traffic(t mimicry.Traffic) *pb.Traffic {
+	out := &pb.Traffic{
+		Http1:     bytesOf(t.HTTP1),
+		Http2:     bytesOf(t.HTTP2),
+		Http3:     bytesOf(t.HTTP3),
+		Websocket: bytesOf(t.WebSocket),
+		Dns:       bytesOf(t.DNS),
+		Other:     bytesOf(t.Other),
+		ByHost:    make([]*pb.PeerBytes, 0, len(t.ByHost)),
+	}
+
+	for p, b := range t.ByHost {
+		out.ByHost = append(out.ByHost, &pb.PeerBytes{
+			Host:  p.Host,
+			Proxy: p.Proxy,
+			Bytes: bytesOf(b),
+		})
+	}
+
+	slices.SortFunc(out.GetByHost(), func(a, b *pb.PeerBytes) int {
+		return cmp.Or(cmp.Compare(a.GetHost(), b.GetHost()), cmp.Compare(a.GetProxy(), b.GetProxy()))
+	})
+
+	return out
+}
+
+func bytesOf(b mimicry.Bytes) *pb.Bytes {
+	return &pb.Bytes{
+		Sent:     b.Sent,
+		Received: b.Received,
+	}
 }

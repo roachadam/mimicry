@@ -16,6 +16,7 @@ import (
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/proxy"
 	"github.com/roachadam/mimicry/internal/quic"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -155,6 +156,10 @@ func (e *Engine) dialConnectUDP(ctx context.Context, authority string) (*h3.Conn
 		return nil, err
 	}
 
+	// The proxy connection carries one site's socket: it counts as that
+	// site's HTTP/3, its migrations too (Config.Traffic).
+	tag := traffic.TagOf(ctx)
+
 	pc, addr, err := e.dialer.ListenUDP(ctx, host, uint16(port))
 	if err != nil {
 		return nil, err
@@ -177,7 +182,7 @@ func (e *Engine) dialConnectUDP(ctx context.Context, authority string) (*h3.Conn
 		Datagrams: true,
 		NewPath: func(ctx context.Context) (net.PacketConn, error) {
 			// The same proxy from a new local port (Chrome's migration).
-			pc, _, err := e.dialer.ListenUDP(ctx, addr.Addr().String(), addr.Port())
+			pc, _, err := e.dialer.ListenUDP(traffic.With(ctx, tag), addr.Addr().String(), addr.Port())
 			return pc, err
 		},
 	})

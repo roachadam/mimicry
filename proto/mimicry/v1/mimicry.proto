@@ -39,6 +39,7 @@ message Call {
     NewAltSvcCache new_alt_svc_cache = 24;
     NewClientHintStore new_client_hint_store = 25;
     CloseIdleConnections close_idle_connections = 26;
+    NewTrafficMeter new_traffic_meter = 27;
 
     Do do = 30;
     Plan plan = 31;
@@ -64,6 +65,7 @@ message Call {
     JarClone jar_clone = 55;
     ClientHints client_hints = 56;
     SetClientHints set_client_hints = 57;
+    TrafficSnapshot traffic_snapshot = 58;
   }
 }
 
@@ -78,7 +80,7 @@ message Reply {
   oneof result {
     HelloReply hello = 3;
     // Object is a new object's id: NewTransport, NewJar, NewTicketCache,
-    // NewAltSvcCache, NewClientHintStore, JarClone.
+    // NewAltSvcCache, NewClientHintStore, NewTrafficMeter, JarClone.
     Object object = 4;
     NewClientReply new_client = 5;
     ProfileList profiles = 6;
@@ -95,6 +97,8 @@ message Reply {
     bytes value = 15;
     // Strings is a list of strings: ClientHints.
     Strings strings = 16;
+    // Traffic is a traffic meter's counts: TrafficSnapshot.
+    Traffic traffic = 17;
   }
 }
 
@@ -151,8 +155,9 @@ enum Feature {
 }
 
 // Close frees an object: a client, transport, jar, cache, store,
-// profile or WebSocket. A transport's (or client's) idle connections
-// close; a WebSocket is closed as WebSocket.Close(1000, "") does.
+// traffic meter, profile or WebSocket. A transport's (or client's) idle
+// connections close; a WebSocket is closed as WebSocket.Close(1000, "")
+// does.
 // Disconnecting frees every object the connection owned.
 message Close {
   uint64 id = 1;
@@ -282,6 +287,8 @@ message Config {
   // Key_log_file is a file the core appends TLS secrets to, created 0600
   // (KeyLogWriter).
   string key_log_file = 31;
+  // Traffic is a TrafficMeter's id (NewTrafficMeter).
+  uint64 traffic = 32;
 }
 
 // HeaderValues is one name of an http.Header with its values. A name with
@@ -371,6 +378,12 @@ message NewAltSvcCache {}
 
 // NewClientHintStore is mimicry.NewClientHintStore.
 message NewClientHintStore {}
+
+// NewTrafficMeter is mimicry.NewTrafficMeter.
+message NewTrafficMeter {
+  // By_host also keeps a total per host and proxy (TrafficOptions.ByHost).
+  bool by_host = 1;
+}
 
 // CloseIdleConnections is Transport.CloseIdleConnections, of a client's
 // or a transport's.
@@ -795,6 +808,39 @@ message SetClientHints {
   uint64 store = 1;
   string origin = 2;
   repeated string hints = 3;
+}
+
+// TrafficSnapshot is TrafficMeter.Snapshot, or with reset
+// TrafficMeter.Reset; the reply's traffic is the counts.
+message TrafficSnapshot {
+  uint64 meter = 1;
+  bool reset = 2;
+}
+
+// Traffic is mimicry.Traffic.
+message Traffic {
+  Bytes http1 = 1;
+  Bytes http2 = 2;
+  Bytes http3 = 3;
+  Bytes websocket = 4;
+  Bytes dns = 5;
+  Bytes other = 6;
+  // By_host is ByHost's entries, sorted by host then proxy; empty unless
+  // the meter was made with by_host.
+  repeated PeerBytes by_host = 7;
+}
+
+// Bytes is mimicry.Bytes.
+message Bytes {
+  int64 sent = 1;
+  int64 received = 2;
+}
+
+// PeerBytes is one entry of Traffic.ByHost: a mimicry.Peer and its bytes.
+message PeerBytes {
+  string host = 1;
+  string proxy = 2;
+  Bytes bytes = 3;
 }
 
 // VerifyConnection is a reverse call for a transport made with

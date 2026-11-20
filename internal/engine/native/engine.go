@@ -36,6 +36,7 @@ import (
 	"github.com/roachadam/mimicry/internal/headerorder"
 	"github.com/roachadam/mimicry/internal/httpsrr"
 	"github.com/roachadam/mimicry/internal/pool"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -158,6 +159,9 @@ type Config struct {
 	// OnConnect, when set, is told each TCP connect's duration
 	// (dial.Dialer.OnConnect), which the rtt client hint estimates from.
 	OnConnect func(time.Duration)
+	// Traffic, when set, counts the bytes of every socket the engine
+	// opens, by protocol and peer (decision 0070).
+	Traffic *traffic.Meter
 }
 
 // Engine is the pure-Go engine: pooled connections, one dial path, uTLS
@@ -221,6 +225,8 @@ type Engine struct {
 	// proxies are the proxies requests went through, for closing the
 	// connections of those no longer used (proxies.go).
 	proxies proxyUse
+	// traffic is Config.Traffic; nil counts nothing.
+	traffic *traffic.Meter
 }
 
 // New builds an engine for cfg.Profile, which it takes ownership of: the
@@ -297,7 +303,9 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		rootCAs:     cfg.RootCAs,
 		keyLog:      cfg.KeyLogWriter,
 		clientCert:  cfg.ClientCertificate,
+		traffic:     cfg.Traffic,
 		dialer: &dial.Dialer{
+			Traffic:             cfg.Traffic,
 			Timeout:             timeout,
 			DialContext:         cfg.DialContext,
 			Resolver:            cfg.Resolver,
@@ -358,6 +366,7 @@ func newEngine(cfg Config, clock clockwork.Clock, onWait func(string)) (*Engine,
 		e.https = httpsrr.New(httpsrr.Config{
 			Resolver: cfg.Resolver,
 			Clock:    clock,
+			Traffic:  cfg.Traffic,
 		})
 	}
 
@@ -944,11 +953,18 @@ func (e *Engine) firstRequestFor(addr string) func() bool {
 // returns the negotiated protocol ("h2", or HTTP/1.1 otherwise). A
 // connection the browser drops at its host's first CertificateRequest
 // (handshake.ErrRestart) is made again, as Chrome sends the request again
-// once it has chosen a certificate.
+// once it has chosen a certificate. Its sockets count as the negotiated
+// protocol (Config.Traffic).
 func (e *Engine) dial(ctx context.Context, req *http.Request, r route) (net.Conn, string, error) {
+	ctx, tag := e.trafficTag(ctx, traffic.Other, r.host, r.proxy)
+
 	conn, proto, err := e.dialOnce(ctx, req, r)
 	if errors.Is(err, handshake.ErrRestart) {
-		return e.dialOnce(ctx, req, r)
+		conn, proto, err = e.dialOnce(ctx, req, r)
+	}
+
+	if err == nil {
+		tag.SetProtocol(alpnProtocol(proto))
 	}
 
 	return conn, proto, err

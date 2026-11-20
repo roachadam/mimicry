@@ -16,6 +16,7 @@ import (
 	"github.com/roachadam/mimicry/internal/qpack"
 	"github.com/roachadam/mimicry/internal/quic"
 	"github.com/roachadam/mimicry/internal/testutil"
+	"github.com/roachadam/mimicry/internal/traffic"
 )
 
 // h1Response is what serveH1Requests answers every request with.
@@ -279,6 +280,8 @@ func TestWarmRequestAllocations(t *testing.T) {
 				addr = tcpServer(t, tc.serve)
 			}
 
+			// Counting traffic (Config.Traffic, by host) allocates per
+			// connection, never per request: the bounds hold with it on.
 			e := newTestEngine(t, options{
 				dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
 					if addr == "" {
@@ -287,6 +290,7 @@ func TestWarmRequestAllocations(t *testing.T) {
 
 					return (&net.Dialer{}).DialContext(ctx, network, addr)
 				},
+				traffic: traffic.New(true),
 			})
 
 			if tc.h3 {

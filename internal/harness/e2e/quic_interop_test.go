@@ -1305,9 +1305,10 @@ type interopEnv struct {
 	// backends are the case's backends, server first.
 	backends []*backend
 	// cfg is the client's Config; tcpConns counts the TCP server's
-	// connections.
+	// connections, tcpBytes their bytes.
 	cfg      mimicry.Config
 	tcpConns *atomic.Int64
+	tcpBytes *wireBytes
 }
 
 func newInteropEnv(t *testing.T, p *profile.Spec, pki *interopPKI, c interopCase) *interopEnv {
@@ -1334,6 +1335,7 @@ func newInteropEnv(t *testing.T, p *profile.Spec, pki *interopPKI, c interopCase
 		pki:      pki,
 		seed:     h.Sum64(),
 		tcpConns: &atomic.Int64{},
+		tcpBytes: &wireBytes{},
 	}
 	opts := c.server
 
@@ -1429,6 +1431,11 @@ func (e *interopEnv) altSvcServer() string {
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	ln = &countingListener{
+		Listener: ln,
+		n:        e.tcpBytes,
 	}
 
 	alt := fmt.Sprintf(`h3=":%d"; ma=86400`, e.relay.Addr().Port())

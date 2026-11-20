@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/roachadam/mimicry/internal/proxy"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -72,6 +73,10 @@ type Dialer struct {
 	// the profile's hello. Required for https proxies; on error conn is
 	// closed.
 	ProxyTLS func(ctx context.Context, conn net.Conn, p *url.URL) (net.Conn, error)
+	// Traffic, when set, counts the bytes of every socket the Dialer
+	// opens: TCP (DialContext's too), QUIC's UDP and SOCKS5 UDP relays,
+	// each under the traffic.Tag its dial's context carries.
+	Traffic *traffic.Meter
 
 	// asked holds the proxies (by URL) that have asked for credentials:
 	// browsers send them unasked from then on.
@@ -100,11 +105,15 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 		start := time.Now()
 
 		conn, err := d.DialContext(ctx, "tcp", addr)
-		if err == nil && d.OnConnect != nil {
+		if err != nil {
+			return nil, err
+		}
+
+		if d.OnConnect != nil {
 			d.OnConnect(time.Since(start))
 		}
 
-		return conn, err
+		return traffic.Wrap(conn, d.Traffic.Open(ctx)), nil
 	}
 
 	// started is when the last connect() began: the one that succeeded,
@@ -148,11 +157,15 @@ func (d *Dialer) dial(ctx context.Context, addr string) (net.Conn, error) {
 	}
 
 	conn, err := nd.DialContext(ctx, network, addr)
-	if start := started.Load(); err == nil && start != nil && d.OnConnect != nil {
+	if err != nil {
+		return nil, err
+	}
+
+	if start := started.Load(); start != nil && d.OnConnect != nil {
 		d.OnConnect(time.Since(*start))
 	}
 
-	return conn, err
+	return traffic.Wrap(conn, d.Traffic.Open(ctx)), nil
 }
 
 // localFor returns the local address LocalAddrs gives the IPv6 (v6) or
@@ -225,11 +238,14 @@ func (d *Dialer) ListenUDP(ctx context.Context, host string, port uint16) (net.P
 		return nil, netip.AddrPort{}, err
 	}
 
-	if uc, ok := pc.(*net.UDPConn); ok {
-		d.setReadBuffer(uc)
+	uc, ok := pc.(*net.UDPConn)
+	if !ok {
+		return pc, netip.AddrPortFrom(addr, port), nil
 	}
 
-	return pc, netip.AddrPortFrom(addr, port), nil
+	d.setReadBuffer(uc)
+
+	return traffic.WrapUDP(uc, d.Traffic.Open(ctx)), netip.AddrPortFrom(addr, port), nil
 }
 
 // DefaultHTTP3ReadBufferSize is the receive buffer a QUIC socket asks for
@@ -590,7 +606,7 @@ func (d *Dialer) Forget(via string) {
 // dialRelay opens a UDP socket connected to relay, the address p's answer
 // to UDP ASSOCIATE on ctrl gave: an unspecified IP there is the proxy's,
 // the address ctrl reached.
-func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay string) (*net.UDPConn, error) {
+func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay string) (net.Conn, error) {
 	relayHost, relayPort, err := net.SplitHostPort(relay)
 	if err != nil {
 		return nil, err
@@ -638,7 +654,7 @@ func (d *Dialer) dialRelay(ctx context.Context, ctrl net.Conn, p *url.URL, relay
 
 	d.setReadBuffer(udp)
 
-	return udp, nil
+	return traffic.Wrap(udp, d.Traffic.Open(ctx)), nil
 }
 
 // ConnectOn opens a CONNECT tunnel to addr over HTTP/1.1 on conn, a new

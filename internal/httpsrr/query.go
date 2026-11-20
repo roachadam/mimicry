@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"golang.org/x/net/dns/dnsmessage"
+
+	"github.com/roachadam/mimicry/internal/traffic"
 )
 
 const (
@@ -224,15 +226,31 @@ func (r *Resolver) roundTrip(ctx context.Context, network, server string, msg []
 	return streamRoundTrip(conn, msg, id, q)
 }
 
-// dial connects to server through the caller's resolver's Dial, if set.
+// dial connects to server through the caller's resolver's Dial, if set,
+// the connection counted as traffic.DNS to server.
 func (r *Resolver) dial(ctx context.Context, network, server string) (net.Conn, error) {
+	var (
+		conn net.Conn
+		err  error
+	)
+
 	if r.resolver != nil && r.resolver.Dial != nil {
-		return r.resolver.Dial(ctx, network, server)
+		conn, err = r.resolver.Dial(ctx, network, server)
+	} else {
+		var d net.Dialer
+
+		conn, err = d.DialContext(ctx, network, server)
 	}
 
-	var d net.Dialer
+	if err != nil || r.traffic == nil {
+		return conn, err
+	}
 
-	return d.DialContext(ctx, network, server)
+	tag := traffic.NewTag(traffic.DNS, traffic.Peer{
+		Host: server,
+	})
+
+	return traffic.Wrap(conn, r.traffic.Open(traffic.With(ctx, tag))), nil
 }
 
 // packetRoundTrip sends msg as a datagram and returns the first answer to

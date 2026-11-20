@@ -227,6 +227,12 @@ type Config struct {
 	// as MaxIdleProxies says lose their tickets from it too. Nil, the
 	// default, keeps one per Transport, lost with it.
 	Tickets *TicketCache
+	// Traffic, if set, counts the bytes this Transport's sockets send and
+	// receive, by protocol (and by host with TrafficOptions.ByHost),
+	// traffic mimicry makes beyond the caller's requests included. Several
+	// Transports may share one meter. Nil, the default, counts nothing.
+	// See docs/concepts/traffic.md.
+	Traffic *TrafficMeter
 	// BrowserQUICFallback copies the browser's slow fallback when QUIC
 	// stalls or fails: requests wait as long as the browser's do. By
 	// default they move to TCP after the browser's race delay, or at once
@@ -514,6 +520,10 @@ func NewTransport(cfg Config) (*Transport, error) {
 
 		if cfg.Tickets != nil {
 			ncfg.Tickets = cfg.Tickets.s
+		}
+
+		if cfg.Traffic != nil {
+			ncfg.Traffic = cfg.Traffic.m
 		}
 
 		e, err := native.New(ncfg)

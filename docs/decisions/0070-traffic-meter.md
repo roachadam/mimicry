@@ -1,8 +1,8 @@
 # 0070: Traffic meter
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-20
-- Commits: none yet ([#162](https://github.com/roachadam/mimicry/issues/162))
+- Commits: `1ba8b6c` (the record); the implementation, [#162](https://github.com/roachadam/mimicry/issues/162)
 
 **Summary.** `Config.Traffic`, a `*TrafficMeter`, counts the bytes mimicry's sockets send and receive, by protocol: every connection, the traffic mimicry makes beyond the caller's requests included. Each socket keeps its own counters, which a snapshot sums, so counting costs one uncontended atomic add per socket read or write, and nothing when no meter is set. A socket's protocol and host are tagged once, so the breakdowns cost nothing per byte. Per-host totals are opt-in; there are no per-request counts.
 
@@ -119,14 +119,15 @@ A fixed struct, not a map: a snapshot without `ByHost` allocates nothing.
 
 ### How
 
-- **Per socket:** a `socketCount` struct with two `atomic.Int64`, a protocol and a `Peer`, padded to its own cache line. One add per read or write call. A connection's reads and its writes are each already serialized, and no other socket touches the line, so the atomic is uncontended. It is atomic only so a snapshot can read it from another goroutine.
+- **Per socket:** a `traffic.Counter` with two `atomic.Int64`, its meter and its dial's `traffic.Tag`, padded to 64 bytes so no two share a cache line. One add per read or write call. A connection's reads and its writes are each already serialized, and no other socket touches the line, so the atomic is uncontended. It is atomic only so a snapshot can read it from another goroutine.
+- **Tag:** the engine puts a `traffic.Tag` (protocol and `Peer`) in the dial's context; the dialer gives each socket it opens under that context the tag. The engine sets the tag's protocol after the TLS handshake picks it. An https proxy connection that carries one tunnel follows that tunnel's tag.
 - **Registry:** the meter keeps the live sockets in a set under a mutex, touched only when a socket opens or closes. On close, its counts fold into its protocol's total (and its `Peer`'s, with `ByHost`).
-- **Snapshot:** locks the registry, sums the totals and the live sockets. Cost grows with the live sockets, never with traffic.
-- **Off:** with `Config.Traffic` nil, `internal/dial` returns unwrapped conns, `internal/quic` skips a nil pointer, and the protocol setter is a no-op.
+- **Snapshot:** locks the registry, sums the totals and the live sockets. Cost grows with the live sockets, never with traffic. `Reset` folds the live sockets' counts in and keeps a base per socket, so its later counts start from zero.
+- **Off:** with `Config.Traffic` nil, `internal/dial` returns unwrapped conns, no tag is made, and setting a nil tag's protocol does nothing.
 
 ### Language SDKs
 
-- `mimicry-core` holds meters as it holds jars: `new_traffic_meter(by_host=)` returns an object, and `snapshot()` and `reset()` are calls.
+- `mimicry-core` holds meters as it holds jars: `new_traffic_meter(by_host=)` (Python), `newTrafficMeter({ byHost })` (Node) return an object; `snapshot()` and `reset()` are calls.
 
 ## Evidence
 
@@ -140,18 +141,20 @@ A fixed struct, not a map: a snapshot without `ByHost` allocates nothing.
 | No meter (nil check) | ~0 | ~0 | ~0 |
 
 - A warm GET costs mimicry 35–50 µs ([performance](../performance.md)) and a few socket calls. Per-socket counting is well under 0.1% of that.
-- QUIC's batched read path needs a `*net.UDPConn`: `wrapPacketConn` in `internal/quic/client_path.go`.
+- Measured with the meter on and off (2026-11-20, `internal/engine/native`'s warm-request servers, median of 9 runs of 3,000 GETs, three runs each, alternated): HTTP/2 33.1–37.3 µs off, 33.4–33.8 on; HTTP/3 52.5–53.1 off, 52.4–53.1 on. No difference beyond noise.
+- QUIC's batched read path needs a `*net.UDPConn`: `wrapPacketConn` in `internal/quic/client_path.go`. A counted socket (`traffic.UDPConn`) hands it its `*net.UDPConn` and counts each batch.
 
 ## Consequences
 
-- One counting point per socket kind, all in `internal/dial`, `internal/quic` and `internal/proxy`, and one protocol setter where the engine learns ALPN. A new socket kind must count too; the e2e test below fails if it doesn't.
+- One counting point per socket kind, all in `internal/dial`, `internal/quic` and `internal/httpsrr`, and one tag per dial in the engine. A new socket kind must count too.
 - Totals include TLS and QUIC overhead, handshakes and raced QUIC attempts. That is close to what a proxy bills, less the packet headers.
 - `ByHost` grows one entry per host. A crawler can leave it off, or `Reset()` between batches.
 
 **Tests:**
 
-- **e2e:** the capture server and the test proxies count what they receive and send. For a page over HTTP/1.1, HTTP/2 and HTTP/3, direct and through each proxy kind, mimicry's totals and its protocol split equal theirs. The bench's layer 6 already checks a client's sent bytes against what its proxy relayed.
-- **Cost:** `TestWarmRequestAllocations` unchanged with the meter on and off; the warm-request benchmarks within noise.
+- **e2e** (`TestTrafficMatchesWire`, every profile with HTTP/3): with the connections idle, mimicry's HTTP/1.1 counts equal the TCP server's and its HTTP/3 counts the relay's, byte for byte, all under the origin's host. Once closed, what mimicry sent closing them is counted too. Through a SOCKS5 proxy (TCP, and HTTP/3 over a UDP association) and an HTTP proxy's CONNECT tunnels, every byte counts under the origin and that proxy. `Reset` returns the counts and starts from zero.
+- **Cost:** `TestWarmRequestAllocations` runs with a meter on (by host); its bounds are unchanged.
+- **Not covered by a test:** an https proxy's connections, CONNECT-UDP, WebSockets and HTTP/2's protocol split. Their tags are set in `dialHTTPSProxy`, `dialConnectUDP`, `dialWebSocketOnce` and `Engine.dial`.
 
 **Docs:** a concept doc (`docs/concepts/traffic.md`), a row in [coming-from-tls-client.md](../concepts/coming-from-tls-client.md) mapping `GetBandwidthTracker`, the SDK READMEs.
 
