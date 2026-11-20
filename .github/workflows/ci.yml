@@ -1,15 +1,19 @@
-# Lint, tests and govulncheck. A pull request runs lint, govulncheck, the
-# library's tests and the harness tests of the tiers its paths call for
+# Lint, tests and govulncheck. A pull request runs the jobs its changed
+# paths can affect (.github/scripts/ci-plan.sh: the library's change runs
+# them all, the harness's or an SDK's fewer, docs nothing, any other path
+# every job) and the harness tests of the tiers its paths call for
 # (.github/harness-shards.txt: core always; protocol and gen when it touches
-# their paths, below); a push to main, the nightly run and a run by hand run
-# every tier, main's too (the timing-heavy HTTP/3 edge and QUIC interop
-# tests: their regressions show after the merge). release.yml calls it with
-# full: true before a release (every tier, every profile). ci-ok is the one
-# check to require: it passes when every job passed, or when a pull request
-# touches only docs and the jobs were skipped. Each job stays under 15
-# minutes; the harness tests are split into shards
-# (.github/scripts/harness-shard.sh). test-node and test-python run the
-# Node and Python SDKs' jobs (node.yml, python.yml). CodeQL is codeql.yml.
+# their paths). A push to main that merged such a pull request adds what
+# pull requests leave out: the main tier (the timing-heavy HTTP/3 edge and
+# QUIC interop tests: their regressions show after the merge), the tiers
+# that pull request left out, and the SDKs' macOS jobs. The nightly run, a
+# run by hand and any other push run every job and tier. release.yml calls
+# it with full: true before a release (every tier, every profile). ci-ok is
+# the one check to require: it passes when every planned job passed and
+# the others were skipped. Each job stays under 15 minutes; the harness
+# tests are split into shards (.github/scripts/harness-shard.sh). test-node
+# and test-python run the Node and Python SDKs' jobs (node.yml,
+# python.yml). CodeQL is codeql.yml.
 name: CI
 
 on:
@@ -29,9 +33,11 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request cancels its running checks; other runs queue.
+# A new push to a pull request cancels its running checks. A push to main
+# has a group of its own, so none is cancelled while queued (each adds what
+# its pull request left out); other runs queue.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}-${{ inputs.full && 'full' || 'gate' }}
+  group: ci-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/main' && github.sha) || github.ref }}-${{ inputs.full && 'full' || 'gate' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -44,66 +50,62 @@ env:
   TEST_TIMEOUT: ${{ inputs.full && '60m' || '12m' }}
 
 jobs:
-  # Whether a pull request touches more than docs (*.md, docs/, bench
-  # reports): nothing in lint or the tests reads those. And which tiers of
-  # the harness tests it runs, in how many shards: each tier's are about
-  # 250 s of tests per shard (bash .github/scripts/harness-shard.sh <tiers>
-  # plan <shards> prints the split), so a shard takes about 5 minutes with
-  # its setup.
+  # What the run tests (.github/scripts/ci-plan.sh): a pull request what its
+  # changed paths can affect, by owner (the library, the harness, the bench,
+  # each SDK; docs nothing; any other path every job), and the harness
+  # tiers its paths call for. A push to main that squash-merged a pull
+  # request whose ci-ok passed on the same tree (ci-push-proof.sh) adds
+  # only what pull requests leave out: the main tier, the tiers that pull
+  # request left out, the SDKs' macOS jobs. Every other run, and any push
+  # that proof fails, runs every job and tier. The repository variable
+  # CI_SELECTION=full makes every pull request and push run every job. A
+  # pull request's shard takes about 3 minutes with its setup.
   changes:
     name: changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
-      code: ${{ steps.filter.outputs.code }}
-      tiers: ${{ steps.filter.outputs.tiers }}
-      shards: ${{ steps.filter.outputs.shards }}
+      jobs: ${{ steps.plan.outputs.jobs }}
+      tiers: ${{ steps.plan.outputs.tiers }}
+      shards: ${{ steps.plan.outputs.shards }}
+      node: ${{ steps.plan.outputs.node }}
+      python: ${{ steps.plan.outputs.python }}
     steps:
-      - if: github.event_name == 'pull_request'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
-      - id: filter
+      - id: plan
         env:
-          # The HTTP/2, HTTP/3, QUIC and engine code, what the protocol
-          # tier's tests replay it with (the scenario server, the trace
-          # decoders, the profiles), and the Go and module versions.
-          PROTOCOL_PATHS: '^(internal/(h2|h3|quic|qpack|hpack|engine|pool|dial|handshake|fingerprint|proxy)/|profile/|profiles/data/|internal/harness/e2e/|internal/harness/internal/(server|h2trace|quictrace)/|(internal/harness/)?go\.(mod|sum)$|go\.work(\.sum)?$|\.prototools$)'
-          # The generators, what they read (captures, capture parsing) and
-          # what they must reproduce (the profiles).
-          GEN_PATHS: '^(internal/harness/cmd/(hellogen|h3gen|kindsgen)/|internal/harness/internal/capture/|internal/harness/testdata/captures/|profiles/data/|profile/)'
+          CI_SELECTION: ${{ vars.CI_SELECTION }}
+          FULL: ${{ inputs.full }}
+          # The proof's API reads need no permission on a public repository.
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            code=true tiers=core,protocol,gen,main shards=8
-          else
-            # A pull request checks out its merge commit: the first parent
-            # is the base branch, so HEAD^1..HEAD is the pull request's
-            # change.
-            changed=$(git diff --name-only HEAD^1 HEAD)
-            echo "$changed"
-            files=$(echo "$changed" | grep -Ev '\.md$|^docs/|^internal/bench/reports/|^$' || true)
-            code=false tiers=core shards=2
-            [ -z "$files" ] || code=true
-            if echo "$files" | grep -Eq "$PROTOCOL_PATHS"; then
-              tiers+=,protocol shards=$((shards + 3))
-            fi
-            if echo "$files" | grep -Eq "$GEN_PATHS"; then
-              # the generators run without -race: about 90 s in all
-              tiers+=,gen shards=$((shards + 1))
+          mode='full'
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            mode='pr'
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" = refs/heads/main ] && [ "$FULL" != true ]; then
+            if proof=$(bash .github/scripts/ci-push-proof.sh "$GITHUB_SHA"); then
+              echo "pull request #$proof passed ci-ok on this tree"
+              mode='push'
+            else
+              echo "$proof: a full run"
             fi
           fi
-          echo "code changed: $code; harness tiers: $tiers in $shards shards"
-          {
-            echo "code=$code"
-            echo "tiers=$tiers"
-            echo "shards=[$(seq "$shards" | paste -sd , -)]"
-          } >>"$GITHUB_OUTPUT"
+          changed=
+          if [ "$mode" != full ]; then
+            # A pull request checks out its merge commit, a push to main its
+            # squash merge: the first parent is main, so HEAD^1..HEAD is the
+            # pull request's change.
+            changed=$(git diff --name-only HEAD^1 HEAD)
+          fi
+          bash .github/scripts/ci-plan.sh "$mode" <<<"$changed" >>"$GITHUB_OUTPUT"
 
   lint:
     name: lint
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'lint')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -135,7 +137,7 @@ jobs:
   test-root:
     name: test-root
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'test-root')
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.full && 75 || 15 }}
     steps:
@@ -165,7 +167,7 @@ jobs:
   vuln:
     name: vuln
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'vuln')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -193,11 +195,13 @@ jobs:
   # injection, excessive permissions, unpinned or impostor action commits,
   # cache use in a release, ...): it fails on a finding of medium severity
   # or more. Its online audits read the actions' repositories with this
-  # run's read-only token.
+  # run's read-only token. Then the planner's cases
+  # (.github/scripts/ci-plan-test.sh). A pull request runs it when it
+  # changes a path outside the code's owners, .github/ among them.
   zizmor:
     name: zizmor
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'zizmor')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -210,12 +214,14 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: uvx zizmor@1.32.0 --no-progress --min-severity medium --format github .github/workflows .github/actions
+      - name: planner cases
+        run: bash .github/scripts/ci-plan-test.sh
 
   # The tiers changes picked, in its number of shards.
   test-harness:
     name: test-harness (${{ matrix.shard }})
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'test-harness')
     runs-on: ubuntu-latest
     timeout-minutes: ${{ inputs.full && 75 || 15 }}
     strategy:
@@ -246,24 +252,30 @@ jobs:
         run: bash .github/scripts/harness-shard.sh "$TIERS" "$SHARD" "$SHARDS"
 
   # The Node SDK (bindings/node): its tests on Linux, macOS and Windows,
-  # the byte-identical harness test, and its npm packages (node.yml).
+  # the byte-identical harness test, and its npm packages (node.yml); for a
+  # pull request that changes only the harness, the harness test.
   test-node:
     name: test-node
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'test-node')
     uses: ./.github/workflows/node.yml
+    with:
+      scope: ${{ needs.changes.outputs.node }}
 
   # The Python SDK's tests (Linux, macOS, Windows), lint, the harness's
   # comparison of its requests with the Go client's, and its wheels
-  # (python.yml).
+  # (python.yml); for a pull request that changes only the harness, the
+  # Linux job with the comparison.
   test-python:
     name: test-python
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: contains(fromJSON(needs.changes.outputs.jobs || '[]'), 'test-python')
     uses: ./.github/workflows/python.yml
+    with:
+      scope: ${{ needs.changes.outputs.python }}
 
-  # The check branch protection requires. A tier a pull request leaves out
-  # is no job, only fewer shards, so a skipped job is a docs-only change.
+  # The check branch protection requires. It passes when changes succeeded,
+  # every job it planned succeeded, and every other job was skipped.
   ci-ok:
     name: ci-ok
     needs: [changes, lint, test-root, vuln, zizmor, test-harness, test-node, test-python]
@@ -272,14 +284,17 @@ jobs:
     timeout-minutes: 15
     steps:
       - env:
-          CODE: ${{ needs.changes.outputs.code }}
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          PLANNED: ${{ needs.changes.outputs.jobs }}
+          NEEDS: ${{ toJSON(needs) }}
         run: |
-          echo "code changed: ${CODE:-unknown}; job results: $RESULTS"
-          for result in $RESULTS; do
-            case $result in
-            success) ;;
-            skipped) [ "$CODE" = false ] || exit 1 ;;
-            *) exit 1 ;;
-            esac
-          done
+          echo "planned: ${PLANNED:-nothing}"
+          failed=0
+          while read -r job result; do
+            want=skipped
+            if [ "$job" = changes ] || jq -e --arg job "$job" 'index($job) != null' <<<"${PLANNED:-[]}" >/dev/null; then
+              want=success
+            fi
+            echo "$job: $result (want $want)"
+            [ "$result" = "$want" ] || failed=1
+          done < <(jq -r 'to_entries[] | "\(.key) \(.value.result)"' <<<"$NEEDS")
+          exit "$failed"

@@ -2,14 +2,15 @@ name: Set up Go and moon
 description: >-
   Installs the Go and moon pinned in .prototools (proto, through
   moonrepo/setup-toolchain) and restores the Go module and build caches.
-  Only pushes to main save the caches; pull requests restore main's.
+  Only runs on main (pushes, nightly) save the caches; pull requests
+  restore main's.
 
 inputs:
   cache:
     description: The cache's name. Jobs that build different things (lint, race tests) keep separate caches.
     required: true
   save:
-    description: Save the caches when the job ends ('true' on pushes to main only).
+    description: Save the caches when the job ends ('true' on main only).
     default: 'false'
 
 runs:
