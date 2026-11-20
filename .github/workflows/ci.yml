@@ -59,7 +59,7 @@ jobs:
   # request left out, the SDKs' macOS jobs. Every other run, and any push
   # that proof fails, runs every job and tier. The repository variable
   # CI_SELECTION=full makes every pull request and push run every job. A
-  # shard takes about 5 minutes with its setup.
+  # pull request's shard takes about 3 minutes with its setup.
   changes:
     name: changes
     runs-on: ubuntu-latest

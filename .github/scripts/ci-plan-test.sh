@@ -23,7 +23,7 @@ check() {
 
 everything_core='jobs=["lint","test-root","vuln","zizmor","test-harness","test-node","test-python"]
 tiers=core
-shards=[1,2]
+shards=[1,2,3]
 node=all
 python=all'
 
@@ -44,7 +44,7 @@ python=none'
 
 check 'library: every job but zizmor, core' pr 'mimicry.go' 'jobs=["lint","test-root","vuln","test-harness","test-node","test-python"]
 tiers=core
-shards=[1,2]
+shards=[1,2,3]
 node=all
 python=all'
 
@@ -63,13 +63,13 @@ python=all'
 check 'rpc schema: the library owns it' pr 'proto/mimicry/v1/client.proto
 cmd/mimicry-core/main.go' 'jobs=["lint","test-root","vuln","test-harness","test-node","test-python"]
 tiers=core
-shards=[1,2]
+shards=[1,2,3]
 node=all
 python=all'
 
 check 'harness: no library tests, the SDKs only through the harness' pr 'internal/harness/internal/headers/order.go' 'jobs=["lint","vuln","test-harness","test-node","test-python"]
 tiers=core
-shards=[1,2]
+shards=[1,2,3]
 node=harness
 python=harness'
 
@@ -87,7 +87,7 @@ python=harness'
 
 check 'generator: gen tier' pr 'internal/harness/cmd/hellogen/main.go' 'jobs=["lint","vuln","test-harness","test-node","test-python"]
 tiers=core,gen
-shards=[1,2,3]
+shards=[1,2,3,4]
 node=harness
 python=harness'
 
@@ -138,7 +138,7 @@ python=none'
 
 check 'push, library: the left-out tiers, main, macOS SDK jobs' push 'mimicry.go' 'jobs=["test-harness","test-node","test-python"]
 tiers=protocol,gen,main
-shards=[1,2,3,4,5,6,7,8]
+shards=[1,2,3,4,5,6,7]
 node=macos
 python=macos'
 
@@ -156,7 +156,7 @@ python=macos'
 
 check 'push, harness: its left-out tiers, no SDK job' push 'internal/harness/internal/headers/order.go' 'jobs=["test-harness"]
 tiers=protocol,gen,main
-shards=[1,2,3,4,5,6,7,8]
+shards=[1,2,3,4,5,6,7]
 node=none
 python=none'
 
@@ -180,7 +180,7 @@ python=none'
 
 check 'push, workflow: the left-out tiers, main, macOS SDK jobs' push '.github/workflows/ci.yml' 'jobs=["test-harness","test-node","test-python"]
 tiers=protocol,gen,main
-shards=[1,2,3,4,5,6,7,8]
+shards=[1,2,3,4,5,6,7]
 node=macos
 python=macos'
 

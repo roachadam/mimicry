@@ -60,7 +60,7 @@ It then plans the commit's changed paths as a pull request's, and runs what a fu
 
 | The pull request ran | The push adds |
 |---|---|
-| The harness's tiers | The `main` tier, and `protocol` and `gen` if the pull request left them out: 4 shards for main, 3 more for protocol, 1 more for gen |
+| The harness's tiers | The `main` tier, and `protocol` and `gen` if the pull request left them out: 4 shards for main, 2 more for protocol, 1 more for gen |
 | `test-node`, every job | Its macOS test job |
 | `test-python`, every job | Its macOS test job |
 | `lint`, `test-root`, `vuln`, `zizmor`, the SDKs' Linux and Windows jobs, pack, wheels | Nothing: they passed on this tree |
@@ -90,8 +90,8 @@ The harness's tests come in tiers, set per test in `.github/harness-shards.txt`.
 
 - **Counts:**
   - The nightly run, a run by hand, the release and a push to main nothing proves run every tier in 8 shards.
-  - A pull request runs 2 shards for core, plus 3 for protocol and 1 for gen.
-  - A push to main its pull request proves runs 4 for main, plus 3 for protocol and 1 for gen when the pull request left them out.
+  - A pull request runs 3 shards for core, plus 2 for protocol and 1 for gen: about 100-135 s of tests a shard, whichever tiers it runs, so no tier mix waits on a longer shard.
+  - A push to main its pull request proves runs 4 for main, plus 2 for protocol and 1 for gen when the pull request left them out.
 - **Time limit:** each job must finish in 15 minutes, so the tests are split into shards.
 - **How tests are dealt:** `.github/scripts/harness-shard.sh <tiers> <shard> <total>` does it.
   - Every top-level test is a unit, weighed by its seconds on the runner in `.github/harness-shards.txt`.
@@ -103,7 +103,7 @@ The harness's tests come in tiers, set per test in `.github/harness-shards.txt`.
   - With `-parallel N` where it says `parallel=N`.
 - **Adding a slow test**, or slowing one down, means adding or updating its line in `.github/harness-shards.txt`, with its tier. Then check the splits:
   - `bash .github/scripts/harness-shard.sh all plan 8`: no shard above about 9 minutes.
-  - For a pull request's tiers, e.g. `bash .github/scripts/harness-shard.sh core,protocol plan 5`: about 250 s of tests a shard.
+  - For a pull request's tiers, e.g. `bash .github/scripts/harness-shard.sh core,protocol plan 5`: about 100-135 s of tests a shard.
 
 ## Linting other platforms
 

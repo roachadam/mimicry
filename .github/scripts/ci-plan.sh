@@ -46,9 +46,9 @@
 #
 # The harness tiers: core whenever the harness runs; protocol and gen when
 # a changed path is theirs (PROTOCOL_PATHS, GEN_PATHS); main only after
-# the merge. Shards: core 2, protocol 3 more, gen 1 more; a push's main 4;
-# a full run's every tier, 8 (bash .github/scripts/harness-shard.sh
-# <tiers> plan <shards> prints a split).
+# the merge. Shards: core 3, protocol 2 more, gen 1 more (about 100-135 s
+# of tests each); a push's main 4; a full run's every tier, 8 (bash
+# .github/scripts/harness-shard.sh <tiers> plan <shards> prints a split).
 set -euo pipefail
 
 usage() {
@@ -143,9 +143,9 @@ if $harness; then
 	case $mode in
 	full) tiers=core,protocol,gen,main shards=8 ;;
 	pr)
-		tiers=core shards=2
+		tiers=core shards=3
 		if $protocol; then
-			tiers+=,protocol shards=$((shards + 3))
+			tiers+=,protocol shards=$((shards + 2))
 		fi
 		if $gen; then
 			tiers+=,gen shards=$((shards + 1))
@@ -154,7 +154,7 @@ if $harness; then
 	push)
 		# the tiers the pull request left out, then main
 		if ! $protocol; then
-			tiers+=,protocol shards=$((shards + 3))
+			tiers+=,protocol shards=$((shards + 2))
 		fi
 		if ! $gen; then
 			tiers+=,gen shards=$((shards + 1))
