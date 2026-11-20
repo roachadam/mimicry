@@ -72,6 +72,12 @@ func (s *session) config(c *pb.Config) (mimicry.Config, *transport, error) {
 		}
 	}
 
+	if id := c.GetTraffic(); id != 0 {
+		if cfg.Traffic, err = lookup[*mimicry.TrafficMeter](&s.objects, id, "traffic meter"); err != nil {
+			return mimicry.Config{}, nil, err
+		}
+	}
+
 	tr := &transport{}
 
 	if c.GetVerifyConnection() {

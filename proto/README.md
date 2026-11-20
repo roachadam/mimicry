@@ -24,14 +24,18 @@ the layer above them does.
    bit). The core answers `HelloReply` with its own; another major
    version is refused (`CODE_INVALID`, naming both) and the core closes the
    connection. Protocol 1.0 defines no feature bits.
+   - Protocol 1.1 adds the traffic meter: `NewTrafficMeter`,
+     `TrafficSnapshot` and `Config.traffic`.
+   - A 1.0 core refuses those calls as unknown and ignores
+     `Config.traffic`.
 2. Every call is a stream: CALL with a `Call` (one method), REPLY with a
    `Reply` (`error`, a `result`, both, or neither for success with nothing
    to return). A call with no body sets END on its CALL; a reply with no
    body sets END on its REPLY.
 3. The objects a call creates (client, transport, jar, ticket cache, Alt-Svc
-   cache, client hint store, parsed profile, WebSocket) have ids, owned by
-   the connection; `Close{id}` frees one, and disconnecting frees them all.
-   Ids are never reused within a connection.
+   cache, client hint store, traffic meter, parsed profile, WebSocket) have
+   ids, owned by the connection; `Close{id}` frees one, and disconnecting
+   frees them all. Ids are never reused within a connection.
 4. Closing the connection (EOF) makes `mimicry-core` exit.
 
 ### Messages larger than a frame

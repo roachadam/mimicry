@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import threading
+import time
 import tracemalloc
 from collections.abc import Iterator
 from pathlib import Path
@@ -116,6 +117,35 @@ def test_saved_state_0600(client: mimicry.Client, server: Server, tmp_path: Path
     jar = mimicry.new_jar()
     jar.read_json(str(path))
     assert sorted(c.name for c in jar.all()) == [b"a", b"b"]
+
+
+def test_traffic_meter(server: Server) -> None:
+    """A meter counts a client's bytes, by host too; reset hands them over
+    and starts again from zero."""
+    with mimicry.new_traffic_meter(by_host=True) as meter, mimicry.new_client(config(traffic=meter)) as c:
+        c.do(Request("GET", server.url("/echo"))).read()
+        counts = meter.snapshot()
+        # The idle connection may still send what reading the body owed
+        # (a WINDOW_UPDATE): wait until the counts stop moving.
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            time.sleep(0.1)
+            now = meter.snapshot()
+            if now == counts:
+                break
+            counts = now
+        total = counts.total()
+        assert total.sent > 0 and total.received > 0, counts
+        assert counts.by_host, counts
+        by_host = mimicry.Bytes(
+            sent=sum(b.sent for b in counts.by_host.values()),
+            received=sum(b.received for b in counts.by_host.values()),
+        )
+        assert by_host == total, counts
+
+        assert meter.reset() == counts
+        after = meter.snapshot()
+        assert after.total() == mimicry.Bytes(0, 0) and after.by_host == {}, after
 
 
 def test_slow_file_object_does_not_block_the_loop(client: mimicry.Client, server: Server) -> None:

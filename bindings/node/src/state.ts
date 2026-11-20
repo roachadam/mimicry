@@ -1,7 +1,8 @@
 // State the core holds and clients share: the cookie jar, the ticket
-// cache, the Alt-Svc cache and the client hint store, as in Go, with
-// Go's serializations to save and load them. A file this SDK writes is
-// created 0600 (cookies and tickets are credentials) and replaced whole.
+// cache, the Alt-Svc cache, the client hint store and the traffic meter,
+// as in Go, with Go's serializations to save and load them. A file this
+// SDK writes is created 0600 (cookies and tickets are credentials) and
+// replaced whole.
 
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
@@ -15,12 +16,14 @@ import { timestampDate, timestampFromDate } from "@bufbuild/protobuf/wkt";
 import { type Core, CoreObject, type Method, defaultCore } from "./core.ts";
 import { ProtocolError, errorFromPb } from "./errors.ts";
 import {
+  type Bytes as PbBytes,
   type Cookie as PbCookie,
   type CookieRequest as PbCookieRequest,
   CookieRequestSchema,
   CookieSchema,
   type SameSite as PbSameSite,
   type SetCookie,
+  type Traffic as PbTraffic,
 } from "./gen/mimicry/v1/mimicry_pb.js";
 import { byteString } from "./header.ts";
 import { type Profile, profileRef } from "./profiles.ts";
@@ -384,6 +387,104 @@ export class ClientHintStore extends Saved {
   }
 }
 
+/** Go's mimicry.Bytes: what was sent and received. */
+export interface Bytes {
+  sent: number;
+  received: number;
+}
+
+/**
+ * Go's mimicry.Peer: the host connections were dialed for and the proxy
+ * they went through ("" for none).
+ */
+export interface Peer {
+  host: string;
+  proxy: string;
+}
+
+function bytesOf(b: PbBytes | undefined): Bytes {
+  return { sent: Number(b?.sent ?? 0n), received: Number(b?.received ?? 0n) };
+}
+
+/** Go's mimicry.Traffic: a traffic meter's counts, by what the connections carried. */
+export class Traffic {
+  readonly http1: Bytes;
+  readonly http2: Bytes;
+  readonly http3: Bytes;
+  readonly websocket: Bytes;
+  readonly dns: Bytes;
+  readonly other: Bytes;
+  /**
+   * The counts per host and proxy, sorted by host then proxy, from a
+   * meter made with byHost; undefined otherwise.
+   */
+  readonly byHost: readonly { peer: Peer; bytes: Bytes }[] | undefined;
+
+  /** @internal */
+  constructor(t: PbTraffic, byHost: boolean) {
+    this.http1 = bytesOf(t.http1);
+    this.http2 = bytesOf(t.http2);
+    this.http3 = bytesOf(t.http3);
+    this.websocket = bytesOf(t.websocket);
+    this.dns = bytesOf(t.dns);
+    this.other = bytesOf(t.other);
+    this.byHost = byHost
+      ? t.byHost.map((e) => ({ peer: { host: e.host, proxy: e.proxy }, bytes: bytesOf(e.bytes) }))
+      : undefined;
+  }
+
+  /** Every protocol's bytes. */
+  total(): Bytes {
+    const b = { sent: 0, received: 0 };
+    for (const p of [this.http1, this.http2, this.http3, this.websocket, this.dns, this.other]) {
+      b.sent += p.sent;
+      b.received += p.received;
+    }
+
+    return b;
+  }
+}
+
+/**
+ * Go's *mimicry.TrafficMeter: counts the bytes the sockets of every
+ * client given it (Config.traffic) send and receive.
+ */
+export class TrafficMeter extends CoreObject {
+  /** Whether it keeps a total per host and proxy (TrafficOptions.byHost). */
+  readonly byHost: boolean;
+
+  /** @internal */
+  constructor(core: Core, id: bigint, byHost: boolean) {
+    super(core, id);
+    this.byHost = byHost;
+  }
+
+  /** The counts so far: closed connections' and the open ones' bytes until now. */
+  snapshot(): Promise<Traffic> {
+    return this.counts(false);
+  }
+
+  /** The counts so far, as snapshot(), and starts again from zero. */
+  reset(): Promise<Traffic> {
+    return this.counts(true);
+  }
+
+  private async counts(reset: boolean): Promise<Traffic> {
+    const r = await this.core.call({ case: "trafficSnapshot", value: { meter: this.id, reset } });
+    if (r.result.case !== "traffic") {
+      throw new ProtocolError("mimicry: TrafficSnapshot's reply has no traffic");
+    }
+
+    return new Traffic(r.result.value, this.byHost);
+  }
+}
+
+/** newTrafficMeter's options (Go's mimicry.TrafficOptions). */
+export interface TrafficOptions {
+  /** Also keep a total per host and proxy reached. */
+  byHost?: boolean;
+}
+
 /** newJar's options (Go's cookies.Config, as data). */
 export interface JarOptions {
   /** The profile whose cookie rules the jar keeps; unset is RFC 6265bis. */
@@ -432,4 +533,11 @@ export async function newAltSvcCache(): Promise<AltSvcCache> {
 /** Go's mimicry.NewClientHintStore. */
 export async function newClientHintStore(): Promise<ClientHintStore> {
   return new ClientHintStore(...(await newObject({ case: "newClientHintStore", value: {} })));
+}
+
+/** Go's mimicry.NewTrafficMeter: a meter counting from zero. */
+export async function newTrafficMeter(options: TrafficOptions = {}): Promise<TrafficMeter> {
+  const byHost = options.byHost ?? false;
+
+  return new TrafficMeter(...(await newObject({ case: "newTrafficMeter", value: { byHost } })), byHost);
 }

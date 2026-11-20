@@ -34,6 +34,7 @@ from ._types import (
     Request,
     ResponseHead,
     SetCookieEvent,
+    Traffic,
     WebSocketOptions,
 )
 
@@ -439,6 +440,29 @@ class ClientHintStore(_Saved):
         _run(self._async.set_client_hints(origin, hints))
 
 
+class TrafficMeter(_Object):
+    """Counts the bytes the sockets of every client given it (``Config.traffic``)
+    send and receive (Go's ``mimicry.TrafficMeter``)."""
+
+    _async: aio.AsyncTrafficMeter
+
+    def __init__(self, a: aio.AsyncTrafficMeter) -> None:
+        self._async = a
+
+    @property
+    def by_host(self) -> bool:
+        return self._async.by_host
+
+    def snapshot(self) -> Traffic:
+        """The counts so far: closed connections' and the open ones' bytes
+        until now."""
+        return _run(self._async.snapshot())
+
+    def reset(self) -> Traffic:
+        """The counts so far, as :meth:`snapshot`, and start again from zero."""
+        return _run(self._async.reset())
+
+
 class Profile(_Object):
     """A profile parsed from JSON (:func:`parse_profile`)."""
 
@@ -499,6 +523,12 @@ def new_alt_svc_cache(*, core: Core | None = None) -> AltSvcCache:
 
 def new_client_hint_store(*, core: Core | None = None) -> ClientHintStore:
     return ClientHintStore(_run(aio.new_client_hint_store(core=_core(core))))
+
+
+def new_traffic_meter(*, by_host: bool = False, core: Core | None = None) -> TrafficMeter:
+    """A traffic meter counting from zero (Go's ``mimicry.NewTrafficMeter``);
+    with ``by_host``, also a total per host and proxy."""
+    return TrafficMeter(_run(aio.new_traffic_meter(by_host=by_host, core=_core(core))))
 
 
 def list_profiles(*, core: Core | None = None) -> aio.ProfileList:

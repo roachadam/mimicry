@@ -41,6 +41,7 @@ from ._types import (
     Request,
     ResponseHead,
     SetCookieEvent,
+    Traffic,
     WebSocketOptions,
 )
 
@@ -53,6 +54,7 @@ __all__ = [
     "AsyncProfile",
     "AsyncResponse",
     "AsyncTicketCache",
+    "AsyncTrafficMeter",
     "AsyncTransport",
     "AsyncWebSocket",
     "ProfileList",
@@ -64,6 +66,7 @@ __all__ = [
     "new_client_hint_store",
     "new_jar",
     "new_ticket_cache",
+    "new_traffic_meter",
     "new_transport",
     "parse_profile",
     "profile_spec",
@@ -167,7 +170,7 @@ async def _profile_ref(core: AsyncCore, profile: Any) -> pb.ProfileRef:
     )
 
 
-_CONFIG_OBJECTS = ("cookies", "client_hint_store", "alt_svc", "tickets")
+_CONFIG_OBJECTS = ("cookies", "client_hint_store", "alt_svc", "tickets", "traffic")
 
 
 async def _config(core: AsyncCore | None, config: Config) -> tuple[AsyncCore, pb.Config]:
@@ -177,6 +180,7 @@ async def _config(core: AsyncCore | None, config: Config) -> tuple[AsyncCore, pb
         "client_hint_store": AsyncClientHintStore,
         "alt_svc": AsyncAltSvcCache,
         "tickets": AsyncTicketCache,
+        "traffic": AsyncTrafficMeter,
     }
     for k, v in objs.items():
         if not isinstance(v, want[k]):
@@ -699,6 +703,28 @@ class AsyncClientHintStore(_Saved):
         )
 
 
+class AsyncTrafficMeter(_Object):
+    """Counts the bytes the sockets of every client given it (``Config.traffic``)
+    send and receive (Go's ``mimicry.TrafficMeter``)."""
+
+    def __init__(self, core: AsyncCore, oid: int, by_host: bool) -> None:
+        super().__init__(core, oid)
+        self.by_host = by_host
+
+    async def _counts(self, reset: bool) -> Traffic:
+        r = await self._core.call(pb.Call(traffic_snapshot=pb.TrafficSnapshot(meter=self._oid(), reset=reset)))
+        return Traffic._from_pb(r.traffic, self.by_host)
+
+    async def snapshot(self) -> Traffic:
+        """The counts so far: closed connections' and the open ones' bytes
+        until now."""
+        return await self._counts(False)
+
+    async def reset(self) -> Traffic:
+        """The counts so far, as :meth:`snapshot`, and start again from zero."""
+        return await self._counts(True)
+
+
 class AsyncProfile(_Object):
     """A profile parsed from JSON (:func:`parse_profile`), for ``Config.profile``."""
 
@@ -789,6 +815,14 @@ async def new_client_hint_store(*, core: AsyncCore | None = None) -> AsyncClient
     core = await _core_for(core)
     r = await core.call(pb.Call(new_client_hint_store=pb.NewClientHintStore()))
     return AsyncClientHintStore(core, r.object.id)
+
+
+async def new_traffic_meter(*, by_host: bool = False, core: AsyncCore | None = None) -> AsyncTrafficMeter:
+    """A traffic meter counting from zero (Go's ``mimicry.NewTrafficMeter``);
+    with ``by_host``, also a total per host and proxy."""
+    core = await _core_for(core)
+    r = await core.call(pb.Call(new_traffic_meter=pb.NewTrafficMeter(by_host=by_host)))
+    return AsyncTrafficMeter(core, r.object.id, by_host)
 
 
 async def list_profiles(*, core: AsyncCore | None = None) -> ProfileList:

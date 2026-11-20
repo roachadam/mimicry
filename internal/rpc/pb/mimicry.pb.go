@@ -650,6 +650,7 @@ type Call struct {
 	//	*Call_NewAltSvcCache
 	//	*Call_NewClientHintStore
 	//	*Call_CloseIdleConnections
+	//	*Call_NewTrafficMeter
 	//	*Call_Do
 	//	*Call_Plan
 	//	*Call_DialWebsocket
@@ -673,6 +674,7 @@ type Call struct {
 	//	*Call_JarClone
 	//	*Call_ClientHints
 	//	*Call_SetClientHints
+	//	*Call_TrafficSnapshot
 	Method        isCall_Method `protobuf_oneof:"method"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -834,6 +836,15 @@ func (x *Call) GetCloseIdleConnections() *CloseIdleConnections {
 	if x != nil {
 		if x, ok := x.Method.(*Call_CloseIdleConnections); ok {
 			return x.CloseIdleConnections
+		}
+	}
+	return nil
+}
+
+func (x *Call) GetNewTrafficMeter() *NewTrafficMeter {
+	if x != nil {
+		if x, ok := x.Method.(*Call_NewTrafficMeter); ok {
+			return x.NewTrafficMeter
 		}
 	}
 	return nil
@@ -1046,6 +1057,15 @@ func (x *Call) GetSetClientHints() *SetClientHints {
 	return nil
 }
 
+func (x *Call) GetTrafficSnapshot() *TrafficSnapshot {
+	if x != nil {
+		if x, ok := x.Method.(*Call_TrafficSnapshot); ok {
+			return x.TrafficSnapshot
+		}
+	}
+	return nil
+}
+
 type isCall_Method interface {
 	isCall_Method()
 }
@@ -1101,6 +1121,10 @@ type Call_NewClientHintStore struct {
 
 type Call_CloseIdleConnections struct {
 	CloseIdleConnections *CloseIdleConnections `protobuf:"bytes,26,opt,name=close_idle_connections,json=closeIdleConnections,proto3,oneof"`
+}
+
+type Call_NewTrafficMeter struct {
+	NewTrafficMeter *NewTrafficMeter `protobuf:"bytes,27,opt,name=new_traffic_meter,json=newTrafficMeter,proto3,oneof"`
 }
 
 type Call_Do struct {
@@ -1195,6 +1219,10 @@ type Call_SetClientHints struct {
 	SetClientHints *SetClientHints `protobuf:"bytes,57,opt,name=set_client_hints,json=setClientHints,proto3,oneof"`
 }
 
+type Call_TrafficSnapshot struct {
+	TrafficSnapshot *TrafficSnapshot `protobuf:"bytes,58,opt,name=traffic_snapshot,json=trafficSnapshot,proto3,oneof"`
+}
+
 func (*Call_Hello) isCall_Method() {}
 
 func (*Call_Close) isCall_Method() {}
@@ -1220,6 +1248,8 @@ func (*Call_NewAltSvcCache) isCall_Method() {}
 func (*Call_NewClientHintStore) isCall_Method() {}
 
 func (*Call_CloseIdleConnections) isCall_Method() {}
+
+func (*Call_NewTrafficMeter) isCall_Method() {}
 
 func (*Call_Do) isCall_Method() {}
 
@@ -1267,6 +1297,8 @@ func (*Call_ClientHints) isCall_Method() {}
 
 func (*Call_SetClientHints) isCall_Method() {}
 
+func (*Call_TrafficSnapshot) isCall_Method() {}
+
 // Reply is a REPLY frame's payload: the call's error, its result, or
 // both (a failed WebSocket handshake has its response). A call with
 // neither succeeded with nothing to return.
@@ -1292,6 +1324,7 @@ type Reply struct {
 	//	*Reply_Count
 	//	*Reply_Value
 	//	*Reply_Strings
+	//	*Reply_Traffic
 	Result        isReply_Result `protobuf_oneof:"result"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1474,6 +1507,15 @@ func (x *Reply) GetStrings() *Strings {
 	return nil
 }
 
+func (x *Reply) GetTraffic() *Traffic {
+	if x != nil {
+		if x, ok := x.Result.(*Reply_Traffic); ok {
+			return x.Traffic
+		}
+	}
+	return nil
+}
+
 type isReply_Result interface {
 	isReply_Result()
 }
@@ -1484,7 +1526,7 @@ type Reply_Hello struct {
 
 type Reply_Object struct {
 	// Object is a new object's id: NewTransport, NewJar, NewTicketCache,
-	// NewAltSvcCache, NewClientHintStore, JarClone.
+	// NewAltSvcCache, NewClientHintStore, NewTrafficMeter, JarClone.
 	Object *Object `protobuf:"bytes,4,opt,name=object,proto3,oneof"`
 }
 
@@ -1539,6 +1581,11 @@ type Reply_Strings struct {
 	Strings *Strings `protobuf:"bytes,16,opt,name=strings,proto3,oneof"`
 }
 
+type Reply_Traffic struct {
+	// Traffic is a traffic meter's counts: TrafficSnapshot.
+	Traffic *Traffic `protobuf:"bytes,17,opt,name=traffic,proto3,oneof"`
+}
+
 func (*Reply_Hello) isReply_Result() {}
 
 func (*Reply_Object) isReply_Result() {}
@@ -1566,6 +1613,8 @@ func (*Reply_Count) isReply_Result() {}
 func (*Reply_Value) isReply_Result() {}
 
 func (*Reply_Strings) isReply_Result() {}
+
+func (*Reply_Traffic) isReply_Result() {}
 
 // Event is an EVENT frame's payload: a notice on stream 0 that nothing
 // answers (set_cookie, stream_error, websocket_written), or a reverse
@@ -1885,8 +1934,9 @@ func (x *HelloReply) GetFeatures() uint64 {
 }
 
 // Close frees an object: a client, transport, jar, cache, store,
-// profile or WebSocket. A transport's (or client's) idle connections
-// close; a WebSocket is closed as WebSocket.Close(1000, "") does.
+// traffic meter, profile or WebSocket. A transport's (or client's) idle
+// connections close; a WebSocket is closed as WebSocket.Close(1000, "")
+// does.
 // Disconnecting frees every object the connection owned.
 type Close struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2500,7 +2550,9 @@ type Config struct {
 	ClientCertificates []*ClientCertificate `protobuf:"bytes,30,rep,name=client_certificates,json=clientCertificates,proto3" json:"client_certificates,omitempty"`
 	// Key_log_file is a file the core appends TLS secrets to, created 0600
 	// (KeyLogWriter).
-	KeyLogFile    string `protobuf:"bytes,31,opt,name=key_log_file,json=keyLogFile,proto3" json:"key_log_file,omitempty"`
+	KeyLogFile string `protobuf:"bytes,31,opt,name=key_log_file,json=keyLogFile,proto3" json:"key_log_file,omitempty"`
+	// Traffic is a TrafficMeter's id (NewTrafficMeter).
+	Traffic       uint64 `protobuf:"varint,32,opt,name=traffic,proto3" json:"traffic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2750,6 +2802,13 @@ func (x *Config) GetKeyLogFile() string {
 		return x.KeyLogFile
 	}
 	return ""
+}
+
+func (x *Config) GetTraffic() uint64 {
+	if x != nil {
+		return x.Traffic
+	}
+	return 0
 }
 
 // HeaderValues is one name of an http.Header with its values. A name with
@@ -3426,6 +3485,52 @@ func (*NewClientHintStore) Descriptor() ([]byte, []int) {
 	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{30}
 }
 
+// NewTrafficMeter is mimicry.NewTrafficMeter.
+type NewTrafficMeter struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// By_host also keeps a total per host and proxy (TrafficOptions.ByHost).
+	ByHost        bool `protobuf:"varint,1,opt,name=by_host,json=byHost,proto3" json:"by_host,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NewTrafficMeter) Reset() {
+	*x = NewTrafficMeter{}
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NewTrafficMeter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NewTrafficMeter) ProtoMessage() {}
+
+func (x *NewTrafficMeter) ProtoReflect() protoreflect.Message {
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NewTrafficMeter.ProtoReflect.Descriptor instead.
+func (*NewTrafficMeter) Descriptor() ([]byte, []int) {
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *NewTrafficMeter) GetByHost() bool {
+	if x != nil {
+		return x.ByHost
+	}
+	return false
+}
+
 // CloseIdleConnections is Transport.CloseIdleConnections, of a client's
 // or a transport's.
 type CloseIdleConnections struct {
@@ -3437,7 +3542,7 @@ type CloseIdleConnections struct {
 
 func (x *CloseIdleConnections) Reset() {
 	*x = CloseIdleConnections{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[31]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3449,7 +3554,7 @@ func (x *CloseIdleConnections) String() string {
 func (*CloseIdleConnections) ProtoMessage() {}
 
 func (x *CloseIdleConnections) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[31]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3462,7 +3567,7 @@ func (x *CloseIdleConnections) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseIdleConnections.ProtoReflect.Descriptor instead.
 func (*CloseIdleConnections) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{31}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *CloseIdleConnections) GetTransport() uint64 {
@@ -3492,7 +3597,7 @@ type Options struct {
 
 func (x *Options) Reset() {
 	*x = Options{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[32]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3504,7 +3609,7 @@ func (x *Options) String() string {
 func (*Options) ProtoMessage() {}
 
 func (x *Options) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[32]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3517,7 +3622,7 @@ func (x *Options) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Options.ProtoReflect.Descriptor instead.
 func (*Options) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{32}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *Options) GetKind() Kind {
@@ -3622,7 +3727,7 @@ type Request struct {
 
 func (x *Request) Reset() {
 	*x = Request{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[33]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3634,7 +3739,7 @@ func (x *Request) String() string {
 func (*Request) ProtoMessage() {}
 
 func (x *Request) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[33]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3647,7 +3752,7 @@ func (x *Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Request.ProtoReflect.Descriptor instead.
 func (*Request) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{33}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Request) GetMethod() string {
@@ -3740,7 +3845,7 @@ type Do struct {
 
 func (x *Do) Reset() {
 	*x = Do{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[34]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3752,7 +3857,7 @@ func (x *Do) String() string {
 func (*Do) ProtoMessage() {}
 
 func (x *Do) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[34]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3765,7 +3870,7 @@ func (x *Do) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Do.ProtoReflect.Descriptor instead.
 func (*Do) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{34}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *Do) GetClient() uint64 {
@@ -3802,7 +3907,7 @@ type Response struct {
 
 func (x *Response) Reset() {
 	*x = Response{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[35]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3814,7 +3919,7 @@ func (x *Response) String() string {
 func (*Response) ProtoMessage() {}
 
 func (x *Response) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[35]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3827,7 +3932,7 @@ func (x *Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Response.ProtoReflect.Descriptor instead.
 func (*Response) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{35}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Response) GetStatusCode() int32 {
@@ -3907,7 +4012,7 @@ type ConnectionState struct {
 
 func (x *ConnectionState) Reset() {
 	*x = ConnectionState{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[36]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3919,7 +4024,7 @@ func (x *ConnectionState) String() string {
 func (*ConnectionState) ProtoMessage() {}
 
 func (x *ConnectionState) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[36]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3932,7 +4037,7 @@ func (x *ConnectionState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectionState.ProtoReflect.Descriptor instead.
 func (*ConnectionState) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{36}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ConnectionState) GetVersion() uint32 {
@@ -4022,7 +4127,7 @@ type CertificateChain struct {
 
 func (x *CertificateChain) Reset() {
 	*x = CertificateChain{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[37]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4034,7 +4139,7 @@ func (x *CertificateChain) String() string {
 func (*CertificateChain) ProtoMessage() {}
 
 func (x *CertificateChain) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[37]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4047,7 +4152,7 @@ func (x *CertificateChain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertificateChain.ProtoReflect.Descriptor instead.
 func (*CertificateChain) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{37}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CertificateChain) GetCertificates() [][]byte {
@@ -4068,7 +4173,7 @@ type Plan struct {
 
 func (x *Plan) Reset() {
 	*x = Plan{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[38]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4080,7 +4185,7 @@ func (x *Plan) String() string {
 func (*Plan) ProtoMessage() {}
 
 func (x *Plan) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[38]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4093,7 +4198,7 @@ func (x *Plan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Plan.ProtoReflect.Descriptor instead.
 func (*Plan) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{38}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *Plan) GetTransport() uint64 {
@@ -4134,7 +4239,7 @@ type PlanReply struct {
 
 func (x *PlanReply) Reset() {
 	*x = PlanReply{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[39]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4146,7 +4251,7 @@ func (x *PlanReply) String() string {
 func (*PlanReply) ProtoMessage() {}
 
 func (x *PlanReply) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[39]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4159,7 +4264,7 @@ func (x *PlanReply) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlanReply.ProtoReflect.Descriptor instead.
 func (*PlanReply) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{39}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *PlanReply) GetMethod() string {
@@ -4265,7 +4370,7 @@ type Lines struct {
 
 func (x *Lines) Reset() {
 	*x = Lines{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[40]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4277,7 +4382,7 @@ func (x *Lines) String() string {
 func (*Lines) ProtoMessage() {}
 
 func (x *Lines) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[40]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4290,7 +4395,7 @@ func (x *Lines) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Lines.ProtoReflect.Descriptor instead.
 func (*Lines) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{40}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *Lines) GetRequestLine() string {
@@ -4326,7 +4431,7 @@ type Override struct {
 
 func (x *Override) Reset() {
 	*x = Override{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[41]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4338,7 +4443,7 @@ func (x *Override) String() string {
 func (*Override) ProtoMessage() {}
 
 func (x *Override) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[41]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4351,7 +4456,7 @@ func (x *Override) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Override.ProtoReflect.Descriptor instead.
 func (*Override) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{41}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *Override) GetName() string {
@@ -4393,7 +4498,7 @@ type DialWebSocket struct {
 
 func (x *DialWebSocket) Reset() {
 	*x = DialWebSocket{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[42]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4405,7 +4510,7 @@ func (x *DialWebSocket) String() string {
 func (*DialWebSocket) ProtoMessage() {}
 
 func (x *DialWebSocket) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[42]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4418,7 +4523,7 @@ func (x *DialWebSocket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DialWebSocket.ProtoReflect.Descriptor instead.
 func (*DialWebSocket) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{42}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DialWebSocket) GetTransport() uint64 {
@@ -4461,7 +4566,7 @@ type WebSocketOptions struct {
 
 func (x *WebSocketOptions) Reset() {
 	*x = WebSocketOptions{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[43]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4473,7 +4578,7 @@ func (x *WebSocketOptions) String() string {
 func (*WebSocketOptions) ProtoMessage() {}
 
 func (x *WebSocketOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[43]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4486,7 +4591,7 @@ func (x *WebSocketOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSocketOptions.ProtoReflect.Descriptor instead.
 func (*WebSocketOptions) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{43}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *WebSocketOptions) GetPage() string {
@@ -4523,7 +4628,7 @@ type WebSocket struct {
 
 func (x *WebSocket) Reset() {
 	*x = WebSocket{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[44]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4535,7 +4640,7 @@ func (x *WebSocket) String() string {
 func (*WebSocket) ProtoMessage() {}
 
 func (x *WebSocket) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[44]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4548,7 +4653,7 @@ func (x *WebSocket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSocket.ProtoReflect.Descriptor instead.
 func (*WebSocket) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{44}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *WebSocket) GetId() uint64 {
@@ -4592,7 +4697,7 @@ type CloseWebSocket struct {
 
 func (x *CloseWebSocket) Reset() {
 	*x = CloseWebSocket{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[45]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4604,7 +4709,7 @@ func (x *CloseWebSocket) String() string {
 func (*CloseWebSocket) ProtoMessage() {}
 
 func (x *CloseWebSocket) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[45]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4617,7 +4722,7 @@ func (x *CloseWebSocket) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseWebSocket.ProtoReflect.Descriptor instead.
 func (*CloseWebSocket) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{45}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *CloseWebSocket) GetWebsocket() uint64 {
@@ -4655,7 +4760,7 @@ type WebSocketWritten struct {
 
 func (x *WebSocketWritten) Reset() {
 	*x = WebSocketWritten{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[46]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4667,7 +4772,7 @@ func (x *WebSocketWritten) String() string {
 func (*WebSocketWritten) ProtoMessage() {}
 
 func (x *WebSocketWritten) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[46]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4680,7 +4785,7 @@ func (x *WebSocketWritten) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WebSocketWritten.ProtoReflect.Descriptor instead.
 func (*WebSocketWritten) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{46}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *WebSocketWritten) GetWebsocket() uint64 {
@@ -4716,7 +4821,7 @@ type FetchPins struct {
 
 func (x *FetchPins) Reset() {
 	*x = FetchPins{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[47]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4728,7 +4833,7 @@ func (x *FetchPins) String() string {
 func (*FetchPins) ProtoMessage() {}
 
 func (x *FetchPins) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[47]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4741,7 +4846,7 @@ func (x *FetchPins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FetchPins.ProtoReflect.Descriptor instead.
 func (*FetchPins) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{47}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *FetchPins) GetConfig() *Config {
@@ -4781,7 +4886,7 @@ type CertPin struct {
 
 func (x *CertPin) Reset() {
 	*x = CertPin{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[48]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4793,7 +4898,7 @@ func (x *CertPin) String() string {
 func (*CertPin) ProtoMessage() {}
 
 func (x *CertPin) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[48]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4806,7 +4911,7 @@ func (x *CertPin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertPin.ProtoReflect.Descriptor instead.
 func (*CertPin) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{48}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *CertPin) GetRole() CertRole {
@@ -4868,7 +4973,7 @@ type CertPins struct {
 
 func (x *CertPins) Reset() {
 	*x = CertPins{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[49]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4880,7 +4985,7 @@ func (x *CertPins) String() string {
 func (*CertPins) ProtoMessage() {}
 
 func (x *CertPins) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[49]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4893,7 +4998,7 @@ func (x *CertPins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CertPins.ProtoReflect.Descriptor instead.
 func (*CertPins) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{49}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *CertPins) GetPins() []*CertPin {
@@ -4914,7 +5019,7 @@ type WriteJSON struct {
 
 func (x *WriteJSON) Reset() {
 	*x = WriteJSON{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[50]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4926,7 +5031,7 @@ func (x *WriteJSON) String() string {
 func (*WriteJSON) ProtoMessage() {}
 
 func (x *WriteJSON) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[50]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4939,7 +5044,7 @@ func (x *WriteJSON) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteJSON.ProtoReflect.Descriptor instead.
 func (*WriteJSON) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{50}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *WriteJSON) GetId() uint64 {
@@ -4960,7 +5065,7 @@ type ReadJSON struct {
 
 func (x *ReadJSON) Reset() {
 	*x = ReadJSON{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[51]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4972,7 +5077,7 @@ func (x *ReadJSON) String() string {
 func (*ReadJSON) ProtoMessage() {}
 
 func (x *ReadJSON) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[51]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4985,7 +5090,7 @@ func (x *ReadJSON) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadJSON.ProtoReflect.Descriptor instead.
 func (*ReadJSON) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{51}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *ReadJSON) GetId() uint64 {
@@ -5005,7 +5110,7 @@ type WriteNetscape struct {
 
 func (x *WriteNetscape) Reset() {
 	*x = WriteNetscape{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[52]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5017,7 +5122,7 @@ func (x *WriteNetscape) String() string {
 func (*WriteNetscape) ProtoMessage() {}
 
 func (x *WriteNetscape) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[52]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5030,7 +5135,7 @@ func (x *WriteNetscape) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteNetscape.ProtoReflect.Descriptor instead.
 func (*WriteNetscape) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{52}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *WriteNetscape) GetJar() uint64 {
@@ -5050,7 +5155,7 @@ type ReadNetscape struct {
 
 func (x *ReadNetscape) Reset() {
 	*x = ReadNetscape{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[53]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5062,7 +5167,7 @@ func (x *ReadNetscape) String() string {
 func (*ReadNetscape) ProtoMessage() {}
 
 func (x *ReadNetscape) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[53]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5075,7 +5180,7 @@ func (x *ReadNetscape) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReadNetscape.ProtoReflect.Descriptor instead.
 func (*ReadNetscape) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{53}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ReadNetscape) GetJar() uint64 {
@@ -5095,7 +5200,7 @@ type Clear struct {
 
 func (x *Clear) Reset() {
 	*x = Clear{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[54]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5107,7 +5212,7 @@ func (x *Clear) String() string {
 func (*Clear) ProtoMessage() {}
 
 func (x *Clear) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[54]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5120,7 +5225,7 @@ func (x *Clear) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Clear.ProtoReflect.Descriptor instead.
 func (*Clear) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{54}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *Clear) GetId() uint64 {
@@ -5154,7 +5259,7 @@ type Cookie struct {
 
 func (x *Cookie) Reset() {
 	*x = Cookie{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[55]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5166,7 +5271,7 @@ func (x *Cookie) String() string {
 func (*Cookie) ProtoMessage() {}
 
 func (x *Cookie) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[55]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5179,7 +5284,7 @@ func (x *Cookie) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cookie.ProtoReflect.Descriptor instead.
 func (*Cookie) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{55}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *Cookie) GetName() []byte {
@@ -5290,7 +5395,7 @@ type Cookies struct {
 
 func (x *Cookies) Reset() {
 	*x = Cookies{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[56]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5302,7 +5407,7 @@ func (x *Cookies) String() string {
 func (*Cookies) ProtoMessage() {}
 
 func (x *Cookies) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[56]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5315,7 +5420,7 @@ func (x *Cookies) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cookies.ProtoReflect.Descriptor instead.
 func (*Cookies) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{56}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *Cookies) GetCookies() []*Cookie {
@@ -5340,7 +5445,7 @@ type CookieRequest struct {
 
 func (x *CookieRequest) Reset() {
 	*x = CookieRequest{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[57]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5352,7 +5457,7 @@ func (x *CookieRequest) String() string {
 func (*CookieRequest) ProtoMessage() {}
 
 func (x *CookieRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[57]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5365,7 +5470,7 @@ func (x *CookieRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CookieRequest.ProtoReflect.Descriptor instead.
 func (*CookieRequest) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{57}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *CookieRequest) GetUrl() string {
@@ -5420,7 +5525,7 @@ type JarAll struct {
 
 func (x *JarAll) Reset() {
 	*x = JarAll{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[58]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5432,7 +5537,7 @@ func (x *JarAll) String() string {
 func (*JarAll) ProtoMessage() {}
 
 func (x *JarAll) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[58]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5445,7 +5550,7 @@ func (x *JarAll) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarAll.ProtoReflect.Descriptor instead.
 func (*JarAll) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{58}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *JarAll) GetJar() uint64 {
@@ -5466,7 +5571,7 @@ type JarCookies struct {
 
 func (x *JarCookies) Reset() {
 	*x = JarCookies{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[59]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5478,7 +5583,7 @@ func (x *JarCookies) String() string {
 func (*JarCookies) ProtoMessage() {}
 
 func (x *JarCookies) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[59]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5491,7 +5596,7 @@ func (x *JarCookies) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarCookies.ProtoReflect.Descriptor instead.
 func (*JarCookies) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{59}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *JarCookies) GetJar() uint64 {
@@ -5519,7 +5624,7 @@ type JarPeek struct {
 
 func (x *JarPeek) Reset() {
 	*x = JarPeek{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[60]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5531,7 +5636,7 @@ func (x *JarPeek) String() string {
 func (*JarPeek) ProtoMessage() {}
 
 func (x *JarPeek) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[60]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5544,7 +5649,7 @@ func (x *JarPeek) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarPeek.ProtoReflect.Descriptor instead.
 func (*JarPeek) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{60}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *JarPeek) GetJar() uint64 {
@@ -5572,7 +5677,7 @@ type JarSet struct {
 
 func (x *JarSet) Reset() {
 	*x = JarSet{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[61]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5584,7 +5689,7 @@ func (x *JarSet) String() string {
 func (*JarSet) ProtoMessage() {}
 
 func (x *JarSet) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[61]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5597,7 +5702,7 @@ func (x *JarSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarSet.ProtoReflect.Descriptor instead.
 func (*JarSet) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{61}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *JarSet) GetJar() uint64 {
@@ -5626,7 +5731,7 @@ type JarSetString struct {
 
 func (x *JarSetString) Reset() {
 	*x = JarSetString{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[62]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5638,7 +5743,7 @@ func (x *JarSetString) String() string {
 func (*JarSetString) ProtoMessage() {}
 
 func (x *JarSetString) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[62]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5651,7 +5756,7 @@ func (x *JarSetString) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarSetString.ProtoReflect.Descriptor instead.
 func (*JarSetString) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{62}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *JarSetString) GetJar() uint64 {
@@ -5687,7 +5792,7 @@ type JarSetHostString struct {
 
 func (x *JarSetHostString) Reset() {
 	*x = JarSetHostString{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[63]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5699,7 +5804,7 @@ func (x *JarSetHostString) String() string {
 func (*JarSetHostString) ProtoMessage() {}
 
 func (x *JarSetHostString) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[63]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5712,7 +5817,7 @@ func (x *JarSetHostString) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarSetHostString.ProtoReflect.Descriptor instead.
 func (*JarSetHostString) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{63}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *JarSetHostString) GetJar() uint64 {
@@ -5748,7 +5853,7 @@ type JarSetCookies struct {
 
 func (x *JarSetCookies) Reset() {
 	*x = JarSetCookies{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[64]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5760,7 +5865,7 @@ func (x *JarSetCookies) String() string {
 func (*JarSetCookies) ProtoMessage() {}
 
 func (x *JarSetCookies) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[64]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5773,7 +5878,7 @@ func (x *JarSetCookies) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarSetCookies.ProtoReflect.Descriptor instead.
 func (*JarSetCookies) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{64}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *JarSetCookies) GetJar() uint64 {
@@ -5807,7 +5912,7 @@ type JarClearExpired struct {
 
 func (x *JarClearExpired) Reset() {
 	*x = JarClearExpired{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[65]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5819,7 +5924,7 @@ func (x *JarClearExpired) String() string {
 func (*JarClearExpired) ProtoMessage() {}
 
 func (x *JarClearExpired) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[65]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5832,7 +5937,7 @@ func (x *JarClearExpired) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarClearExpired.ProtoReflect.Descriptor instead.
 func (*JarClearExpired) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{65}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *JarClearExpired) GetJar() uint64 {
@@ -5852,7 +5957,7 @@ type JarClearSession struct {
 
 func (x *JarClearSession) Reset() {
 	*x = JarClearSession{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[66]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5864,7 +5969,7 @@ func (x *JarClearSession) String() string {
 func (*JarClearSession) ProtoMessage() {}
 
 func (x *JarClearSession) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[66]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5877,7 +5982,7 @@ func (x *JarClearSession) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarClearSession.ProtoReflect.Descriptor instead.
 func (*JarClearSession) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{66}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *JarClearSession) GetJar() uint64 {
@@ -5898,7 +6003,7 @@ type JarString struct {
 
 func (x *JarString) Reset() {
 	*x = JarString{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[67]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5910,7 +6015,7 @@ func (x *JarString) String() string {
 func (*JarString) ProtoMessage() {}
 
 func (x *JarString) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[67]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5923,7 +6028,7 @@ func (x *JarString) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarString.ProtoReflect.Descriptor instead.
 func (*JarString) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{67}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *JarString) GetJar() uint64 {
@@ -5950,7 +6055,7 @@ type JarClone struct {
 
 func (x *JarClone) Reset() {
 	*x = JarClone{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[68]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5962,7 +6067,7 @@ func (x *JarClone) String() string {
 func (*JarClone) ProtoMessage() {}
 
 func (x *JarClone) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[68]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5975,7 +6080,7 @@ func (x *JarClone) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JarClone.ProtoReflect.Descriptor instead.
 func (*JarClone) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{68}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *JarClone) GetJar() uint64 {
@@ -6003,7 +6108,7 @@ type SetCookie struct {
 
 func (x *SetCookie) Reset() {
 	*x = SetCookie{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[69]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6015,7 +6120,7 @@ func (x *SetCookie) String() string {
 func (*SetCookie) ProtoMessage() {}
 
 func (x *SetCookie) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[69]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6028,7 +6133,7 @@ func (x *SetCookie) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetCookie.ProtoReflect.Descriptor instead.
 func (*SetCookie) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{69}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *SetCookie) GetJar() uint64 {
@@ -6085,7 +6190,7 @@ type ClientHints struct {
 
 func (x *ClientHints) Reset() {
 	*x = ClientHints{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[70]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6097,7 +6202,7 @@ func (x *ClientHints) String() string {
 func (*ClientHints) ProtoMessage() {}
 
 func (x *ClientHints) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[70]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6110,7 +6215,7 @@ func (x *ClientHints) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientHints.ProtoReflect.Descriptor instead.
 func (*ClientHints) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{70}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *ClientHints) GetStore() uint64 {
@@ -6139,7 +6244,7 @@ type SetClientHints struct {
 
 func (x *SetClientHints) Reset() {
 	*x = SetClientHints{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[71]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6151,7 +6256,7 @@ func (x *SetClientHints) String() string {
 func (*SetClientHints) ProtoMessage() {}
 
 func (x *SetClientHints) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[71]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6164,7 +6269,7 @@ func (x *SetClientHints) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetClientHints.ProtoReflect.Descriptor instead.
 func (*SetClientHints) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{71}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *SetClientHints) GetStore() uint64 {
@@ -6188,6 +6293,269 @@ func (x *SetClientHints) GetHints() []string {
 	return nil
 }
 
+// TrafficSnapshot is TrafficMeter.Snapshot, or with reset
+// TrafficMeter.Reset; the reply's traffic is the counts.
+type TrafficSnapshot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Meter         uint64                 `protobuf:"varint,1,opt,name=meter,proto3" json:"meter,omitempty"`
+	Reset_        bool                   `protobuf:"varint,2,opt,name=reset,proto3" json:"reset,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TrafficSnapshot) Reset() {
+	*x = TrafficSnapshot{}
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[73]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TrafficSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TrafficSnapshot) ProtoMessage() {}
+
+func (x *TrafficSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[73]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TrafficSnapshot.ProtoReflect.Descriptor instead.
+func (*TrafficSnapshot) Descriptor() ([]byte, []int) {
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{73}
+}
+
+func (x *TrafficSnapshot) GetMeter() uint64 {
+	if x != nil {
+		return x.Meter
+	}
+	return 0
+}
+
+func (x *TrafficSnapshot) GetReset_() bool {
+	if x != nil {
+		return x.Reset_
+	}
+	return false
+}
+
+// Traffic is mimicry.Traffic.
+type Traffic struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Http1     *Bytes                 `protobuf:"bytes,1,opt,name=http1,proto3" json:"http1,omitempty"`
+	Http2     *Bytes                 `protobuf:"bytes,2,opt,name=http2,proto3" json:"http2,omitempty"`
+	Http3     *Bytes                 `protobuf:"bytes,3,opt,name=http3,proto3" json:"http3,omitempty"`
+	Websocket *Bytes                 `protobuf:"bytes,4,opt,name=websocket,proto3" json:"websocket,omitempty"`
+	Dns       *Bytes                 `protobuf:"bytes,5,opt,name=dns,proto3" json:"dns,omitempty"`
+	Other     *Bytes                 `protobuf:"bytes,6,opt,name=other,proto3" json:"other,omitempty"`
+	// By_host is ByHost's entries, sorted by host then proxy; empty unless
+	// the meter was made with by_host.
+	ByHost        []*PeerBytes `protobuf:"bytes,7,rep,name=by_host,json=byHost,proto3" json:"by_host,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Traffic) Reset() {
+	*x = Traffic{}
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[74]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Traffic) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Traffic) ProtoMessage() {}
+
+func (x *Traffic) ProtoReflect() protoreflect.Message {
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[74]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Traffic.ProtoReflect.Descriptor instead.
+func (*Traffic) Descriptor() ([]byte, []int) {
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{74}
+}
+
+func (x *Traffic) GetHttp1() *Bytes {
+	if x != nil {
+		return x.Http1
+	}
+	return nil
+}
+
+func (x *Traffic) GetHttp2() *Bytes {
+	if x != nil {
+		return x.Http2
+	}
+	return nil
+}
+
+func (x *Traffic) GetHttp3() *Bytes {
+	if x != nil {
+		return x.Http3
+	}
+	return nil
+}
+
+func (x *Traffic) GetWebsocket() *Bytes {
+	if x != nil {
+		return x.Websocket
+	}
+	return nil
+}
+
+func (x *Traffic) GetDns() *Bytes {
+	if x != nil {
+		return x.Dns
+	}
+	return nil
+}
+
+func (x *Traffic) GetOther() *Bytes {
+	if x != nil {
+		return x.Other
+	}
+	return nil
+}
+
+func (x *Traffic) GetByHost() []*PeerBytes {
+	if x != nil {
+		return x.ByHost
+	}
+	return nil
+}
+
+// Bytes is mimicry.Bytes.
+type Bytes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Sent          int64                  `protobuf:"varint,1,opt,name=sent,proto3" json:"sent,omitempty"`
+	Received      int64                  `protobuf:"varint,2,opt,name=received,proto3" json:"received,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Bytes) Reset() {
+	*x = Bytes{}
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[75]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Bytes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Bytes) ProtoMessage() {}
+
+func (x *Bytes) ProtoReflect() protoreflect.Message {
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[75]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Bytes.ProtoReflect.Descriptor instead.
+func (*Bytes) Descriptor() ([]byte, []int) {
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{75}
+}
+
+func (x *Bytes) GetSent() int64 {
+	if x != nil {
+		return x.Sent
+	}
+	return 0
+}
+
+func (x *Bytes) GetReceived() int64 {
+	if x != nil {
+		return x.Received
+	}
+	return 0
+}
+
+// PeerBytes is one entry of Traffic.ByHost: a mimicry.Peer and its bytes.
+type PeerBytes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Host          string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	Proxy         string                 `protobuf:"bytes,2,opt,name=proxy,proto3" json:"proxy,omitempty"`
+	Bytes         *Bytes                 `protobuf:"bytes,3,opt,name=bytes,proto3" json:"bytes,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeerBytes) Reset() {
+	*x = PeerBytes{}
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[76]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerBytes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerBytes) ProtoMessage() {}
+
+func (x *PeerBytes) ProtoReflect() protoreflect.Message {
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[76]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerBytes.ProtoReflect.Descriptor instead.
+func (*PeerBytes) Descriptor() ([]byte, []int) {
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{76}
+}
+
+func (x *PeerBytes) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *PeerBytes) GetProxy() string {
+	if x != nil {
+		return x.Proxy
+	}
+	return ""
+}
+
+func (x *PeerBytes) GetBytes() *Bytes {
+	if x != nil {
+		return x.Bytes
+	}
+	return nil
+}
+
 // VerifyConnection is a reverse call for a transport made with
 // Config.verify_connection: a verified connection's state, which the
 // SDK accepts or fails with its EventReply. The handshake waits for the
@@ -6204,7 +6572,7 @@ type VerifyConnection struct {
 
 func (x *VerifyConnection) Reset() {
 	*x = VerifyConnection{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[72]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6216,7 +6584,7 @@ func (x *VerifyConnection) String() string {
 func (*VerifyConnection) ProtoMessage() {}
 
 func (x *VerifyConnection) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[72]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6229,7 +6597,7 @@ func (x *VerifyConnection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VerifyConnection.ProtoReflect.Descriptor instead.
 func (*VerifyConnection) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{72}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *VerifyConnection) GetTransport() uint64 {
@@ -6259,7 +6627,7 @@ type StreamError struct {
 
 func (x *StreamError) Reset() {
 	*x = StreamError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[73]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6271,7 +6639,7 @@ func (x *StreamError) String() string {
 func (*StreamError) ProtoMessage() {}
 
 func (x *StreamError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[73]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6284,7 +6652,7 @@ func (x *StreamError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamError.ProtoReflect.Descriptor instead.
 func (*StreamError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{73}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *StreamError) GetStream() uint32 {
@@ -6320,7 +6688,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[74]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6332,7 +6700,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[74]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6345,7 +6713,7 @@ func (x *Error) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Error.ProtoReflect.Descriptor instead.
 func (*Error) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{74}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *Error) GetCode() Code {
@@ -6418,7 +6786,7 @@ type CORSError struct {
 
 func (x *CORSError) Reset() {
 	*x = CORSError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[75]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6430,7 +6798,7 @@ func (x *CORSError) String() string {
 func (*CORSError) ProtoMessage() {}
 
 func (x *CORSError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[75]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6443,7 +6811,7 @@ func (x *CORSError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CORSError.ProtoReflect.Descriptor instead.
 func (*CORSError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{75}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *CORSError) GetUrl() string {
@@ -6495,7 +6863,7 @@ type ProxyError struct {
 
 func (x *ProxyError) Reset() {
 	*x = ProxyError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[76]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6507,7 +6875,7 @@ func (x *ProxyError) String() string {
 func (*ProxyError) ProtoMessage() {}
 
 func (x *ProxyError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[76]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6520,7 +6888,7 @@ func (x *ProxyError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyError.ProtoReflect.Descriptor instead.
 func (*ProxyError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{76}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *ProxyError) GetProxy() string {
@@ -6555,7 +6923,7 @@ type PinError struct {
 
 func (x *PinError) Reset() {
 	*x = PinError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[77]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6567,7 +6935,7 @@ func (x *PinError) String() string {
 func (*PinError) ProtoMessage() {}
 
 func (x *PinError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[77]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6580,7 +6948,7 @@ func (x *PinError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PinError.ProtoReflect.Descriptor instead.
 func (*PinError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{77}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *PinError) GetHost() string {
@@ -6608,7 +6976,7 @@ type CloseError struct {
 
 func (x *CloseError) Reset() {
 	*x = CloseError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[78]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6620,7 +6988,7 @@ func (x *CloseError) String() string {
 func (*CloseError) ProtoMessage() {}
 
 func (x *CloseError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[78]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6633,7 +7001,7 @@ func (x *CloseError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CloseError.ProtoReflect.Descriptor instead.
 func (*CloseError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{78}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *CloseError) GetCode() int32 {
@@ -6660,7 +7028,7 @@ type ValidationError struct {
 
 func (x *ValidationError) Reset() {
 	*x = ValidationError{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[79]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6672,7 +7040,7 @@ func (x *ValidationError) String() string {
 func (*ValidationError) ProtoMessage() {}
 
 func (x *ValidationError) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[79]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6685,7 +7053,7 @@ func (x *ValidationError) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidationError.ProtoReflect.Descriptor instead.
 func (*ValidationError) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{79}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *ValidationError) GetProblems() []*Problem {
@@ -6706,7 +7074,7 @@ type Problem struct {
 
 func (x *Problem) Reset() {
 	*x = Problem{}
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[80]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6718,7 +7086,7 @@ func (x *Problem) String() string {
 func (*Problem) ProtoMessage() {}
 
 func (x *Problem) ProtoReflect() protoreflect.Message {
-	mi := &file_mimicry_v1_mimicry_proto_msgTypes[80]
+	mi := &file_mimicry_v1_mimicry_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6731,7 +7099,7 @@ func (x *Problem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Problem.ProtoReflect.Descriptor instead.
 func (*Problem) Descriptor() ([]byte, []int) {
-	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{80}
+	return file_mimicry_v1_mimicry_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *Problem) GetPath() string {
@@ -6753,7 +7121,7 @@ var File_mimicry_v1_mimicry_proto protoreflect.FileDescriptor
 const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\n" +
 	"\x18mimicry/v1/mimicry.proto\x12\n" +
-	"mimicry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb4\x11\n" +
+	"mimicry.v1\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc9\x12\n" +
 	"\x04Call\x12\x1c\n" +
 	"\tcontinued\x18\x01 \x01(\rR\tcontinued\x12)\n" +
 	"\x05hello\x18\x02 \x01(\v2\x11.mimicry.v1.HelloH\x00R\x05hello\x12)\n" +
@@ -6770,7 +7138,8 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\x10new_ticket_cache\x18\x17 \x01(\v2\x1a.mimicry.v1.NewTicketCacheH\x00R\x0enewTicketCache\x12G\n" +
 	"\x11new_alt_svc_cache\x18\x18 \x01(\v2\x1a.mimicry.v1.NewAltSvcCacheH\x00R\x0enewAltSvcCache\x12S\n" +
 	"\x15new_client_hint_store\x18\x19 \x01(\v2\x1e.mimicry.v1.NewClientHintStoreH\x00R\x12newClientHintStore\x12X\n" +
-	"\x16close_idle_connections\x18\x1a \x01(\v2 .mimicry.v1.CloseIdleConnectionsH\x00R\x14closeIdleConnections\x12 \n" +
+	"\x16close_idle_connections\x18\x1a \x01(\v2 .mimicry.v1.CloseIdleConnectionsH\x00R\x14closeIdleConnections\x12I\n" +
+	"\x11new_traffic_meter\x18\x1b \x01(\v2\x1b.mimicry.v1.NewTrafficMeterH\x00R\x0fnewTrafficMeter\x12 \n" +
 	"\x02do\x18\x1e \x01(\v2\x0e.mimicry.v1.DoH\x00R\x02do\x12&\n" +
 	"\x04plan\x18\x1f \x01(\v2\x10.mimicry.v1.PlanH\x00R\x04plan\x12B\n" +
 	"\x0edial_websocket\x18  \x01(\v2\x19.mimicry.v1.DialWebSocketH\x00R\rdialWebsocket\x12E\n" +
@@ -6797,8 +7166,9 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"jar_string\x186 \x01(\v2\x15.mimicry.v1.JarStringH\x00R\tjarString\x123\n" +
 	"\tjar_clone\x187 \x01(\v2\x14.mimicry.v1.JarCloneH\x00R\bjarClone\x12<\n" +
 	"\fclient_hints\x188 \x01(\v2\x17.mimicry.v1.ClientHintsH\x00R\vclientHints\x12F\n" +
-	"\x10set_client_hints\x189 \x01(\v2\x1a.mimicry.v1.SetClientHintsH\x00R\x0esetClientHintsB\b\n" +
-	"\x06method\"\xec\x05\n" +
+	"\x10set_client_hints\x189 \x01(\v2\x1a.mimicry.v1.SetClientHintsH\x00R\x0esetClientHints\x12H\n" +
+	"\x10traffic_snapshot\x18: \x01(\v2\x1b.mimicry.v1.TrafficSnapshotH\x00R\x0ftrafficSnapshotB\b\n" +
+	"\x06method\"\x9d\x06\n" +
 	"\x05Reply\x12\x1c\n" +
 	"\tcontinued\x18\x01 \x01(\rR\tcontinued\x12'\n" +
 	"\x05error\x18\x02 \x01(\v2\x11.mimicry.v1.ErrorR\x05error\x12.\n" +
@@ -6817,7 +7187,8 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\acookies\x18\r \x01(\v2\x13.mimicry.v1.CookiesH\x00R\acookies\x12\x16\n" +
 	"\x05count\x18\x0e \x01(\x03H\x00R\x05count\x12\x16\n" +
 	"\x05value\x18\x0f \x01(\fH\x00R\x05value\x12/\n" +
-	"\astrings\x18\x10 \x01(\v2\x13.mimicry.v1.StringsH\x00R\astringsB\b\n" +
+	"\astrings\x18\x10 \x01(\v2\x13.mimicry.v1.StringsH\x00R\astrings\x12/\n" +
+	"\atraffic\x18\x11 \x01(\v2\x13.mimicry.v1.TrafficH\x00R\atrafficB\b\n" +
 	"\x06result\"\xbe\x02\n" +
 	"\x05Event\x12\x1c\n" +
 	"\tcontinued\x18\x01 \x01(\rR\tcontinued\x12K\n" +
@@ -6868,7 +7239,7 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\bMachines\x12\x1a\n" +
 	"\bplatform\x18\x01 \x01(\tR\bplatform\")\n" +
 	"\vMachineList\x12\x1a\n" +
-	"\bmachines\x18\x01 \x03(\fR\bmachines\"\xc7\v\n" +
+	"\bmachines\x18\x01 \x03(\fR\bmachines\"\xe1\v\n" +
 	"\x06Config\x120\n" +
 	"\aprofile\x18\x01 \x01(\v2\x16.mimicry.v1.ProfileRefR\aprofile\x12\x19\n" +
 	"\broot_cas\x18\x02 \x01(\fR\arootCas\x12<\n" +
@@ -6904,7 +7275,8 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\x11verify_connection\x18\x1d \x01(\bR\x10verifyConnection\x12N\n" +
 	"\x13client_certificates\x18\x1e \x03(\v2\x1d.mimicry.v1.ClientCertificateR\x12clientCertificates\x12 \n" +
 	"\fkey_log_file\x18\x1f \x01(\tR\n" +
-	"keyLogFile\x1aB\n" +
+	"keyLogFile\x12\x18\n" +
+	"\atraffic\x18  \x01(\x04R\atraffic\x1aB\n" +
 	"\x14ConnectUdpProxyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\":\n" +
@@ -6943,7 +7315,9 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\ron_set_cookie\x18\x02 \x01(\bR\vonSetCookie\"\x10\n" +
 	"\x0eNewTicketCache\"\x10\n" +
 	"\x0eNewAltSvcCache\"\x14\n" +
-	"\x12NewClientHintStore\"4\n" +
+	"\x12NewClientHintStore\"*\n" +
+	"\x0fNewTrafficMeter\x12\x17\n" +
+	"\aby_host\x18\x01 \x01(\bR\x06byHost\"4\n" +
 	"\x14CloseIdleConnections\x12\x1c\n" +
 	"\ttransport\x18\x01 \x01(\x04R\ttransport\"\xc3\x03\n" +
 	"\aOptions\x12$\n" +
@@ -7155,7 +7529,25 @@ const file_mimicry_v1_mimicry_proto_rawDesc = "" +
 	"\x0eSetClientHints\x12\x14\n" +
 	"\x05store\x18\x01 \x01(\x04R\x05store\x12\x16\n" +
 	"\x06origin\x18\x02 \x01(\tR\x06origin\x12\x14\n" +
-	"\x05hints\x18\x03 \x03(\tR\x05hints\"c\n" +
+	"\x05hints\x18\x03 \x03(\tR\x05hints\"=\n" +
+	"\x0fTrafficSnapshot\x12\x14\n" +
+	"\x05meter\x18\x01 \x01(\x04R\x05meter\x12\x14\n" +
+	"\x05reset\x18\x02 \x01(\bR\x05reset\"\xb3\x02\n" +
+	"\aTraffic\x12'\n" +
+	"\x05http1\x18\x01 \x01(\v2\x11.mimicry.v1.BytesR\x05http1\x12'\n" +
+	"\x05http2\x18\x02 \x01(\v2\x11.mimicry.v1.BytesR\x05http2\x12'\n" +
+	"\x05http3\x18\x03 \x01(\v2\x11.mimicry.v1.BytesR\x05http3\x12/\n" +
+	"\twebsocket\x18\x04 \x01(\v2\x11.mimicry.v1.BytesR\twebsocket\x12#\n" +
+	"\x03dns\x18\x05 \x01(\v2\x11.mimicry.v1.BytesR\x03dns\x12'\n" +
+	"\x05other\x18\x06 \x01(\v2\x11.mimicry.v1.BytesR\x05other\x12.\n" +
+	"\aby_host\x18\a \x03(\v2\x15.mimicry.v1.PeerBytesR\x06byHost\"7\n" +
+	"\x05Bytes\x12\x12\n" +
+	"\x04sent\x18\x01 \x01(\x03R\x04sent\x12\x1a\n" +
+	"\breceived\x18\x02 \x01(\x03R\breceived\"^\n" +
+	"\tPeerBytes\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\tR\x04host\x12\x14\n" +
+	"\x05proxy\x18\x02 \x01(\tR\x05proxy\x12'\n" +
+	"\x05bytes\x18\x03 \x01(\v2\x11.mimicry.v1.BytesR\x05bytes\"c\n" +
 	"\x10VerifyConnection\x12\x1c\n" +
 	"\ttransport\x18\x01 \x01(\x04R\ttransport\x121\n" +
 	"\x05state\x18\x02 \x01(\v2\x1b.mimicry.v1.ConnectionStateR\x05state\"N\n" +
@@ -7282,7 +7674,7 @@ func file_mimicry_v1_mimicry_proto_rawDescGZIP() []byte {
 }
 
 var file_mimicry_v1_mimicry_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_mimicry_v1_mimicry_proto_msgTypes = make([]protoimpl.MessageInfo, 82)
+var file_mimicry_v1_mimicry_proto_msgTypes = make([]protoimpl.MessageInfo, 87)
 var file_mimicry_v1_mimicry_proto_goTypes = []any{
 	(Feature)(0),                  // 0: mimicry.v1.Feature
 	(Kind)(0),                     // 1: mimicry.v1.Kind
@@ -7325,59 +7717,64 @@ var file_mimicry_v1_mimicry_proto_goTypes = []any{
 	(*NewTicketCache)(nil),        // 38: mimicry.v1.NewTicketCache
 	(*NewAltSvcCache)(nil),        // 39: mimicry.v1.NewAltSvcCache
 	(*NewClientHintStore)(nil),    // 40: mimicry.v1.NewClientHintStore
-	(*CloseIdleConnections)(nil),  // 41: mimicry.v1.CloseIdleConnections
-	(*Options)(nil),               // 42: mimicry.v1.Options
-	(*Request)(nil),               // 43: mimicry.v1.Request
-	(*Do)(nil),                    // 44: mimicry.v1.Do
-	(*Response)(nil),              // 45: mimicry.v1.Response
-	(*ConnectionState)(nil),       // 46: mimicry.v1.ConnectionState
-	(*CertificateChain)(nil),      // 47: mimicry.v1.CertificateChain
-	(*Plan)(nil),                  // 48: mimicry.v1.Plan
-	(*PlanReply)(nil),             // 49: mimicry.v1.PlanReply
-	(*Lines)(nil),                 // 50: mimicry.v1.Lines
-	(*Override)(nil),              // 51: mimicry.v1.Override
-	(*DialWebSocket)(nil),         // 52: mimicry.v1.DialWebSocket
-	(*WebSocketOptions)(nil),      // 53: mimicry.v1.WebSocketOptions
-	(*WebSocket)(nil),             // 54: mimicry.v1.WebSocket
-	(*CloseWebSocket)(nil),        // 55: mimicry.v1.CloseWebSocket
-	(*WebSocketWritten)(nil),      // 56: mimicry.v1.WebSocketWritten
-	(*FetchPins)(nil),             // 57: mimicry.v1.FetchPins
-	(*CertPin)(nil),               // 58: mimicry.v1.CertPin
-	(*CertPins)(nil),              // 59: mimicry.v1.CertPins
-	(*WriteJSON)(nil),             // 60: mimicry.v1.WriteJSON
-	(*ReadJSON)(nil),              // 61: mimicry.v1.ReadJSON
-	(*WriteNetscape)(nil),         // 62: mimicry.v1.WriteNetscape
-	(*ReadNetscape)(nil),          // 63: mimicry.v1.ReadNetscape
-	(*Clear)(nil),                 // 64: mimicry.v1.Clear
-	(*Cookie)(nil),                // 65: mimicry.v1.Cookie
-	(*Cookies)(nil),               // 66: mimicry.v1.Cookies
-	(*CookieRequest)(nil),         // 67: mimicry.v1.CookieRequest
-	(*JarAll)(nil),                // 68: mimicry.v1.JarAll
-	(*JarCookies)(nil),            // 69: mimicry.v1.JarCookies
-	(*JarPeek)(nil),               // 70: mimicry.v1.JarPeek
-	(*JarSet)(nil),                // 71: mimicry.v1.JarSet
-	(*JarSetString)(nil),          // 72: mimicry.v1.JarSetString
-	(*JarSetHostString)(nil),      // 73: mimicry.v1.JarSetHostString
-	(*JarSetCookies)(nil),         // 74: mimicry.v1.JarSetCookies
-	(*JarClearExpired)(nil),       // 75: mimicry.v1.JarClearExpired
-	(*JarClearSession)(nil),       // 76: mimicry.v1.JarClearSession
-	(*JarString)(nil),             // 77: mimicry.v1.JarString
-	(*JarClone)(nil),              // 78: mimicry.v1.JarClone
-	(*SetCookie)(nil),             // 79: mimicry.v1.SetCookie
-	(*ClientHints)(nil),           // 80: mimicry.v1.ClientHints
-	(*SetClientHints)(nil),        // 81: mimicry.v1.SetClientHints
-	(*VerifyConnection)(nil),      // 82: mimicry.v1.VerifyConnection
-	(*StreamError)(nil),           // 83: mimicry.v1.StreamError
-	(*Error)(nil),                 // 84: mimicry.v1.Error
-	(*CORSError)(nil),             // 85: mimicry.v1.CORSError
-	(*ProxyError)(nil),            // 86: mimicry.v1.ProxyError
-	(*PinError)(nil),              // 87: mimicry.v1.PinError
-	(*CloseError)(nil),            // 88: mimicry.v1.CloseError
-	(*ValidationError)(nil),       // 89: mimicry.v1.ValidationError
-	(*Problem)(nil),               // 90: mimicry.v1.Problem
-	nil,                           // 91: mimicry.v1.Config.ConnectUdpProxyEntry
-	(*durationpb.Duration)(nil),   // 92: google.protobuf.Duration
-	(*timestamppb.Timestamp)(nil), // 93: google.protobuf.Timestamp
+	(*NewTrafficMeter)(nil),       // 41: mimicry.v1.NewTrafficMeter
+	(*CloseIdleConnections)(nil),  // 42: mimicry.v1.CloseIdleConnections
+	(*Options)(nil),               // 43: mimicry.v1.Options
+	(*Request)(nil),               // 44: mimicry.v1.Request
+	(*Do)(nil),                    // 45: mimicry.v1.Do
+	(*Response)(nil),              // 46: mimicry.v1.Response
+	(*ConnectionState)(nil),       // 47: mimicry.v1.ConnectionState
+	(*CertificateChain)(nil),      // 48: mimicry.v1.CertificateChain
+	(*Plan)(nil),                  // 49: mimicry.v1.Plan
+	(*PlanReply)(nil),             // 50: mimicry.v1.PlanReply
+	(*Lines)(nil),                 // 51: mimicry.v1.Lines
+	(*Override)(nil),              // 52: mimicry.v1.Override
+	(*DialWebSocket)(nil),         // 53: mimicry.v1.DialWebSocket
+	(*WebSocketOptions)(nil),      // 54: mimicry.v1.WebSocketOptions
+	(*WebSocket)(nil),             // 55: mimicry.v1.WebSocket
+	(*CloseWebSocket)(nil),        // 56: mimicry.v1.CloseWebSocket
+	(*WebSocketWritten)(nil),      // 57: mimicry.v1.WebSocketWritten
+	(*FetchPins)(nil),             // 58: mimicry.v1.FetchPins
+	(*CertPin)(nil),               // 59: mimicry.v1.CertPin
+	(*CertPins)(nil),              // 60: mimicry.v1.CertPins
+	(*WriteJSON)(nil),             // 61: mimicry.v1.WriteJSON
+	(*ReadJSON)(nil),              // 62: mimicry.v1.ReadJSON
+	(*WriteNetscape)(nil),         // 63: mimicry.v1.WriteNetscape
+	(*ReadNetscape)(nil),          // 64: mimicry.v1.ReadNetscape
+	(*Clear)(nil),                 // 65: mimicry.v1.Clear
+	(*Cookie)(nil),                // 66: mimicry.v1.Cookie
+	(*Cookies)(nil),               // 67: mimicry.v1.Cookies
+	(*CookieRequest)(nil),         // 68: mimicry.v1.CookieRequest
+	(*JarAll)(nil),                // 69: mimicry.v1.JarAll
+	(*JarCookies)(nil),            // 70: mimicry.v1.JarCookies
+	(*JarPeek)(nil),               // 71: mimicry.v1.JarPeek
+	(*JarSet)(nil),                // 72: mimicry.v1.JarSet
+	(*JarSetString)(nil),          // 73: mimicry.v1.JarSetString
+	(*JarSetHostString)(nil),      // 74: mimicry.v1.JarSetHostString
+	(*JarSetCookies)(nil),         // 75: mimicry.v1.JarSetCookies
+	(*JarClearExpired)(nil),       // 76: mimicry.v1.JarClearExpired
+	(*JarClearSession)(nil),       // 77: mimicry.v1.JarClearSession
+	(*JarString)(nil),             // 78: mimicry.v1.JarString
+	(*JarClone)(nil),              // 79: mimicry.v1.JarClone
+	(*SetCookie)(nil),             // 80: mimicry.v1.SetCookie
+	(*ClientHints)(nil),           // 81: mimicry.v1.ClientHints
+	(*SetClientHints)(nil),        // 82: mimicry.v1.SetClientHints
+	(*TrafficSnapshot)(nil),       // 83: mimicry.v1.TrafficSnapshot
+	(*Traffic)(nil),               // 84: mimicry.v1.Traffic
+	(*Bytes)(nil),                 // 85: mimicry.v1.Bytes
+	(*PeerBytes)(nil),             // 86: mimicry.v1.PeerBytes
+	(*VerifyConnection)(nil),      // 87: mimicry.v1.VerifyConnection
+	(*StreamError)(nil),           // 88: mimicry.v1.StreamError
+	(*Error)(nil),                 // 89: mimicry.v1.Error
+	(*CORSError)(nil),             // 90: mimicry.v1.CORSError
+	(*ProxyError)(nil),            // 91: mimicry.v1.ProxyError
+	(*PinError)(nil),              // 92: mimicry.v1.PinError
+	(*CloseError)(nil),            // 93: mimicry.v1.CloseError
+	(*ValidationError)(nil),       // 94: mimicry.v1.ValidationError
+	(*Problem)(nil),               // 95: mimicry.v1.Problem
+	nil,                           // 96: mimicry.v1.Config.ConnectUdpProxyEntry
+	(*durationpb.Duration)(nil),   // 97: google.protobuf.Duration
+	(*timestamppb.Timestamp)(nil), // 98: google.protobuf.Timestamp
 }
 var file_mimicry_v1_mimicry_proto_depIdxs = []int32{
 	14,  // 0: mimicry.v1.Call.hello:type_name -> mimicry.v1.Hello
@@ -7392,121 +7789,132 @@ var file_mimicry_v1_mimicry_proto_depIdxs = []int32{
 	38,  // 9: mimicry.v1.Call.new_ticket_cache:type_name -> mimicry.v1.NewTicketCache
 	39,  // 10: mimicry.v1.Call.new_alt_svc_cache:type_name -> mimicry.v1.NewAltSvcCache
 	40,  // 11: mimicry.v1.Call.new_client_hint_store:type_name -> mimicry.v1.NewClientHintStore
-	41,  // 12: mimicry.v1.Call.close_idle_connections:type_name -> mimicry.v1.CloseIdleConnections
-	44,  // 13: mimicry.v1.Call.do:type_name -> mimicry.v1.Do
-	48,  // 14: mimicry.v1.Call.plan:type_name -> mimicry.v1.Plan
-	52,  // 15: mimicry.v1.Call.dial_websocket:type_name -> mimicry.v1.DialWebSocket
-	55,  // 16: mimicry.v1.Call.close_websocket:type_name -> mimicry.v1.CloseWebSocket
-	57,  // 17: mimicry.v1.Call.fetch_pins:type_name -> mimicry.v1.FetchPins
-	60,  // 18: mimicry.v1.Call.write_json:type_name -> mimicry.v1.WriteJSON
-	61,  // 19: mimicry.v1.Call.read_json:type_name -> mimicry.v1.ReadJSON
-	62,  // 20: mimicry.v1.Call.write_netscape:type_name -> mimicry.v1.WriteNetscape
-	63,  // 21: mimicry.v1.Call.read_netscape:type_name -> mimicry.v1.ReadNetscape
-	64,  // 22: mimicry.v1.Call.clear:type_name -> mimicry.v1.Clear
-	68,  // 23: mimicry.v1.Call.jar_all:type_name -> mimicry.v1.JarAll
-	69,  // 24: mimicry.v1.Call.jar_cookies:type_name -> mimicry.v1.JarCookies
-	70,  // 25: mimicry.v1.Call.jar_peek:type_name -> mimicry.v1.JarPeek
-	71,  // 26: mimicry.v1.Call.jar_set:type_name -> mimicry.v1.JarSet
-	72,  // 27: mimicry.v1.Call.jar_set_string:type_name -> mimicry.v1.JarSetString
-	73,  // 28: mimicry.v1.Call.jar_set_host_string:type_name -> mimicry.v1.JarSetHostString
-	74,  // 29: mimicry.v1.Call.jar_set_cookies:type_name -> mimicry.v1.JarSetCookies
-	75,  // 30: mimicry.v1.Call.jar_clear_expired:type_name -> mimicry.v1.JarClearExpired
-	76,  // 31: mimicry.v1.Call.jar_clear_session:type_name -> mimicry.v1.JarClearSession
-	77,  // 32: mimicry.v1.Call.jar_string:type_name -> mimicry.v1.JarString
-	78,  // 33: mimicry.v1.Call.jar_clone:type_name -> mimicry.v1.JarClone
-	80,  // 34: mimicry.v1.Call.client_hints:type_name -> mimicry.v1.ClientHints
-	81,  // 35: mimicry.v1.Call.set_client_hints:type_name -> mimicry.v1.SetClientHints
-	84,  // 36: mimicry.v1.Reply.error:type_name -> mimicry.v1.Error
-	15,  // 37: mimicry.v1.Reply.hello:type_name -> mimicry.v1.HelloReply
-	17,  // 38: mimicry.v1.Reply.object:type_name -> mimicry.v1.Object
-	35,  // 39: mimicry.v1.Reply.new_client:type_name -> mimicry.v1.NewClientReply
-	20,  // 40: mimicry.v1.Reply.profiles:type_name -> mimicry.v1.ProfileList
-	24,  // 41: mimicry.v1.Reply.profile:type_name -> mimicry.v1.ProfileInfo
-	26,  // 42: mimicry.v1.Reply.machines:type_name -> mimicry.v1.MachineList
-	45,  // 43: mimicry.v1.Reply.response:type_name -> mimicry.v1.Response
-	49,  // 44: mimicry.v1.Reply.plan:type_name -> mimicry.v1.PlanReply
-	54,  // 45: mimicry.v1.Reply.websocket:type_name -> mimicry.v1.WebSocket
-	59,  // 46: mimicry.v1.Reply.pins:type_name -> mimicry.v1.CertPins
-	66,  // 47: mimicry.v1.Reply.cookies:type_name -> mimicry.v1.Cookies
-	18,  // 48: mimicry.v1.Reply.strings:type_name -> mimicry.v1.Strings
-	82,  // 49: mimicry.v1.Event.verify_connection:type_name -> mimicry.v1.VerifyConnection
-	79,  // 50: mimicry.v1.Event.set_cookie:type_name -> mimicry.v1.SetCookie
-	83,  // 51: mimicry.v1.Event.stream_error:type_name -> mimicry.v1.StreamError
-	56,  // 52: mimicry.v1.Event.websocket_written:type_name -> mimicry.v1.WebSocketWritten
-	84,  // 53: mimicry.v1.EventReply.error:type_name -> mimicry.v1.Error
-	21,  // 54: mimicry.v1.ProfileSpec.profile:type_name -> mimicry.v1.ProfileRef
-	21,  // 55: mimicry.v1.Config.profile:type_name -> mimicry.v1.ProfileRef
-	92,  // 56: mimicry.v1.Config.dial_timeout:type_name -> google.protobuf.Duration
-	92,  // 57: mimicry.v1.Config.timeout:type_name -> google.protobuf.Duration
-	28,  // 58: mimicry.v1.Config.header:type_name -> mimicry.v1.HeaderValues
-	30,  // 59: mimicry.v1.Config.header_placement:type_name -> mimicry.v1.Place
-	92,  // 60: mimicry.v1.Config.idle_conn_timeout:type_name -> google.protobuf.Duration
-	91,  // 61: mimicry.v1.Config.connect_udp_proxy:type_name -> mimicry.v1.Config.ConnectUdpProxyEntry
-	31,  // 62: mimicry.v1.Config.pins:type_name -> mimicry.v1.Pin
-	32,  // 63: mimicry.v1.Config.client_certificates:type_name -> mimicry.v1.ClientCertificate
-	27,  // 64: mimicry.v1.NewClient.config:type_name -> mimicry.v1.Config
-	34,  // 65: mimicry.v1.NewClient.redirects:type_name -> mimicry.v1.Redirects
-	27,  // 66: mimicry.v1.NewTransport.config:type_name -> mimicry.v1.Config
-	21,  // 67: mimicry.v1.NewJar.rules:type_name -> mimicry.v1.ProfileRef
-	1,   // 68: mimicry.v1.Options.kind:type_name -> mimicry.v1.Kind
-	2,   // 69: mimicry.v1.Options.priority:type_name -> mimicry.v1.Priority
-	3,   // 70: mimicry.v1.Options.cross_origin:type_name -> mimicry.v1.CrossOrigin
-	4,   // 71: mimicry.v1.Options.credentials:type_name -> mimicry.v1.Credentials
-	30,  // 72: mimicry.v1.Options.header_placement:type_name -> mimicry.v1.Place
-	5,   // 73: mimicry.v1.Options.client_hints:type_name -> mimicry.v1.HintDelegation
-	28,  // 74: mimicry.v1.Request.header:type_name -> mimicry.v1.HeaderValues
-	42,  // 75: mimicry.v1.Request.options:type_name -> mimicry.v1.Options
-	92,  // 76: mimicry.v1.Request.timeout:type_name -> google.protobuf.Duration
-	43,  // 77: mimicry.v1.Do.request:type_name -> mimicry.v1.Request
-	28,  // 78: mimicry.v1.Response.header:type_name -> mimicry.v1.HeaderValues
-	46,  // 79: mimicry.v1.Response.tls:type_name -> mimicry.v1.ConnectionState
-	47,  // 80: mimicry.v1.ConnectionState.verified_chains:type_name -> mimicry.v1.CertificateChain
-	43,  // 81: mimicry.v1.Plan.request:type_name -> mimicry.v1.Request
-	1,   // 82: mimicry.v1.PlanReply.kind:type_name -> mimicry.v1.Kind
-	50,  // 83: mimicry.v1.PlanReply.http2:type_name -> mimicry.v1.Lines
-	50,  // 84: mimicry.v1.PlanReply.http1:type_name -> mimicry.v1.Lines
-	50,  // 85: mimicry.v1.PlanReply.http3:type_name -> mimicry.v1.Lines
-	49,  // 86: mimicry.v1.PlanReply.preflight:type_name -> mimicry.v1.PlanReply
-	51,  // 87: mimicry.v1.PlanReply.overrides:type_name -> mimicry.v1.Override
-	29,  // 88: mimicry.v1.Lines.headers:type_name -> mimicry.v1.Header
-	84,  // 89: mimicry.v1.Lines.error:type_name -> mimicry.v1.Error
-	53,  // 90: mimicry.v1.DialWebSocket.options:type_name -> mimicry.v1.WebSocketOptions
-	92,  // 91: mimicry.v1.DialWebSocket.timeout:type_name -> google.protobuf.Duration
-	28,  // 92: mimicry.v1.WebSocketOptions.header:type_name -> mimicry.v1.HeaderValues
-	45,  // 93: mimicry.v1.WebSocket.response:type_name -> mimicry.v1.Response
-	84,  // 94: mimicry.v1.WebSocketWritten.error:type_name -> mimicry.v1.Error
-	27,  // 95: mimicry.v1.FetchPins.config:type_name -> mimicry.v1.Config
-	92,  // 96: mimicry.v1.FetchPins.timeout:type_name -> google.protobuf.Duration
-	7,   // 97: mimicry.v1.CertPin.role:type_name -> mimicry.v1.CertRole
-	93,  // 98: mimicry.v1.CertPin.not_after:type_name -> google.protobuf.Timestamp
-	58,  // 99: mimicry.v1.CertPins.pins:type_name -> mimicry.v1.CertPin
-	93,  // 100: mimicry.v1.Cookie.expires:type_name -> google.protobuf.Timestamp
-	8,   // 101: mimicry.v1.Cookie.same_site:type_name -> mimicry.v1.SameSite
-	93,  // 102: mimicry.v1.Cookie.created:type_name -> google.protobuf.Timestamp
-	93,  // 103: mimicry.v1.Cookie.last_access:type_name -> google.protobuf.Timestamp
-	65,  // 104: mimicry.v1.Cookies.cookies:type_name -> mimicry.v1.Cookie
-	67,  // 105: mimicry.v1.JarCookies.request:type_name -> mimicry.v1.CookieRequest
-	67,  // 106: mimicry.v1.JarPeek.request:type_name -> mimicry.v1.CookieRequest
-	65,  // 107: mimicry.v1.JarSet.cookie:type_name -> mimicry.v1.Cookie
-	67,  // 108: mimicry.v1.JarSetCookies.request:type_name -> mimicry.v1.CookieRequest
-	65,  // 109: mimicry.v1.SetCookie.cookie:type_name -> mimicry.v1.Cookie
-	46,  // 110: mimicry.v1.VerifyConnection.state:type_name -> mimicry.v1.ConnectionState
-	84,  // 111: mimicry.v1.StreamError.error:type_name -> mimicry.v1.Error
-	9,   // 112: mimicry.v1.Error.code:type_name -> mimicry.v1.Code
-	9,   // 113: mimicry.v1.Error.matches:type_name -> mimicry.v1.Code
-	85,  // 114: mimicry.v1.Error.cors:type_name -> mimicry.v1.CORSError
-	86,  // 115: mimicry.v1.Error.proxy:type_name -> mimicry.v1.ProxyError
-	87,  // 116: mimicry.v1.Error.pin:type_name -> mimicry.v1.PinError
-	88,  // 117: mimicry.v1.Error.close:type_name -> mimicry.v1.CloseError
-	89,  // 118: mimicry.v1.Error.validation:type_name -> mimicry.v1.ValidationError
-	28,  // 119: mimicry.v1.CORSError.header:type_name -> mimicry.v1.HeaderValues
-	28,  // 120: mimicry.v1.ProxyError.header:type_name -> mimicry.v1.HeaderValues
-	90,  // 121: mimicry.v1.ValidationError.problems:type_name -> mimicry.v1.Problem
-	122, // [122:122] is the sub-list for method output_type
-	122, // [122:122] is the sub-list for method input_type
-	122, // [122:122] is the sub-list for extension type_name
-	122, // [122:122] is the sub-list for extension extendee
-	0,   // [0:122] is the sub-list for field type_name
+	42,  // 12: mimicry.v1.Call.close_idle_connections:type_name -> mimicry.v1.CloseIdleConnections
+	41,  // 13: mimicry.v1.Call.new_traffic_meter:type_name -> mimicry.v1.NewTrafficMeter
+	45,  // 14: mimicry.v1.Call.do:type_name -> mimicry.v1.Do
+	49,  // 15: mimicry.v1.Call.plan:type_name -> mimicry.v1.Plan
+	53,  // 16: mimicry.v1.Call.dial_websocket:type_name -> mimicry.v1.DialWebSocket
+	56,  // 17: mimicry.v1.Call.close_websocket:type_name -> mimicry.v1.CloseWebSocket
+	58,  // 18: mimicry.v1.Call.fetch_pins:type_name -> mimicry.v1.FetchPins
+	61,  // 19: mimicry.v1.Call.write_json:type_name -> mimicry.v1.WriteJSON
+	62,  // 20: mimicry.v1.Call.read_json:type_name -> mimicry.v1.ReadJSON
+	63,  // 21: mimicry.v1.Call.write_netscape:type_name -> mimicry.v1.WriteNetscape
+	64,  // 22: mimicry.v1.Call.read_netscape:type_name -> mimicry.v1.ReadNetscape
+	65,  // 23: mimicry.v1.Call.clear:type_name -> mimicry.v1.Clear
+	69,  // 24: mimicry.v1.Call.jar_all:type_name -> mimicry.v1.JarAll
+	70,  // 25: mimicry.v1.Call.jar_cookies:type_name -> mimicry.v1.JarCookies
+	71,  // 26: mimicry.v1.Call.jar_peek:type_name -> mimicry.v1.JarPeek
+	72,  // 27: mimicry.v1.Call.jar_set:type_name -> mimicry.v1.JarSet
+	73,  // 28: mimicry.v1.Call.jar_set_string:type_name -> mimicry.v1.JarSetString
+	74,  // 29: mimicry.v1.Call.jar_set_host_string:type_name -> mimicry.v1.JarSetHostString
+	75,  // 30: mimicry.v1.Call.jar_set_cookies:type_name -> mimicry.v1.JarSetCookies
+	76,  // 31: mimicry.v1.Call.jar_clear_expired:type_name -> mimicry.v1.JarClearExpired
+	77,  // 32: mimicry.v1.Call.jar_clear_session:type_name -> mimicry.v1.JarClearSession
+	78,  // 33: mimicry.v1.Call.jar_string:type_name -> mimicry.v1.JarString
+	79,  // 34: mimicry.v1.Call.jar_clone:type_name -> mimicry.v1.JarClone
+	81,  // 35: mimicry.v1.Call.client_hints:type_name -> mimicry.v1.ClientHints
+	82,  // 36: mimicry.v1.Call.set_client_hints:type_name -> mimicry.v1.SetClientHints
+	83,  // 37: mimicry.v1.Call.traffic_snapshot:type_name -> mimicry.v1.TrafficSnapshot
+	89,  // 38: mimicry.v1.Reply.error:type_name -> mimicry.v1.Error
+	15,  // 39: mimicry.v1.Reply.hello:type_name -> mimicry.v1.HelloReply
+	17,  // 40: mimicry.v1.Reply.object:type_name -> mimicry.v1.Object
+	35,  // 41: mimicry.v1.Reply.new_client:type_name -> mimicry.v1.NewClientReply
+	20,  // 42: mimicry.v1.Reply.profiles:type_name -> mimicry.v1.ProfileList
+	24,  // 43: mimicry.v1.Reply.profile:type_name -> mimicry.v1.ProfileInfo
+	26,  // 44: mimicry.v1.Reply.machines:type_name -> mimicry.v1.MachineList
+	46,  // 45: mimicry.v1.Reply.response:type_name -> mimicry.v1.Response
+	50,  // 46: mimicry.v1.Reply.plan:type_name -> mimicry.v1.PlanReply
+	55,  // 47: mimicry.v1.Reply.websocket:type_name -> mimicry.v1.WebSocket
+	60,  // 48: mimicry.v1.Reply.pins:type_name -> mimicry.v1.CertPins
+	67,  // 49: mimicry.v1.Reply.cookies:type_name -> mimicry.v1.Cookies
+	18,  // 50: mimicry.v1.Reply.strings:type_name -> mimicry.v1.Strings
+	84,  // 51: mimicry.v1.Reply.traffic:type_name -> mimicry.v1.Traffic
+	87,  // 52: mimicry.v1.Event.verify_connection:type_name -> mimicry.v1.VerifyConnection
+	80,  // 53: mimicry.v1.Event.set_cookie:type_name -> mimicry.v1.SetCookie
+	88,  // 54: mimicry.v1.Event.stream_error:type_name -> mimicry.v1.StreamError
+	57,  // 55: mimicry.v1.Event.websocket_written:type_name -> mimicry.v1.WebSocketWritten
+	89,  // 56: mimicry.v1.EventReply.error:type_name -> mimicry.v1.Error
+	21,  // 57: mimicry.v1.ProfileSpec.profile:type_name -> mimicry.v1.ProfileRef
+	21,  // 58: mimicry.v1.Config.profile:type_name -> mimicry.v1.ProfileRef
+	97,  // 59: mimicry.v1.Config.dial_timeout:type_name -> google.protobuf.Duration
+	97,  // 60: mimicry.v1.Config.timeout:type_name -> google.protobuf.Duration
+	28,  // 61: mimicry.v1.Config.header:type_name -> mimicry.v1.HeaderValues
+	30,  // 62: mimicry.v1.Config.header_placement:type_name -> mimicry.v1.Place
+	97,  // 63: mimicry.v1.Config.idle_conn_timeout:type_name -> google.protobuf.Duration
+	96,  // 64: mimicry.v1.Config.connect_udp_proxy:type_name -> mimicry.v1.Config.ConnectUdpProxyEntry
+	31,  // 65: mimicry.v1.Config.pins:type_name -> mimicry.v1.Pin
+	32,  // 66: mimicry.v1.Config.client_certificates:type_name -> mimicry.v1.ClientCertificate
+	27,  // 67: mimicry.v1.NewClient.config:type_name -> mimicry.v1.Config
+	34,  // 68: mimicry.v1.NewClient.redirects:type_name -> mimicry.v1.Redirects
+	27,  // 69: mimicry.v1.NewTransport.config:type_name -> mimicry.v1.Config
+	21,  // 70: mimicry.v1.NewJar.rules:type_name -> mimicry.v1.ProfileRef
+	1,   // 71: mimicry.v1.Options.kind:type_name -> mimicry.v1.Kind
+	2,   // 72: mimicry.v1.Options.priority:type_name -> mimicry.v1.Priority
+	3,   // 73: mimicry.v1.Options.cross_origin:type_name -> mimicry.v1.CrossOrigin
+	4,   // 74: mimicry.v1.Options.credentials:type_name -> mimicry.v1.Credentials
+	30,  // 75: mimicry.v1.Options.header_placement:type_name -> mimicry.v1.Place
+	5,   // 76: mimicry.v1.Options.client_hints:type_name -> mimicry.v1.HintDelegation
+	28,  // 77: mimicry.v1.Request.header:type_name -> mimicry.v1.HeaderValues
+	43,  // 78: mimicry.v1.Request.options:type_name -> mimicry.v1.Options
+	97,  // 79: mimicry.v1.Request.timeout:type_name -> google.protobuf.Duration
+	44,  // 80: mimicry.v1.Do.request:type_name -> mimicry.v1.Request
+	28,  // 81: mimicry.v1.Response.header:type_name -> mimicry.v1.HeaderValues
+	47,  // 82: mimicry.v1.Response.tls:type_name -> mimicry.v1.ConnectionState
+	48,  // 83: mimicry.v1.ConnectionState.verified_chains:type_name -> mimicry.v1.CertificateChain
+	44,  // 84: mimicry.v1.Plan.request:type_name -> mimicry.v1.Request
+	1,   // 85: mimicry.v1.PlanReply.kind:type_name -> mimicry.v1.Kind
+	51,  // 86: mimicry.v1.PlanReply.http2:type_name -> mimicry.v1.Lines
+	51,  // 87: mimicry.v1.PlanReply.http1:type_name -> mimicry.v1.Lines
+	51,  // 88: mimicry.v1.PlanReply.http3:type_name -> mimicry.v1.Lines
+	50,  // 89: mimicry.v1.PlanReply.preflight:type_name -> mimicry.v1.PlanReply
+	52,  // 90: mimicry.v1.PlanReply.overrides:type_name -> mimicry.v1.Override
+	29,  // 91: mimicry.v1.Lines.headers:type_name -> mimicry.v1.Header
+	89,  // 92: mimicry.v1.Lines.error:type_name -> mimicry.v1.Error
+	54,  // 93: mimicry.v1.DialWebSocket.options:type_name -> mimicry.v1.WebSocketOptions
+	97,  // 94: mimicry.v1.DialWebSocket.timeout:type_name -> google.protobuf.Duration
+	28,  // 95: mimicry.v1.WebSocketOptions.header:type_name -> mimicry.v1.HeaderValues
+	46,  // 96: mimicry.v1.WebSocket.response:type_name -> mimicry.v1.Response
+	89,  // 97: mimicry.v1.WebSocketWritten.error:type_name -> mimicry.v1.Error
+	27,  // 98: mimicry.v1.FetchPins.config:type_name -> mimicry.v1.Config
+	97,  // 99: mimicry.v1.FetchPins.timeout:type_name -> google.protobuf.Duration
+	7,   // 100: mimicry.v1.CertPin.role:type_name -> mimicry.v1.CertRole
+	98,  // 101: mimicry.v1.CertPin.not_after:type_name -> google.protobuf.Timestamp
+	59,  // 102: mimicry.v1.CertPins.pins:type_name -> mimicry.v1.CertPin
+	98,  // 103: mimicry.v1.Cookie.expires:type_name -> google.protobuf.Timestamp
+	8,   // 104: mimicry.v1.Cookie.same_site:type_name -> mimicry.v1.SameSite
+	98,  // 105: mimicry.v1.Cookie.created:type_name -> google.protobuf.Timestamp
+	98,  // 106: mimicry.v1.Cookie.last_access:type_name -> google.protobuf.Timestamp
+	66,  // 107: mimicry.v1.Cookies.cookies:type_name -> mimicry.v1.Cookie
+	68,  // 108: mimicry.v1.JarCookies.request:type_name -> mimicry.v1.CookieRequest
+	68,  // 109: mimicry.v1.JarPeek.request:type_name -> mimicry.v1.CookieRequest
+	66,  // 110: mimicry.v1.JarSet.cookie:type_name -> mimicry.v1.Cookie
+	68,  // 111: mimicry.v1.JarSetCookies.request:type_name -> mimicry.v1.CookieRequest
+	66,  // 112: mimicry.v1.SetCookie.cookie:type_name -> mimicry.v1.Cookie
+	85,  // 113: mimicry.v1.Traffic.http1:type_name -> mimicry.v1.Bytes
+	85,  // 114: mimicry.v1.Traffic.http2:type_name -> mimicry.v1.Bytes
+	85,  // 115: mimicry.v1.Traffic.http3:type_name -> mimicry.v1.Bytes
+	85,  // 116: mimicry.v1.Traffic.websocket:type_name -> mimicry.v1.Bytes
+	85,  // 117: mimicry.v1.Traffic.dns:type_name -> mimicry.v1.Bytes
+	85,  // 118: mimicry.v1.Traffic.other:type_name -> mimicry.v1.Bytes
+	86,  // 119: mimicry.v1.Traffic.by_host:type_name -> mimicry.v1.PeerBytes
+	85,  // 120: mimicry.v1.PeerBytes.bytes:type_name -> mimicry.v1.Bytes
+	47,  // 121: mimicry.v1.VerifyConnection.state:type_name -> mimicry.v1.ConnectionState
+	89,  // 122: mimicry.v1.StreamError.error:type_name -> mimicry.v1.Error
+	9,   // 123: mimicry.v1.Error.code:type_name -> mimicry.v1.Code
+	9,   // 124: mimicry.v1.Error.matches:type_name -> mimicry.v1.Code
+	90,  // 125: mimicry.v1.Error.cors:type_name -> mimicry.v1.CORSError
+	91,  // 126: mimicry.v1.Error.proxy:type_name -> mimicry.v1.ProxyError
+	92,  // 127: mimicry.v1.Error.pin:type_name -> mimicry.v1.PinError
+	93,  // 128: mimicry.v1.Error.close:type_name -> mimicry.v1.CloseError
+	94,  // 129: mimicry.v1.Error.validation:type_name -> mimicry.v1.ValidationError
+	28,  // 130: mimicry.v1.CORSError.header:type_name -> mimicry.v1.HeaderValues
+	28,  // 131: mimicry.v1.ProxyError.header:type_name -> mimicry.v1.HeaderValues
+	95,  // 132: mimicry.v1.ValidationError.problems:type_name -> mimicry.v1.Problem
+	133, // [133:133] is the sub-list for method output_type
+	133, // [133:133] is the sub-list for method input_type
+	133, // [133:133] is the sub-list for extension type_name
+	133, // [133:133] is the sub-list for extension extendee
+	0,   // [0:133] is the sub-list for field type_name
 }
 
 func init() { file_mimicry_v1_mimicry_proto_init() }
@@ -7528,6 +7936,7 @@ func file_mimicry_v1_mimicry_proto_init() {
 		(*Call_NewAltSvcCache)(nil),
 		(*Call_NewClientHintStore)(nil),
 		(*Call_CloseIdleConnections)(nil),
+		(*Call_NewTrafficMeter)(nil),
 		(*Call_Do)(nil),
 		(*Call_Plan)(nil),
 		(*Call_DialWebsocket)(nil),
@@ -7551,6 +7960,7 @@ func file_mimicry_v1_mimicry_proto_init() {
 		(*Call_JarClone)(nil),
 		(*Call_ClientHints)(nil),
 		(*Call_SetClientHints)(nil),
+		(*Call_TrafficSnapshot)(nil),
 	}
 	file_mimicry_v1_mimicry_proto_msgTypes[1].OneofWrappers = []any{
 		(*Reply_Hello)(nil),
@@ -7567,6 +7977,7 @@ func file_mimicry_v1_mimicry_proto_init() {
 		(*Reply_Count)(nil),
 		(*Reply_Value)(nil),
 		(*Reply_Strings)(nil),
+		(*Reply_Traffic)(nil),
 	}
 	file_mimicry_v1_mimicry_proto_msgTypes[2].OneofWrappers = []any{
 		(*Event_VerifyConnection)(nil),
@@ -7579,14 +7990,14 @@ func file_mimicry_v1_mimicry_proto_init() {
 		(*ProfileRef_Id)(nil),
 	}
 	file_mimicry_v1_mimicry_proto_msgTypes[24].OneofWrappers = []any{}
-	file_mimicry_v1_mimicry_proto_msgTypes[33].OneofWrappers = []any{}
+	file_mimicry_v1_mimicry_proto_msgTypes[34].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mimicry_v1_mimicry_proto_rawDesc), len(file_mimicry_v1_mimicry_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   82,
+			NumMessages:   87,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

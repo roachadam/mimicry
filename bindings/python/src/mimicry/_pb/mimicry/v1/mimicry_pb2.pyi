@@ -146,7 +146,7 @@ CODE_INVALID: Code
 CODE_VERIFY: Code
 
 class Call(_message.Message):
-    __slots__ = ("continued", "hello", "close", "list_profiles", "profile_spec", "parse_profile", "machines", "new_client", "new_transport", "new_jar", "new_ticket_cache", "new_alt_svc_cache", "new_client_hint_store", "close_idle_connections", "do", "plan", "dial_websocket", "close_websocket", "fetch_pins", "write_json", "read_json", "write_netscape", "read_netscape", "clear", "jar_all", "jar_cookies", "jar_peek", "jar_set", "jar_set_string", "jar_set_host_string", "jar_set_cookies", "jar_clear_expired", "jar_clear_session", "jar_string", "jar_clone", "client_hints", "set_client_hints")
+    __slots__ = ("continued", "hello", "close", "list_profiles", "profile_spec", "parse_profile", "machines", "new_client", "new_transport", "new_jar", "new_ticket_cache", "new_alt_svc_cache", "new_client_hint_store", "close_idle_connections", "new_traffic_meter", "do", "plan", "dial_websocket", "close_websocket", "fetch_pins", "write_json", "read_json", "write_netscape", "read_netscape", "clear", "jar_all", "jar_cookies", "jar_peek", "jar_set", "jar_set_string", "jar_set_host_string", "jar_set_cookies", "jar_clear_expired", "jar_clear_session", "jar_string", "jar_clone", "client_hints", "set_client_hints", "traffic_snapshot")
     CONTINUED_FIELD_NUMBER: _ClassVar[int]
     HELLO_FIELD_NUMBER: _ClassVar[int]
     CLOSE_FIELD_NUMBER: _ClassVar[int]
@@ -161,6 +161,7 @@ class Call(_message.Message):
     NEW_ALT_SVC_CACHE_FIELD_NUMBER: _ClassVar[int]
     NEW_CLIENT_HINT_STORE_FIELD_NUMBER: _ClassVar[int]
     CLOSE_IDLE_CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    NEW_TRAFFIC_METER_FIELD_NUMBER: _ClassVar[int]
     DO_FIELD_NUMBER: _ClassVar[int]
     PLAN_FIELD_NUMBER: _ClassVar[int]
     DIAL_WEBSOCKET_FIELD_NUMBER: _ClassVar[int]
@@ -184,6 +185,7 @@ class Call(_message.Message):
     JAR_CLONE_FIELD_NUMBER: _ClassVar[int]
     CLIENT_HINTS_FIELD_NUMBER: _ClassVar[int]
     SET_CLIENT_HINTS_FIELD_NUMBER: _ClassVar[int]
+    TRAFFIC_SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
     continued: int
     hello: Hello
     close: Close
@@ -198,6 +200,7 @@ class Call(_message.Message):
     new_alt_svc_cache: NewAltSvcCache
     new_client_hint_store: NewClientHintStore
     close_idle_connections: CloseIdleConnections
+    new_traffic_meter: NewTrafficMeter
     do: Do
     plan: Plan
     dial_websocket: DialWebSocket
@@ -221,10 +224,11 @@ class Call(_message.Message):
     jar_clone: JarClone
     client_hints: ClientHints
     set_client_hints: SetClientHints
-    def __init__(self, continued: _Optional[int] = ..., hello: _Optional[_Union[Hello, _Mapping]] = ..., close: _Optional[_Union[Close, _Mapping]] = ..., list_profiles: _Optional[_Union[ListProfiles, _Mapping]] = ..., profile_spec: _Optional[_Union[ProfileSpec, _Mapping]] = ..., parse_profile: _Optional[_Union[ParseProfile, _Mapping]] = ..., machines: _Optional[_Union[Machines, _Mapping]] = ..., new_client: _Optional[_Union[NewClient, _Mapping]] = ..., new_transport: _Optional[_Union[NewTransport, _Mapping]] = ..., new_jar: _Optional[_Union[NewJar, _Mapping]] = ..., new_ticket_cache: _Optional[_Union[NewTicketCache, _Mapping]] = ..., new_alt_svc_cache: _Optional[_Union[NewAltSvcCache, _Mapping]] = ..., new_client_hint_store: _Optional[_Union[NewClientHintStore, _Mapping]] = ..., close_idle_connections: _Optional[_Union[CloseIdleConnections, _Mapping]] = ..., do: _Optional[_Union[Do, _Mapping]] = ..., plan: _Optional[_Union[Plan, _Mapping]] = ..., dial_websocket: _Optional[_Union[DialWebSocket, _Mapping]] = ..., close_websocket: _Optional[_Union[CloseWebSocket, _Mapping]] = ..., fetch_pins: _Optional[_Union[FetchPins, _Mapping]] = ..., write_json: _Optional[_Union[WriteJSON, _Mapping]] = ..., read_json: _Optional[_Union[ReadJSON, _Mapping]] = ..., write_netscape: _Optional[_Union[WriteNetscape, _Mapping]] = ..., read_netscape: _Optional[_Union[ReadNetscape, _Mapping]] = ..., clear: _Optional[_Union[Clear, _Mapping]] = ..., jar_all: _Optional[_Union[JarAll, _Mapping]] = ..., jar_cookies: _Optional[_Union[JarCookies, _Mapping]] = ..., jar_peek: _Optional[_Union[JarPeek, _Mapping]] = ..., jar_set: _Optional[_Union[JarSet, _Mapping]] = ..., jar_set_string: _Optional[_Union[JarSetString, _Mapping]] = ..., jar_set_host_string: _Optional[_Union[JarSetHostString, _Mapping]] = ..., jar_set_cookies: _Optional[_Union[JarSetCookies, _Mapping]] = ..., jar_clear_expired: _Optional[_Union[JarClearExpired, _Mapping]] = ..., jar_clear_session: _Optional[_Union[JarClearSession, _Mapping]] = ..., jar_string: _Optional[_Union[JarString, _Mapping]] = ..., jar_clone: _Optional[_Union[JarClone, _Mapping]] = ..., client_hints: _Optional[_Union[ClientHints, _Mapping]] = ..., set_client_hints: _Optional[_Union[SetClientHints, _Mapping]] = ...) -> None: ...
+    traffic_snapshot: TrafficSnapshot
+    def __init__(self, continued: _Optional[int] = ..., hello: _Optional[_Union[Hello, _Mapping]] = ..., close: _Optional[_Union[Close, _Mapping]] = ..., list_profiles: _Optional[_Union[ListProfiles, _Mapping]] = ..., profile_spec: _Optional[_Union[ProfileSpec, _Mapping]] = ..., parse_profile: _Optional[_Union[ParseProfile, _Mapping]] = ..., machines: _Optional[_Union[Machines, _Mapping]] = ..., new_client: _Optional[_Union[NewClient, _Mapping]] = ..., new_transport: _Optional[_Union[NewTransport, _Mapping]] = ..., new_jar: _Optional[_Union[NewJar, _Mapping]] = ..., new_ticket_cache: _Optional[_Union[NewTicketCache, _Mapping]] = ..., new_alt_svc_cache: _Optional[_Union[NewAltSvcCache, _Mapping]] = ..., new_client_hint_store: _Optional[_Union[NewClientHintStore, _Mapping]] = ..., close_idle_connections: _Optional[_Union[CloseIdleConnections, _Mapping]] = ..., new_traffic_meter: _Optional[_Union[NewTrafficMeter, _Mapping]] = ..., do: _Optional[_Union[Do, _Mapping]] = ..., plan: _Optional[_Union[Plan, _Mapping]] = ..., dial_websocket: _Optional[_Union[DialWebSocket, _Mapping]] = ..., close_websocket: _Optional[_Union[CloseWebSocket, _Mapping]] = ..., fetch_pins: _Optional[_Union[FetchPins, _Mapping]] = ..., write_json: _Optional[_Union[WriteJSON, _Mapping]] = ..., read_json: _Optional[_Union[ReadJSON, _Mapping]] = ..., write_netscape: _Optional[_Union[WriteNetscape, _Mapping]] = ..., read_netscape: _Optional[_Union[ReadNetscape, _Mapping]] = ..., clear: _Optional[_Union[Clear, _Mapping]] = ..., jar_all: _Optional[_Union[JarAll, _Mapping]] = ..., jar_cookies: _Optional[_Union[JarCookies, _Mapping]] = ..., jar_peek: _Optional[_Union[JarPeek, _Mapping]] = ..., jar_set: _Optional[_Union[JarSet, _Mapping]] = ..., jar_set_string: _Optional[_Union[JarSetString, _Mapping]] = ..., jar_set_host_string: _Optional[_Union[JarSetHostString, _Mapping]] = ..., jar_set_cookies: _Optional[_Union[JarSetCookies, _Mapping]] = ..., jar_clear_expired: _Optional[_Union[JarClearExpired, _Mapping]] = ..., jar_clear_session: _Optional[_Union[JarClearSession, _Mapping]] = ..., jar_string: _Optional[_Union[JarString, _Mapping]] = ..., jar_clone: _Optional[_Union[JarClone, _Mapping]] = ..., client_hints: _Optional[_Union[ClientHints, _Mapping]] = ..., set_client_hints: _Optional[_Union[SetClientHints, _Mapping]] = ..., traffic_snapshot: _Optional[_Union[TrafficSnapshot, _Mapping]] = ...) -> None: ...
 
 class Reply(_message.Message):
-    __slots__ = ("continued", "error", "hello", "object", "new_client", "profiles", "profile", "machines", "response", "plan", "websocket", "pins", "cookies", "count", "value", "strings")
+    __slots__ = ("continued", "error", "hello", "object", "new_client", "profiles", "profile", "machines", "response", "plan", "websocket", "pins", "cookies", "count", "value", "strings", "traffic")
     CONTINUED_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     HELLO_FIELD_NUMBER: _ClassVar[int]
@@ -241,6 +245,7 @@ class Reply(_message.Message):
     COUNT_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     STRINGS_FIELD_NUMBER: _ClassVar[int]
+    TRAFFIC_FIELD_NUMBER: _ClassVar[int]
     continued: int
     error: Error
     hello: HelloReply
@@ -257,7 +262,8 @@ class Reply(_message.Message):
     count: int
     value: bytes
     strings: Strings
-    def __init__(self, continued: _Optional[int] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., hello: _Optional[_Union[HelloReply, _Mapping]] = ..., object: _Optional[_Union[Object, _Mapping]] = ..., new_client: _Optional[_Union[NewClientReply, _Mapping]] = ..., profiles: _Optional[_Union[ProfileList, _Mapping]] = ..., profile: _Optional[_Union[ProfileInfo, _Mapping]] = ..., machines: _Optional[_Union[MachineList, _Mapping]] = ..., response: _Optional[_Union[Response, _Mapping]] = ..., plan: _Optional[_Union[PlanReply, _Mapping]] = ..., websocket: _Optional[_Union[WebSocket, _Mapping]] = ..., pins: _Optional[_Union[CertPins, _Mapping]] = ..., cookies: _Optional[_Union[Cookies, _Mapping]] = ..., count: _Optional[int] = ..., value: _Optional[bytes] = ..., strings: _Optional[_Union[Strings, _Mapping]] = ...) -> None: ...
+    traffic: Traffic
+    def __init__(self, continued: _Optional[int] = ..., error: _Optional[_Union[Error, _Mapping]] = ..., hello: _Optional[_Union[HelloReply, _Mapping]] = ..., object: _Optional[_Union[Object, _Mapping]] = ..., new_client: _Optional[_Union[NewClientReply, _Mapping]] = ..., profiles: _Optional[_Union[ProfileList, _Mapping]] = ..., profile: _Optional[_Union[ProfileInfo, _Mapping]] = ..., machines: _Optional[_Union[MachineList, _Mapping]] = ..., response: _Optional[_Union[Response, _Mapping]] = ..., plan: _Optional[_Union[PlanReply, _Mapping]] = ..., websocket: _Optional[_Union[WebSocket, _Mapping]] = ..., pins: _Optional[_Union[CertPins, _Mapping]] = ..., cookies: _Optional[_Union[Cookies, _Mapping]] = ..., count: _Optional[int] = ..., value: _Optional[bytes] = ..., strings: _Optional[_Union[Strings, _Mapping]] = ..., traffic: _Optional[_Union[Traffic, _Mapping]] = ...) -> None: ...
 
 class Event(_message.Message):
     __slots__ = ("continued", "verify_connection", "set_cookie", "stream_error", "websocket_written")
@@ -374,7 +380,7 @@ class MachineList(_message.Message):
     def __init__(self, machines: _Optional[_Iterable[bytes]] = ...) -> None: ...
 
 class Config(_message.Message):
-    __slots__ = ("profile", "root_cas", "dial_timeout", "timeout", "local_addrs", "dns_server", "proxy", "header", "header_placement", "cookies", "client_hint_store", "client_hints", "disable_decompression", "disable_http3", "alt_svc", "tickets", "browser_quic_fallback", "browser_dial_delay", "browser_proxy_auth", "disable_coalescing", "max_conns_per_host", "idle_conn_timeout", "max_idle_proxies", "http3_over_socks5", "connect_udp_proxy", "http3_read_buffer_size", "http3_ack_every", "pins", "verify_connection", "client_certificates", "key_log_file")
+    __slots__ = ("profile", "root_cas", "dial_timeout", "timeout", "local_addrs", "dns_server", "proxy", "header", "header_placement", "cookies", "client_hint_store", "client_hints", "disable_decompression", "disable_http3", "alt_svc", "tickets", "browser_quic_fallback", "browser_dial_delay", "browser_proxy_auth", "disable_coalescing", "max_conns_per_host", "idle_conn_timeout", "max_idle_proxies", "http3_over_socks5", "connect_udp_proxy", "http3_read_buffer_size", "http3_ack_every", "pins", "verify_connection", "client_certificates", "key_log_file", "traffic")
     class ConnectUdpProxyEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -413,6 +419,7 @@ class Config(_message.Message):
     VERIFY_CONNECTION_FIELD_NUMBER: _ClassVar[int]
     CLIENT_CERTIFICATES_FIELD_NUMBER: _ClassVar[int]
     KEY_LOG_FILE_FIELD_NUMBER: _ClassVar[int]
+    TRAFFIC_FIELD_NUMBER: _ClassVar[int]
     profile: ProfileRef
     root_cas: bytes
     dial_timeout: _duration_pb2.Duration
@@ -444,7 +451,8 @@ class Config(_message.Message):
     verify_connection: bool
     client_certificates: _containers.RepeatedCompositeFieldContainer[ClientCertificate]
     key_log_file: str
-    def __init__(self, profile: _Optional[_Union[ProfileRef, _Mapping]] = ..., root_cas: _Optional[bytes] = ..., dial_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., local_addrs: _Optional[_Iterable[str]] = ..., dns_server: _Optional[str] = ..., proxy: _Optional[str] = ..., header: _Optional[_Iterable[_Union[HeaderValues, _Mapping]]] = ..., header_placement: _Optional[_Iterable[_Union[Place, _Mapping]]] = ..., cookies: _Optional[int] = ..., client_hint_store: _Optional[int] = ..., client_hints: _Optional[bytes] = ..., disable_decompression: bool = ..., disable_http3: bool = ..., alt_svc: _Optional[int] = ..., tickets: _Optional[int] = ..., browser_quic_fallback: bool = ..., browser_dial_delay: bool = ..., browser_proxy_auth: bool = ..., disable_coalescing: bool = ..., max_conns_per_host: _Optional[int] = ..., idle_conn_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., max_idle_proxies: _Optional[int] = ..., http3_over_socks5: bool = ..., connect_udp_proxy: _Optional[_Mapping[str, str]] = ..., http3_read_buffer_size: _Optional[int] = ..., http3_ack_every: _Optional[int] = ..., pins: _Optional[_Iterable[_Union[Pin, _Mapping]]] = ..., verify_connection: bool = ..., client_certificates: _Optional[_Iterable[_Union[ClientCertificate, _Mapping]]] = ..., key_log_file: _Optional[str] = ...) -> None: ...
+    traffic: int
+    def __init__(self, profile: _Optional[_Union[ProfileRef, _Mapping]] = ..., root_cas: _Optional[bytes] = ..., dial_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., local_addrs: _Optional[_Iterable[str]] = ..., dns_server: _Optional[str] = ..., proxy: _Optional[str] = ..., header: _Optional[_Iterable[_Union[HeaderValues, _Mapping]]] = ..., header_placement: _Optional[_Iterable[_Union[Place, _Mapping]]] = ..., cookies: _Optional[int] = ..., client_hint_store: _Optional[int] = ..., client_hints: _Optional[bytes] = ..., disable_decompression: bool = ..., disable_http3: bool = ..., alt_svc: _Optional[int] = ..., tickets: _Optional[int] = ..., browser_quic_fallback: bool = ..., browser_dial_delay: bool = ..., browser_proxy_auth: bool = ..., disable_coalescing: bool = ..., max_conns_per_host: _Optional[int] = ..., idle_conn_timeout: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., max_idle_proxies: _Optional[int] = ..., http3_over_socks5: bool = ..., connect_udp_proxy: _Optional[_Mapping[str, str]] = ..., http3_read_buffer_size: _Optional[int] = ..., http3_ack_every: _Optional[int] = ..., pins: _Optional[_Iterable[_Union[Pin, _Mapping]]] = ..., verify_connection: bool = ..., client_certificates: _Optional[_Iterable[_Union[ClientCertificate, _Mapping]]] = ..., key_log_file: _Optional[str] = ..., traffic: _Optional[int] = ...) -> None: ...
 
 class HeaderValues(_message.Message):
     __slots__ = ("name", "values")
@@ -541,6 +549,12 @@ class NewAltSvcCache(_message.Message):
 class NewClientHintStore(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class NewTrafficMeter(_message.Message):
+    __slots__ = ("by_host",)
+    BY_HOST_FIELD_NUMBER: _ClassVar[int]
+    by_host: bool
+    def __init__(self, by_host: bool = ...) -> None: ...
 
 class CloseIdleConnections(_message.Message):
     __slots__ = ("transport",)
@@ -1007,6 +1021,50 @@ class SetClientHints(_message.Message):
     origin: str
     hints: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, store: _Optional[int] = ..., origin: _Optional[str] = ..., hints: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class TrafficSnapshot(_message.Message):
+    __slots__ = ("meter", "reset")
+    METER_FIELD_NUMBER: _ClassVar[int]
+    RESET_FIELD_NUMBER: _ClassVar[int]
+    meter: int
+    reset: bool
+    def __init__(self, meter: _Optional[int] = ..., reset: bool = ...) -> None: ...
+
+class Traffic(_message.Message):
+    __slots__ = ("http1", "http2", "http3", "websocket", "dns", "other", "by_host")
+    HTTP1_FIELD_NUMBER: _ClassVar[int]
+    HTTP2_FIELD_NUMBER: _ClassVar[int]
+    HTTP3_FIELD_NUMBER: _ClassVar[int]
+    WEBSOCKET_FIELD_NUMBER: _ClassVar[int]
+    DNS_FIELD_NUMBER: _ClassVar[int]
+    OTHER_FIELD_NUMBER: _ClassVar[int]
+    BY_HOST_FIELD_NUMBER: _ClassVar[int]
+    http1: Bytes
+    http2: Bytes
+    http3: Bytes
+    websocket: Bytes
+    dns: Bytes
+    other: Bytes
+    by_host: _containers.RepeatedCompositeFieldContainer[PeerBytes]
+    def __init__(self, http1: _Optional[_Union[Bytes, _Mapping]] = ..., http2: _Optional[_Union[Bytes, _Mapping]] = ..., http3: _Optional[_Union[Bytes, _Mapping]] = ..., websocket: _Optional[_Union[Bytes, _Mapping]] = ..., dns: _Optional[_Union[Bytes, _Mapping]] = ..., other: _Optional[_Union[Bytes, _Mapping]] = ..., by_host: _Optional[_Iterable[_Union[PeerBytes, _Mapping]]] = ...) -> None: ...
+
+class Bytes(_message.Message):
+    __slots__ = ("sent", "received")
+    SENT_FIELD_NUMBER: _ClassVar[int]
+    RECEIVED_FIELD_NUMBER: _ClassVar[int]
+    sent: int
+    received: int
+    def __init__(self, sent: _Optional[int] = ..., received: _Optional[int] = ...) -> None: ...
+
+class PeerBytes(_message.Message):
+    __slots__ = ("host", "proxy", "bytes")
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    PROXY_FIELD_NUMBER: _ClassVar[int]
+    BYTES_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    proxy: str
+    bytes: Bytes
+    def __init__(self, host: _Optional[str] = ..., proxy: _Optional[str] = ..., bytes: _Optional[_Union[Bytes, _Mapping]] = ...) -> None: ...
 
 class VerifyConnection(_message.Message):
     __slots__ = ("transport", "state")
