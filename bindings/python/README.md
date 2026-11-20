@@ -68,6 +68,7 @@ The SDK uses mimicry's Go names in Python casing, so [the Go guides](https://git
 | `Transport.DialWebSocket(ctx, url, WebSocketOptions{From, Protocols})` | `client.dial_websocket(url, WebSocketOptions(page=, protocols=))` |
 | `ws.ReadMessage`, `WriteMessage`, `Close(code, reason)` | `ws.read_message()`, `write_message(MessageType.TEXT, data)`, `close(code, reason)` |
 | `jar.WriteJSON(w)` / `ReadJSON(r)` (`cookies.Jar`, `TicketCache`, `AltSvcCache`, `ClientHintStore`) | `write_json(path_or_file)` / `read_json(path_or_file)` |
+| `mimicry.NewTrafficMeter(TrafficOptions{ByHost: true})`, `meter.Snapshot()` / `Reset()` | `new_traffic_meter(by_host=True)`, `meter.snapshot()` / `reset()`: a `Traffic`, its `by_host` a `dict[Peer, Bytes]` |
 | `context.Context` | `Request(timeout=...)`, and asyncio cancellation |
 
 A `Request` is `Request(method, url, headers=, body=, ...)`; `headers` is a mapping or `(name, value)` pairs, a value of `None` removing a header the profile would send (as an empty Go `Header` entry does). A `body` of bytes is sent whole and sent again on a redirect that keeps it; an iterable of bytes (an async iterable in the async API) is streamed, and cannot be.

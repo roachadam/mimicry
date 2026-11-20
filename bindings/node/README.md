@@ -59,6 +59,7 @@ await client.close();
 | `transport.DialWebSocket(ctx, url, WebSocketOptions{From, …})` | `await client.dialWebSocket(url, {page, protocols, header})` |
 | `ws.ReadMessage`, `WriteMessage`, `Close(code, reason)` | `readMessage()`, `writeMessage(type, data)`, `close(code, reason)` |
 | `Jar`, `TicketCache`, `AltSvcCache` `.WriteJSON(w)` / `.ReadJSON(r)` | `.writeJSON(pathOrStream)` / `.readJSON(pathOrBytesOrStream)` |
+| `mimicry.NewTrafficMeter(TrafficOptions{ByHost: true})`, `meter.Snapshot()` / `Reset()` | `await newTrafficMeter({byHost: true})`, `await meter.snapshot()` / `reset()`: a `Traffic`, its `byHost` an array of `{peer, bytes}` |
 | `context.Context` | `signal: AbortSignal` |
 | `ErrNotMeasured`, `*CORSError`, `*ProxyError`, … | `NotMeasuredError`, `CORSError`, `ProxyError`, … |
 

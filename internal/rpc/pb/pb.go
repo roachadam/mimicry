@@ -11,5 +11,5 @@ package pb
 // moves ProtocolMinor.
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 0
+	ProtocolMinor = 1
 )

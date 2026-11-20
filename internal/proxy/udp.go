@@ -55,7 +55,7 @@ const relayBuffer = 1<<16 - 1
 // connection: once that closes or fails, reads and writes fail with
 // ErrAssociationEnded. Close closes both.
 type Association struct {
-	udp    *net.UDPConn
+	udp    net.Conn
 	ctrl   net.Conn
 	header []byte
 	peer   *net.UDPAddr
@@ -75,7 +75,7 @@ type Association struct {
 // host name as one for the proxy to resolve. ctrl is the control
 // connection UDPAssociate set it up on; peer is the source address reads
 // report.
-func NewAssociation(ctrl net.Conn, udp *net.UDPConn, host string, port uint16, peer netip.AddrPort) (*Association, error) {
+func NewAssociation(ctrl, udp net.Conn, host string, port uint16, peer netip.AddrPort) (*Association, error) {
 	// RSV (2 bytes) and FRAG, then the target.
 	header, err := appendAddr([]byte{0, 0, 0}, host, port)
 	if err != nil {

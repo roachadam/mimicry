@@ -62,6 +62,11 @@ func (s *session) call(st *wire.Stream, c *pb.Call) (*pb.Reply, error) {
 		return object(s.objects.add(mimicry.NewAltSvcCache())), nil
 	case *pb.Call_NewClientHintStore:
 		return object(s.objects.add(mimicry.NewClientHintStore())), nil
+	case *pb.Call_NewTrafficMeter:
+		return object(s.objects.add(mimicry.NewTrafficMeter(mimicry.TrafficOptions{
+			ByHost: m.NewTrafficMeter.GetByHost(),
+		}))), nil
+
 	case *pb.Call_CloseIdleConnections:
 		tr, err := lookup[*transport](&s.objects, m.CloseIdleConnections.GetTransport(), "client or transport")
 		if err != nil {
@@ -138,6 +143,23 @@ func (s *session) call(st *wire.Stream, c *pb.Call) (*pb.Reply, error) {
 		h.SetClientHints(m.SetClientHints.GetOrigin(), m.SetClientHints.GetHints())
 
 		return &pb.Reply{}, nil
+
+	case *pb.Call_TrafficSnapshot:
+		t, err := lookup[*mimicry.TrafficMeter](&s.objects, m.TrafficSnapshot.GetMeter(), "traffic meter")
+		if err != nil {
+			return nil, err
+		}
+
+		counts := t.Snapshot
+		if m.TrafficSnapshot.GetReset_() {
+			counts = t.Reset
+		}
+
+		return &pb.Reply{
+			Result: &pb.Reply_Traffic{
+				Traffic: convert.Traffic(counts()),
+			},
+		}, nil
 
 	case nil:
 		return nil, convert.Invalid("a call mimicry-core %s does not know", s.cfg.Version)

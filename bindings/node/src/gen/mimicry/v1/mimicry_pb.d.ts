@@ -121,6 +121,12 @@ export declare type Call = Message<"mimicry.v1.Call"> & {
     case: "closeIdleConnections";
   } | {
     /**
+     * @generated from field: mimicry.v1.NewTrafficMeter new_traffic_meter = 27;
+     */
+    value: NewTrafficMeter;
+    case: "newTrafficMeter";
+  } | {
+    /**
      * @generated from field: mimicry.v1.Do do = 30;
      */
     value: Do;
@@ -257,6 +263,12 @@ export declare type Call = Message<"mimicry.v1.Call"> & {
      */
     value: SetClientHints;
     case: "setClientHints";
+  } | {
+    /**
+     * @generated from field: mimicry.v1.TrafficSnapshot traffic_snapshot = 58;
+     */
+    value: TrafficSnapshot;
+    case: "trafficSnapshot";
   } | { case: undefined; value?: undefined };
 };
 
@@ -299,7 +311,7 @@ export declare type Reply = Message<"mimicry.v1.Reply"> & {
   } | {
     /**
      * Object is a new object's id: NewTransport, NewJar, NewTicketCache,
-     * NewAltSvcCache, NewClientHintStore, JarClone.
+     * NewAltSvcCache, NewClientHintStore, NewTrafficMeter, JarClone.
      *
      * @generated from field: mimicry.v1.Object object = 4;
      */
@@ -383,6 +395,14 @@ export declare type Reply = Message<"mimicry.v1.Reply"> & {
      */
     value: Strings;
     case: "strings";
+  } | {
+    /**
+     * Traffic is a traffic meter's counts: TrafficSnapshot.
+     *
+     * @generated from field: mimicry.v1.Traffic traffic = 17;
+     */
+    value: Traffic;
+    case: "traffic";
   } | { case: undefined; value?: undefined };
 };
 
@@ -540,8 +560,9 @@ export declare const HelloReplySchema: GenMessage<HelloReply>;
 
 /**
  * Close frees an object: a client, transport, jar, cache, store,
- * profile or WebSocket. A transport's (or client's) idle connections
- * close; a WebSocket is closed as WebSocket.Close(1000, "") does.
+ * traffic meter, profile or WebSocket. A transport's (or client's) idle
+ * connections close; a WebSocket is closed as WebSocket.Close(1000, "")
+ * does.
  * Disconnecting frees every object the connection owned.
  *
  * @generated from message mimicry.v1.Close
@@ -974,6 +995,13 @@ export declare type Config = Message<"mimicry.v1.Config"> & {
    * @generated from field: string key_log_file = 31;
    */
   keyLogFile: string;
+
+  /**
+   * Traffic is a TrafficMeter's id (NewTrafficMeter).
+   *
+   * @generated from field: uint64 traffic = 32;
+   */
+  traffic: bigint;
 };
 
 /**
@@ -1285,6 +1313,26 @@ export declare type NewClientHintStore = Message<"mimicry.v1.NewClientHintStore"
  * Use `create(NewClientHintStoreSchema)` to create a new message.
  */
 export declare const NewClientHintStoreSchema: GenMessage<NewClientHintStore>;
+
+/**
+ * NewTrafficMeter is mimicry.NewTrafficMeter.
+ *
+ * @generated from message mimicry.v1.NewTrafficMeter
+ */
+export declare type NewTrafficMeter = Message<"mimicry.v1.NewTrafficMeter"> & {
+  /**
+   * By_host also keeps a total per host and proxy (TrafficOptions.ByHost).
+   *
+   * @generated from field: bool by_host = 1;
+   */
+  byHost: boolean;
+};
+
+/**
+ * Describes the message mimicry.v1.NewTrafficMeter.
+ * Use `create(NewTrafficMeterSchema)` to create a new message.
+ */
+export declare const NewTrafficMeterSchema: GenMessage<NewTrafficMeter>;
 
 /**
  * CloseIdleConnections is Transport.CloseIdleConnections, of a client's
@@ -2627,6 +2675,132 @@ export declare type SetClientHints = Message<"mimicry.v1.SetClientHints"> & {
  * Use `create(SetClientHintsSchema)` to create a new message.
  */
 export declare const SetClientHintsSchema: GenMessage<SetClientHints>;
+
+/**
+ * TrafficSnapshot is TrafficMeter.Snapshot, or with reset
+ * TrafficMeter.Reset; the reply's traffic is the counts.
+ *
+ * @generated from message mimicry.v1.TrafficSnapshot
+ */
+export declare type TrafficSnapshot = Message<"mimicry.v1.TrafficSnapshot"> & {
+  /**
+   * @generated from field: uint64 meter = 1;
+   */
+  meter: bigint;
+
+  /**
+   * @generated from field: bool reset = 2;
+   */
+  reset: boolean;
+};
+
+/**
+ * Describes the message mimicry.v1.TrafficSnapshot.
+ * Use `create(TrafficSnapshotSchema)` to create a new message.
+ */
+export declare const TrafficSnapshotSchema: GenMessage<TrafficSnapshot>;
+
+/**
+ * Traffic is mimicry.Traffic.
+ *
+ * @generated from message mimicry.v1.Traffic
+ */
+export declare type Traffic = Message<"mimicry.v1.Traffic"> & {
+  /**
+   * @generated from field: mimicry.v1.Bytes http1 = 1;
+   */
+  http1?: Bytes | undefined;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes http2 = 2;
+   */
+  http2?: Bytes | undefined;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes http3 = 3;
+   */
+  http3?: Bytes | undefined;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes websocket = 4;
+   */
+  websocket?: Bytes | undefined;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes dns = 5;
+   */
+  dns?: Bytes | undefined;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes other = 6;
+   */
+  other?: Bytes | undefined;
+
+  /**
+   * By_host is ByHost's entries, sorted by host then proxy; empty unless
+   * the meter was made with by_host.
+   *
+   * @generated from field: repeated mimicry.v1.PeerBytes by_host = 7;
+   */
+  byHost: PeerBytes[];
+};
+
+/**
+ * Describes the message mimicry.v1.Traffic.
+ * Use `create(TrafficSchema)` to create a new message.
+ */
+export declare const TrafficSchema: GenMessage<Traffic>;
+
+/**
+ * Bytes is mimicry.Bytes.
+ *
+ * @generated from message mimicry.v1.Bytes
+ */
+export declare type Bytes = Message<"mimicry.v1.Bytes"> & {
+  /**
+   * @generated from field: int64 sent = 1;
+   */
+  sent: bigint;
+
+  /**
+   * @generated from field: int64 received = 2;
+   */
+  received: bigint;
+};
+
+/**
+ * Describes the message mimicry.v1.Bytes.
+ * Use `create(BytesSchema)` to create a new message.
+ */
+export declare const BytesSchema: GenMessage<Bytes>;
+
+/**
+ * PeerBytes is one entry of Traffic.ByHost: a mimicry.Peer and its bytes.
+ *
+ * @generated from message mimicry.v1.PeerBytes
+ */
+export declare type PeerBytes = Message<"mimicry.v1.PeerBytes"> & {
+  /**
+   * @generated from field: string host = 1;
+   */
+  host: string;
+
+  /**
+   * @generated from field: string proxy = 2;
+   */
+  proxy: string;
+
+  /**
+   * @generated from field: mimicry.v1.Bytes bytes = 3;
+   */
+  bytes?: Bytes | undefined;
+};
+
+/**
+ * Describes the message mimicry.v1.PeerBytes.
+ * Use `create(PeerBytesSchema)` to create a new message.
+ */
+export declare const PeerBytesSchema: GenMessage<PeerBytes>;
 
 /**
  * VerifyConnection is a reverse call for a transport made with

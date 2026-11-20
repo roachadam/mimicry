@@ -35,7 +35,7 @@ from ._pb.mimicry.v1 import mimicry_pb2 as pb
 from ._version import __version__
 
 PROTOCOL_MAJOR = 1
-PROTOCOL_MINOR = 0
+PROTOCOL_MINOR = 1
 
 _SOCKET_BUFFER = 4 << 20
 """Both ends' SO_SNDBUF/SO_RCVBUF: macOS's 8 KiB default caps bodies near

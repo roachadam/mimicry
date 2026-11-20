@@ -12,6 +12,7 @@ import (
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/pool"
 	"github.com/roachadam/mimicry/internal/proxy"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 )
 
@@ -103,7 +104,11 @@ func (e *Engine) tunnelHTTPS(ctx context.Context, r route) (net.Conn, error) {
 // dialHTTPSProxy makes the connection to r's https proxy that d asked for
 // and opens the tunnel on it.
 func (e *Engine) dialHTTPSProxy(ctx context.Context, r route, d *pool.Dial[*proxyConn, noExclusive]) (net.Conn, error) {
-	conn, err := e.dialer.DialProxy(ctx, r.proxy)
+	// Counted as the proxy's HTTP/2 connection, or as the one tunnel it
+	// carries when the proxy picks HTTP/1.1 (Config.Traffic).
+	pctx, tag := e.trafficTag(ctx, traffic.HTTP2, "", r.proxy)
+
+	conn, err := e.dialer.DialProxy(pctx, r.proxy)
 	if err != nil {
 		d.Fail(err)
 
@@ -114,6 +119,7 @@ func (e *Engine) dialHTTPSProxy(ctx context.Context, r route, d *pool.Dial[*prox
 		// The connection is the tunnel's: the proxy's requests dial
 		// connections of their own from now on.
 		d.Exclusive()
+		tag.Follow(traffic.TagOf(ctx))
 		e.proxyConns.Release(r.proxyKey, noExclusive{}, false)
 
 		return e.dialer.ConnectOn(ctx, conn, r.proxy, r.addr)

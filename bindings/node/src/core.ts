@@ -32,7 +32,7 @@ const pkg = require("../package.json") as { name: string; version: string };
 
 /** The protocol version this SDK speaks (proto/README.md, Hello). */
 const protocolMajor = 1;
-const protocolMinor = 0;
+const protocolMinor = 1;
 
 /** How much of the core's stderr a CoreExited keeps. */
 const stderrKeep = 4096;

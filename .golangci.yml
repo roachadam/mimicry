@@ -24,6 +24,7 @@ linters:
             - ${config-path}/internal/quic/quicwire/*.go
             - ${config-path}/internal/quic/testcert/*.go
             - ${config-path}/internal/testutil/*.go
+            - ${config-path}/internal/traffic/*.go
             - ${config-path}/internal/weburl/*.go
             - ${config-path}/internal/zdeflate/*.go
             - "!$test"
@@ -103,6 +104,7 @@ linters:
           allow:
             - $gostd
             - github.com/roachadam/mimicry/internal/proxy$
+            - github.com/roachadam/mimicry/internal/traffic$
             - github.com/roachadam/mimicry/profile$
         internal/engine/native:
           files:
@@ -275,6 +277,7 @@ linters:
           allow:
             - $gostd
             - github.com/jonboulle/clockwork
+            - github.com/roachadam/mimicry/internal/traffic$
             - golang.org/x/net/dns/dnsmessage
             - golang.org/x/sys/windows
         internal/platform:

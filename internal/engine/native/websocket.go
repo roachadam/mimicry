@@ -17,6 +17,7 @@ import (
 	"github.com/roachadam/mimicry/internal/h2"
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/headerorder"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/internal/ws"
 	"github.com/roachadam/mimicry/profile"
 )
@@ -225,6 +226,9 @@ func (e *Engine) dialWebSocket(ctx context.Context, req *http.Request, r route) 
 }
 
 func (e *Engine) dialWebSocketOnce(ctx context.Context, req *http.Request, r route) (net.Conn, error) {
+	// A connection of the socket's own, counted as such (Config.Traffic).
+	ctx, _ = e.trafficTag(ctx, traffic.WebSocket, r.host, r.proxy)
+
 	var (
 		conn net.Conn
 		err  error

@@ -72,6 +72,8 @@ type Stats struct {
 	// counts once more).
 	Forwarded [2]int
 	Dropped   [2]int
+	// ForwardedBytes is the forwarded datagrams' bytes per direction.
+	ForwardedBytes [2]int64
 	// Retries counts the server's Retry packets.
 	Retries int
 }
@@ -368,6 +370,8 @@ func (r *Relay) send(s *session, d Dir, p []byte) {
 	r.mu.Lock()
 
 	r.stats.Forwarded[d]++
+
+	r.stats.ForwardedBytes[d] += int64(len(p))
 
 	var (
 		up *net.UDPConn

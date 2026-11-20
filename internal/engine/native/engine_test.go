@@ -22,6 +22,7 @@ import (
 
 	"github.com/roachadam/mimicry/internal/handshake"
 	"github.com/roachadam/mimicry/internal/testutil"
+	"github.com/roachadam/mimicry/internal/traffic"
 	"github.com/roachadam/mimicry/profile"
 	"github.com/roachadam/mimicry/profiles"
 )
@@ -127,6 +128,8 @@ type options struct {
 	roots *x509.CertPool
 	// clientCert is Config.ClientCertificate.
 	clientCert func(host string, req *tls.CertificateRequestInfo) (*tls.Certificate, error)
+	// traffic is Config.Traffic.
+	traffic *traffic.Meter
 }
 
 func newTestEngine(t *testing.T, o options) *Engine {
@@ -167,6 +170,7 @@ func newTestEngine(t *testing.T, o options) *Engine {
 		Tickets:             o.tickets,
 		KeyLogWriter:        o.keyLog,
 		ClientCertificate:   o.clientCert,
+		Traffic:             o.traffic,
 	}, clock, o.onWait)
 	if err != nil {
 		t.Fatal(err)

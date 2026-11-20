@@ -690,6 +690,14 @@ each pass's range).
     field. `config.go`'s `Config.MaxDatagramFrameSize` (and
     `marshalTransportParameters`, `conn.go`'s server parameters) lets a
     test's server announce one; it never takes DATAGRAM frames itself.
+29. **Counted sockets** (new `udp_counted.go`: `countedUDP`,
+    `countedConn`; `client_path.go`'s `wrapPacketConn`). A socket
+    `Config.Traffic` counts (`traffic.UDPConn`, decision 0070) is not a
+    `*net.UDPConn`, so it would fall to `netPacketConn`. `wrapPacketConn`
+    reads and writes its `*net.UDPConn` (`UDP()`) as for any other, batches
+    and control messages included, adding each read's datagram sizes and
+    each written datagram's to the socket's counter; closing it closes the
+    counted socket, which folds its counts into the meter.
 
 ## Sockets
 
@@ -710,6 +718,7 @@ SOCKS5 association (`proxy.Association`, change 14) and the interop
 command (`internal/harness/cmd/interop`), whose `tap` wraps its UDP
 socket to impair and count datagrams. The interop command's results
 therefore do not cover the control messages or the batched receive.
+A socket the engine counts (change 29) takes `udp_msg.go`'s path too.
 
 ## Tests
 

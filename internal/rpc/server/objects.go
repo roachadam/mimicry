@@ -109,6 +109,8 @@ func kindOf(v any) string {
 		return "Alt-Svc cache"
 	case *mimicry.MemoryClientHintStore:
 		return "client hint store"
+	case *mimicry.TrafficMeter:
+		return "traffic meter"
 	case *parsedProfile:
 		return "profile"
 	case *webSocket:

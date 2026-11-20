@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+
+	"github.com/roachadam/mimicry/internal/traffic"
 )
 
 const (
@@ -47,6 +49,8 @@ type Config struct {
 	Clock clockwork.Clock
 	// Timeout bounds one lookup (all nameservers and attempts); zero: 5 s.
 	Timeout time.Duration
+	// Traffic, when set, counts the queries' bytes as traffic.DNS.
+	Traffic *traffic.Meter
 }
 
 // Record is what mimicry uses of a host's HTTPS record. Its slices are
@@ -67,6 +71,7 @@ type Resolver struct {
 	resolver *net.Resolver
 	clock    clockwork.Clock
 	timeout  time.Duration
+	traffic  *traffic.Meter
 	// nameservers returns the addresses (host:port) to query, in order.
 	nameservers func() []string
 
@@ -120,6 +125,7 @@ func New(cfg Config) *Resolver {
 		resolver:    cfg.Resolver,
 		clock:       clock,
 		timeout:     timeout,
+		traffic:     cfg.Traffic,
 		nameservers: systemNameservers,
 		cache:       map[key]entry{},
 		flights:     map[key]*flight{},

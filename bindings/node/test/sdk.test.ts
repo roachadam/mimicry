@@ -40,6 +40,7 @@ import {
   newClient,
   newJar,
   newTicketCache,
+  newTrafficMeter,
   newTransport,
   parseProfile,
   profileSpec,
@@ -235,6 +236,38 @@ describe("requests", () => {
     const body = Buffer.alloc(3 * MiB, 7);
     const r = await c.do(withOptions({ method: "POST", url: `${server.tls}/count`, body }, { kind: Kind.Fetch, page: `${server.tls}/` }));
     assert.equal(await r.text(), String(body.length));
+  });
+
+  test("a traffic meter counts a client's bytes; reset hands them over and starts from zero", async () => {
+    const meter = closing(await newTrafficMeter({ byHost: true }));
+    const c = closing(await newClient({ profile, rootCAs: caPEM, traffic: meter }));
+    await (await c.do({ url: `${server.tls}/` })).text();
+
+    // The idle connection may still send what reading the body owed (a
+    // WINDOW_UPDATE): wait until the counts stop moving.
+    let counts = await meter.snapshot();
+    for (const deadline = Date.now() + 10_000; Date.now() < deadline; ) {
+      await sleep(100);
+      const now = await meter.snapshot();
+      if (JSON.stringify(now) === JSON.stringify(counts)) {
+        break;
+      }
+
+      counts = now;
+    }
+
+    const total = counts.total();
+    assert.ok(total.sent > 0 && total.received > 0, JSON.stringify(counts));
+    assert.ok(counts.byHost !== undefined && counts.byHost.length > 0, JSON.stringify(counts));
+    assert.deepEqual(
+      counts.byHost.reduce((s, e) => ({ sent: s.sent + e.bytes.sent, received: s.received + e.bytes.received }), { sent: 0, received: 0 }),
+      total,
+    );
+
+    assert.deepEqual(await meter.reset(), counts);
+    const after = await meter.snapshot();
+    assert.deepEqual(after.total(), { sent: 0, received: 0 });
+    assert.deepEqual(after.byHost, []);
   });
 });
 

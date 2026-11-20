@@ -532,6 +532,60 @@ class CertPin:
         )
 
 
+@dataclass(frozen=True)
+class Bytes:
+    """What was sent and received (Go's ``mimicry.Bytes``)."""
+
+    sent: int
+    received: int
+
+    @classmethod
+    def _from_pb(cls, b: pb.Bytes) -> Bytes:
+        return cls(sent=b.sent, received=b.received)
+
+
+@dataclass(frozen=True)
+class Peer:
+    """Where connections went (Go's ``mimicry.Peer``): the host they were
+    dialed for and the proxy they went through ("" for none)."""
+
+    host: str
+    proxy: str
+
+
+@dataclass(frozen=True)
+class Traffic:
+    """A traffic meter's counts, by what the connections carried (Go's
+    ``mimicry.Traffic``)."""
+
+    http1: Bytes
+    http2: Bytes
+    http3: Bytes
+    websocket: Bytes
+    dns: Bytes
+    other: Bytes
+    by_host: dict[Peer, Bytes] | None
+    """The counts per host and proxy, from a meter made with ``by_host``;
+    None otherwise."""
+
+    def total(self) -> Bytes:
+        """Every protocol's bytes."""
+        ps = (self.http1, self.http2, self.http3, self.websocket, self.dns, self.other)
+        return Bytes(sent=sum(p.sent for p in ps), received=sum(p.received for p in ps))
+
+    @classmethod
+    def _from_pb(cls, t: pb.Traffic, by_host: bool) -> Traffic:
+        return cls(
+            http1=Bytes._from_pb(t.http1),
+            http2=Bytes._from_pb(t.http2),
+            http3=Bytes._from_pb(t.http3),
+            websocket=Bytes._from_pb(t.websocket),
+            dns=Bytes._from_pb(t.dns),
+            other=Bytes._from_pb(t.other),
+            by_host={Peer(e.host, e.proxy): Bytes._from_pb(e.bytes) for e in t.by_host} if by_host else None,
+        )
+
+
 def _time(ts: Any) -> _dt.datetime:
     return _dt.datetime.fromtimestamp(ts.seconds + ts.nanos / 1e9, tz=_dt.UTC)
 
@@ -694,8 +748,9 @@ class Config:
 
     ``profile`` is a built-in profile's name (``"chrome-157-macos"``), a
     :class:`Newest` from :mod:`mimicry.profiles`, or a parsed profile.
-    ``cookies``, ``tickets``, ``alt_svc`` and ``client_hint_store`` are
-    objects made by the same API (async or sync) as the client.
+    ``cookies``, ``tickets``, ``alt_svc``, ``client_hint_store`` and
+    ``traffic`` are objects made by the same API (async or sync) as the
+    client.
     ``verify_connection`` is called with each verified connection's state
     and rejects it by raising. Durations are seconds or timedeltas.
     """
@@ -731,6 +786,7 @@ class Config:
     verify_connection: VerifyCallback | None = None
     client_certificates: Sequence[ClientCertificate] = ()
     key_log_file: str = ""
+    traffic: Any = None
 
     def _to_pb(self, profile: pb.ProfileRef, objects: Mapping[str, int]) -> pb.Config:
         """As a message; ``profile`` resolved and the objects' ids given by
@@ -766,6 +822,7 @@ class Config:
                 for c in self.client_certificates
             ],
             key_log_file=self.key_log_file,
+            traffic=objects.get("traffic", 0),
         )
         if self.client_hints is not None:
             c.client_hints = (

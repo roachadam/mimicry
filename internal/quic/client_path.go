@@ -419,10 +419,14 @@ func (s *connIDState) retireActiveRemote() {
 	s.needSend = true
 }
 
-// wrapPacketConn is pc as the endpoint reads and writes it.
+// wrapPacketConn is pc as the endpoint reads and writes it. A counted
+// socket (countedUDP) keeps the *net.UDPConn path.
 func wrapPacketConn(pc net.PacketConn) (packetConn, error) {
-	if uc, ok := pc.(*net.UDPConn); ok {
-		return newNetUDPConn(uc)
+	switch c := pc.(type) {
+	case *net.UDPConn:
+		return newNetUDPConn(c)
+	case countedUDP:
+		return newCountedConn(c)
 	}
 
 	return newNetPacketConn(pc)

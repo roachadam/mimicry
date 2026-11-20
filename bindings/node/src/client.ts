@@ -30,7 +30,7 @@ import {
 import { type Header, type HeaderInit, headerFromPb, headerToPb } from "./header.ts";
 import { type Profile, profileRef } from "./profiles.ts";
 import type { Body, Kind, Options, Place, Request } from "./request.ts";
-import { AltSvcCache, ClientHintStore, Jar, TicketCache } from "./state.ts";
+import { AltSvcCache, ClientHintStore, Jar, TicketCache, TrafficMeter } from "./state.ts";
 import { WebSocket, type WebSocketOptions, openWebSocket } from "./websocket.ts";
 
 /** Go's mimicry.Pin: keys a host's chain must hold. */
@@ -93,6 +93,8 @@ export interface Config {
   disableHTTP3?: boolean;
   altSvc?: AltSvcCache;
   tickets?: TicketCache;
+  /** Counts the bytes this client's sockets send and receive (Go's Traffic). */
+  traffic?: TrafficMeter;
   browserQUICFallback?: boolean;
   browserDialDelay?: boolean;
   browserProxyAuth?: boolean;
@@ -146,7 +148,7 @@ function ms(v: number | undefined): Duration | undefined {
 // The core a config's objects belong to; the process's when none.
 async function coreFor(cfg: Config): Promise<Core> {
   const objects: CoreObject[] = [];
-  for (const o of [cfg.profile, cfg.cookies, cfg.clientHintStore, cfg.altSvc, cfg.tickets]) {
+  for (const o of [cfg.profile, cfg.cookies, cfg.clientHintStore, cfg.altSvc, cfg.tickets, cfg.traffic]) {
     if (o instanceof CoreObject) {
       objects.push(o);
     }
@@ -181,6 +183,7 @@ function configToPb(cfg: Config): PbConfig {
     disableHttp3: cfg.disableHTTP3 ?? false,
     altSvc: cfg.altSvc?.id ?? 0n,
     tickets: cfg.tickets?.id ?? 0n,
+    traffic: cfg.traffic?.id ?? 0n,
     browserQuicFallback: cfg.browserQUICFallback ?? false,
     browserDialDelay: cfg.browserDialDelay ?? false,
     browserProxyAuth: cfg.browserProxyAuth ?? false,

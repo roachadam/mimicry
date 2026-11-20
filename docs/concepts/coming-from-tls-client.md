@@ -60,7 +60,8 @@ client.CheckRedirect = func(*http.Request, []*http.Request) error {
 | `WithForceHttp1()` | none |
 | `WithServerNameOverwrite`, `WithDisableIPV4/6`, `WithConnectHeaders` | none (`DialContext` can pick the address family) |
 | a raw path through fhttp's `req.URL.Opaque` | the same: `req.URL.Opaque` goes out as written, path and query; every other URL takes the browser's form (lowercase host, `'` as `%27`, dot segments resolved) |
-| `WithPreHook`, `WithPostHook`, `WithDebug`, `WithBandwidthTracker` | `Transport.Plan(req)` to preview a request; otherwise wrap the `http.RoundTripper` |
+| `WithPreHook`, `WithPostHook`, `WithDebug` | `Transport.Plan(req)` to preview a request; otherwise wrap the `http.RoundTripper` |
+| `WithBandwidthTracker`, `GetBandwidthTracker()` | `Config.Traffic` with `NewTrafficMeter`; `Snapshot()` and `Reset()` give the bytes by protocol, HTTP/3 and DNS included ([traffic](traffic.md)) |
 | `CloseIdleConnections()` | `client.CloseIdleConnections()`; `Config.IdleConnTimeout` |
 | a new client per proxy | `Config.MaxIdleProxies` |
 | `TransportOptions{DisableCompression: true}` | `Config.DisableDecompression` |
