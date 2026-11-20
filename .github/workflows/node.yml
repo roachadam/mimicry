@@ -1,5 +1,5 @@
 # The Node SDK (bindings/node, decision 0069), called by ci.yml's test-node
-# job (so ci-ok counts it) whenever a change touches code. Bun installs the
+# job (so ci-ok counts it) whenever a change can affect it. Bun installs the
 # dependencies (bun.lock) and runs the scripts; the SDK and its tests run
 # under Node, which is what users run. test runs the SDK's tests (bun run
 # test, which is node --test: the wire vectors, the SDK against a local
@@ -10,11 +10,17 @@
 # and checks the generated code. harness proves requests through the SDK
 # are the Go client's on the wire (TestNodeMatchesGo*). pack builds
 # every npm package (not published) and installs the host's from the
-# tarballs with npm, as users do.
+# tarballs with npm, as users do. A pull request that changes only the
+# harness runs harness alone (scope: harness).
 name: Node SDK
 
 on:
   workflow_call:
+    inputs:
+      scope:
+        description: 'all: every job; harness: TestNodeMatchesGo* only.'
+        type: string
+        default: all
 
 permissions:
   contents: read
@@ -26,6 +32,7 @@ env:
 jobs:
   test:
     name: node (${{ matrix.os }}, ${{ matrix.node }})
+    if: inputs.scope == 'all'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -114,6 +121,7 @@ jobs:
 
   pack:
     name: node (pack)
+    if: inputs.scope == 'all'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:

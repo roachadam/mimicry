@@ -11,26 +11,28 @@
 # parallel=16 (8 where they compare timings, which an overloaded runner
 # skews), or they take the sum of their subtests over 4.
 #
-# Tiers (.github/workflows/ci.yml picks them):
-#   core      every pull request that touches code, and main
+# Tiers (.github/scripts/ci-plan.sh picks them):
+#   core      every pull request that runs the harness (one that changes
+#             the library, the harness or a path no owner names), and main
 #   protocol  pull requests touching the HTTP/2, HTTP/3, QUIC or engine code
-#             (the protocol paths in ci.yml), and main
+#             (PROTOCOL_PATHS in ci-plan.sh), and main
 #   gen       pull requests touching the generators, captures, profile data
-#             or capture parsing (the gen paths in ci.yml), and main
+#             or capture parsing (GEN_PATHS in ci-plan.sh), and main
 #   main      pushes to main, the nightly run, workflow_dispatch and release
 #             only: a regression here shows after the merge
-# A new test lands in core, so it runs on every pull request until it is
-# given a line here.
+# A new test lands in core, so it runs on every pull request that runs the
+# harness until it is given a line here.
 #
 # A slow test needs a line here, or the shard it lands in can run past the
 # 15-minute limit: `bash .github/scripts/harness-shard.sh all plan 8` prints
-# main's split, `... core,protocol plan 5` a pull request's (ci.yml has each
-# tier's shard count). `Test/regex` runs a slice of a test's subtests as its
-# own unit (a test whose subtests alone take longer than a shard should);
-# the subtests no slice matches run as one more unit. A test's lines share
-# one tier and one set of flags. `TestA|TestB` (tier -) keeps tests in one
-# unit when the run's tiers include them all; its members' own lines give
-# their tiers, flags (which must agree), and weights when they run apart.
+# main's split, `... core,protocol plan 5` a pull request's (ci-plan.sh
+# has each tier's shard count). `Test/regex` runs a slice of a test's
+# subtests as its own unit (a test whose subtests alone take longer than a
+# shard should); the subtests no slice matches run as one more unit. A
+# test's lines share one tier and one set of flags. `TestA|TestB` (tier -)
+# keeps tests in one unit when the run's tiers include them all; its
+# members' own lines give their tiers, flags (which must agree), and
+# weights when they run apart.
 #
 # Flags (optional, comma-separated): norace runs the test without -race,
 # for a test on one goroutine or whose concurrent code other tests run
