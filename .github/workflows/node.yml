@@ -86,6 +86,7 @@ jobs:
 
   harness:
     name: node (harness, byte-identical)
+    if: inputs.scope == 'all' || inputs.scope == 'harness'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
