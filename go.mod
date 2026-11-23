@@ -9,8 +9,8 @@ ignore node_modules
 require (
 	github.com/bufbuild/protocompile v0.14.1
 	github.com/jonboulle/clockwork v0.5.0
-	github.com/klauspost/compress v1.20.2
-	github.com/molecule-man/go-brrr v1.2.0
+	github.com/klauspost/compress v1.20.5
+	github.com/molecule-man/go-brrr v1.3.1
 	github.com/roachadam/utls v1.8.3
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0

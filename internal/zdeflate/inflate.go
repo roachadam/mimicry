@@ -2,10 +2,11 @@ package zdeflate
 
 import (
 	"bytes"
-	"compress/flate"
 	"errors"
 	"fmt"
 	"io"
+
+	"github.com/klauspost/compress/flate"
 )
 
 // ErrTooLarge is a message that inflates to more than the limit given.
