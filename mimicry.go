@@ -30,9 +30,6 @@ package mimicry
 
 import (
 	"bufio"
-	"compress/flate"
-	"compress/gzip"
-	"compress/zlib"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -51,6 +48,9 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/klauspost/compress/flate"
+	"github.com/klauspost/compress/gzip"
+	"github.com/klauspost/compress/zlib"
 	"github.com/klauspost/compress/zstd"
 	brrr "github.com/molecule-man/go-brrr"
 
