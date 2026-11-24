@@ -3,7 +3,7 @@
 # benchstat). Built from the repository root, because the bench module
 # replaces github.com/roachadam/mimicry with ../../ (compose files set the
 # context).
-FROM golang:1.27.3-trixie AS build
+FROM golang:1.27.4-trixie AS build
 
 WORKDIR /src
 ENV GOWORK=off CGO_ENABLED=0
