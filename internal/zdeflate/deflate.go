@@ -2,8 +2,7 @@
 // it. Writer reproduces byte for byte the deflate of zlib (Safari),
 // Chromium's zlib (Chrome) or zlib-rs (Firefox), keeping the context from
 // message to message until Reset. Reader inflates a peer's messages with
-// klauspost/compress/flate. Raw window bits are 9 to 15: every library
-// rejects 8.
+// compress/flate. Raw window bits are 9 to 15: every library rejects 8.
 //
 // This package is an altered version of zlib, Chromium's zlib and zlib-rs,
 // translated to Go and reduced to deflate, writing each message into a
