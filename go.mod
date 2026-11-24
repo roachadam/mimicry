@@ -11,7 +11,7 @@ require (
 	github.com/jonboulle/clockwork v0.5.0
 	github.com/klauspost/compress v1.20.5
 	github.com/molecule-man/go-brrr v1.3.1
-	github.com/roachadam/utls v1.8.3
+	github.com/roachadam/utls v1.8.4
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 	golang.org/x/sys v0.49.0
