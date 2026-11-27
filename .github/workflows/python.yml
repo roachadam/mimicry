@@ -54,7 +54,7 @@ jobs:
           cache: python-${{ matrix.os }}
           # The newest Python's leg saves each OS's cache.
           save: ${{ github.ref == 'refs/heads/main' && matrix.python == '3.15' }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       # A directory for -o: Go names the binary (.exe on Windows).
       - name: build mimicry-core into the package
         run: CGO_ENABLED=0 go build -trimpath -o bindings/python/src/mimicry/_bin/ ./cmd/mimicry-core
@@ -107,7 +107,7 @@ jobs:
         with:
           cache: python-wheels
           save: ${{ github.ref == 'refs/heads/main' }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - name: build the wheels
         run: bash bindings/python/build-wheels.sh dist
       - name: install and run the Linux wheels
